@@ -42,8 +42,7 @@ function EditQuestion() {
 
   const filterQuestions = () => {
     let filtered = questions.filter(q => q.subject === subject);
-    
-    // Extract unique subcategories
+
     const uniqueSubcats = [...new Set(filtered.map(q => q.subcategory))];
     setSubcategories(['-- All --', ...uniqueSubcats]);
     

@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
+import { BACKEND_URL } from '../config';
 
 function AddQuestion() {
   const [curriculum, setCurriculum] = useState([]);
@@ -181,27 +182,6 @@ function AddQuestion() {
       setExplanation('');
       setExplanationImage(null);
     } catch (error) {
-      setMessage('Error saving question: ' + error.message);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const getImagePreview = (imageUrl) => {
-    if (!imageUrl) return null;
-    // If it's already a base64 data URL, return as-is
-    if (imageUrl.startsWith('data:')) return imageUrl;
-    // If it's a URL, return as-is
-    if (imageUrl.startsWith('http')) return imageUrl;
-    // Otherwise assume it's a relative path (legacy)
-    return `http://localhost:5000${imageUrl}`;
-  };
-
-  return (
-    <div className="tab-content">
-      <h2>Add Question</h2>
-
-      {message && (
         <div className={message.includes('Error') ? 'error-message' : 'success-message'}>
           {message}
         </div>
