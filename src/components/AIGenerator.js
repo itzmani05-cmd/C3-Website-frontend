@@ -99,48 +99,83 @@ function AIGenerator() {
       return;
     }
 
-    // Basic regex-based extractor for the specified format
     const questions = [];
-    const questionBlocks = pastedContent.split(/\n\s*\n/);
-    
-    questionBlocks.forEach((block, idx) => {
-      const qMatch = block.match(/^\d+\.\s*(.+)/);
-      if (!qMatch) return;
+    const lines = pastedContent.split('\n');
+    let currentQuestion = null;
 
-      const questionText = qMatch[1].trim();
-      const options = { a: '', b: '', c: '', d: '' };
-      const optA = block.match(/a\)\s*(.+)/);
-      const optB = block.match(/b\)\s*(.+)/);
-      const optC = block.match(/c\)\s*(.+)/);
-      const optD = block.match(/d\)\s*(.+)/);
-      
-      if (optA) options.a = optA[1].trim();
-      if (optB) options.b = optB[1].trim();
-      if (optC) options.c = optC[1].trim();
-      if (optD) options.d = optD[1].trim();
+    lines.forEach((line, idx) => {
+      const trimmed = line.trim();
+      if (!trimmed && !currentQuestion) return;
 
-      const ansMatch = block.match(/Answer:\s*([abcd])/i);
-      const correctAnswer = ansMatch ? ansMatch[1].toLowerCase() : 'a';
+      // Detect question start: "1. ", "1) ", "Q1: ", "Question 1: "
+      const qMatch = trimmed.match(/^(?:\d+[\.\)\:]|Question\s+\d+\:|Q\d+\:)\s*(.*)/i);
+      if (qMatch) {
+        if (currentQuestion && currentQuestion.question) {
+          questions.push(currentQuestion);
+        }
+        currentQuestion = {
+          id: Date.now() + idx,
+          question: qMatch[1].trim(),
+          options: { a: '', b: '', c: '', d: '' },
+          correct_answer: 'a',
+          explanation: '',
+          status: 'PENDING',
+          optionImages: { a: null, b: null, c: null, d: null },
+          questionImage: null,
+          explanationImage: null,
+          subcategory: subtopicId || topicId
+        };
+        return;
+      }
 
-      const expMatch = block.match(/Explanation:\s*(.+)/s);
-      const explanation = expMatch ? expMatch[1].trim() : '';
+      if (!currentQuestion) return;
 
-      questions.push({
-        id: Date.now() + idx,
-        question: questionText,
-        options,
-        correct_answer: correctAnswer,
-        explanation,
-        status: 'PENDING',
-        optionImages: { a: null, b: null, c: null, d: null },
-        questionImage: null,
-        explanationImage: null,
-        subcategory: subtopicId || topicId
-      });
+      // Detect options: "a) ", "a. ", "(a) ", "A) ", "A. "
+      const optMatch = trimmed.match(/^[\[\(]?([a-d])[\]\)\.\:\s]+(.*)/i);
+      if (optMatch) {
+        const letter = optMatch[1].toLowerCase();
+        currentQuestion.options[letter] = optMatch[2].trim();
+        return;
+      }
+
+      // Detect answer: "Answer: b", "Correct Answer: b", "Ans: b"
+      const ansMatch = trimmed.match(/^(?:Answer|Correct Answer|Ans|Correct Option)\s*[\:\-\s]+[\[\(\s]*([a-d])[\]\)\s]*/i);
+      if (ansMatch) {
+        currentQuestion.correct_answer = ansMatch[1].toLowerCase();
+        return;
+      }
+
+      // Detect explanation: "Explanation: ...", "Exp: ..."
+      const expMatch = trimmed.match(/^(?:Explanation|Exp|Detailed Explanation)\s*[\:\-\s]+(.*)/i);
+      if (expMatch) {
+        currentQuestion.explanation = expMatch[1].trim();
+        return;
+      }
+
+      // If it's none of the above, append to the last active section
+      if (trimmed) {
+        if (!currentQuestion.options.a) {
+          currentQuestion.question += ' ' + trimmed;
+        } else if (currentQuestion.explanation) {
+          currentQuestion.explanation += ' ' + trimmed;
+        } else if (currentQuestion.options.d) {
+          // If we have option D and this doesn't look like a new question, 
+          // it might be the start of explanation without the label
+          if (!currentQuestion.explanation) {
+             currentQuestion.explanation = trimmed;
+          } else {
+             currentQuestion.explanation += ' ' + trimmed;
+          }
+        }
+      }
     });
 
+    if (currentQuestion && currentQuestion.question) {
+      questions.push(currentQuestion);
+    }
+
     if (questions.length === 0) {
-      alert('Could not find any questions in the pasted content. Please check the format.');
+      alert('Could not find any questions in the pasted content. Please ensure questions are numbered (e.g., 1. What is...) and options are labeled (a, b, c, d).');
       return;
     }
 
@@ -148,6 +183,89 @@ function AIGenerator() {
     setPastedContent('');
     setMessage(`Extracted ${questions.length} questions!`);
   };
+
+  const handleSmartExtract = async () => {
+    if (!pastedContent.trim()) {
+      alert('Please paste some content first!');
+      return;
+    }
+
+    setLoading(true);
+    setMessage('Using Smart Extract (Backend)...');
+    try {
+      const response = await api.post('/api/ai/extract', {
+        textContent: pastedContent,
+        unitId,
+        topicId,
+        subtopicId
+      });
+
+      if (response.data.success && response.data.questions.length > 0) {
+        const mappedQuestions = response.data.questions.map((q, idx) => ({
+          ...q,
+          id: Date.now() + idx,
+          correct_answer: q.correctAnswer || q.correct_answer || 'a',
+          status: 'PENDING',
+          optionImages: { a: null, b: null, c: null, d: null },
+          questionImage: null,
+          explanationImage: null,
+          subcategory: subtopicId || topicId
+        }));
+        setBatch([...batch, ...mappedQuestions]);
+        setPastedContent('');
+        setMessage(`Smart Extracted ${mappedQuestions.length} questions!`);
+      } else {
+        alert('Smart Extract failed to find questions. Try the Quick Extract or AI Generate.');
+      }
+    } catch (error) {
+      setMessage('Smart Extract Error: ' + (error.response?.data?.error || error.message));
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleAIGenerate = async () => {
+    if (!pastedContent.trim()) {
+      alert('Please paste some content first!');
+      return;
+    }
+
+    setLoading(true);
+    setMessage('AI is processing your content (Gemini)...');
+    try {
+      const selectedTopicName = topics.find(t => t._id === topicId)?.name || 'General';
+      const selectedSubtopicName = subtopics.find(st => st._id === subtopicId)?.name || '';
+
+      const response = await api.post('/api/ai/generate', {
+        textContent: pastedContent,
+        subject: selectedTopicName,
+        subtopic: selectedSubtopicName
+      });
+
+      if (response.data.success && response.data.questions.length > 0) {
+        const mappedQuestions = response.data.questions.map((q, idx) => ({
+          ...q,
+          id: Date.now() + idx,
+          correct_answer: q.correct_answer || 'a',
+          status: 'PENDING',
+          optionImages: { a: null, b: null, c: null, d: null },
+          questionImage: null,
+          explanationImage: null,
+          subcategory: subtopicId || topicId
+        }));
+        setBatch([...batch, ...mappedQuestions]);
+        setPastedContent('');
+        setMessage(`AI Generated ${mappedQuestions.length} questions!`);
+      } else {
+        alert('AI failed to generate questions. Ensure content is sufficient.');
+      }
+    } catch (error) {
+      setMessage('AI Generation Error: ' + (error.response?.data?.error || error.message));
+    } finally {
+      setLoading(false);
+    }
+  };
+
 
   const addManualQuestion = () => {
     const newQ = {
@@ -428,15 +546,32 @@ Answer: b`}
         </small>
       </div>
 
-      <div className="action-row">
+      <div className="action-row" style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
         <button
           className="btn-primary"
           onClick={handleQuickExtract}
           disabled={loading}
         >
-          {loading ? 'Extracting...' : 'Extract Questions'}
+          {loading ? 'Processing...' : 'Quick Extract (Local)'}
+        </button>
+        <button
+          className="btn-secondary"
+          onClick={handleSmartExtract}
+          disabled={loading}
+          style={{ backgroundColor: '#4a90e2', color: 'white' }}
+        >
+          {loading ? 'Processing...' : 'Smart Extract (Backend)'}
+        </button>
+        <button
+          className="btn-primary"
+          onClick={handleAIGenerate}
+          disabled={loading}
+          style={{ background: 'linear-gradient(45deg, #6e8efb, #a777e3)' }}
+        >
+          {loading ? 'AI Thinking...' : '✨ Magic AI Extract (Gemini)'}
         </button>
       </div>
+
 
       {message && (
         <div className={message.includes('Error') ? 'error-message' : 'success-message'}>
