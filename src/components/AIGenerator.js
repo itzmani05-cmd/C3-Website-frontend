@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import axios from 'axios';
+import api from '../api';
 import { BACKEND_URL } from '../config';
 
 function AIGenerator() {
@@ -20,7 +20,7 @@ function AIGenerator() {
   useEffect(() => {
     const loadCurriculum = async () => {
       try {
-        const response = await axios.get('/api/questions/curriculum');
+        const response = await api.get('/api/questions/curriculum');
         const data = response.data || [];
         setCurriculum(data);
 
@@ -65,17 +65,6 @@ function AIGenerator() {
     }
   }, [topicId, curriculum, subtopicId, unitId]);
 
-  // Get units from curriculum
-  const units = curriculum;
-
-  // Get topics for selected unit
-  const selectedUnit = units.find(u => u._id === unitId);
-  const topics = selectedUnit ? selectedUnit.topics : [];
-
-  // Get subtopics for selected topic
-  const selectedTopic = topics.find(t => t._id === topicId);
-  const subtopics = selectedTopic ? selectedTopic.subtopics : [];
-
   const fetchQuestionCount = useCallback(async () => {
     if (!topicId) {
       setQuestionCount(0);
@@ -87,7 +76,7 @@ function AIGenerator() {
       if (subtopicId) {
         url += `&subtopicId=${encodeURIComponent(subtopicId)}`;
       }
-      const response = await axios.get(url);
+      const response = await api.get(url);
       setQuestionCount(response.data.count);
     } catch (error) {
       console.error('Error fetching count:', error);
@@ -97,6 +86,228 @@ function AIGenerator() {
   useEffect(() => {
     fetchQuestionCount();
   }, [fetchQuestionCount]);
+
+  const getImagePreview = (url) => {
+    if (!url) return null;
+    if (url.startsWith('data:')) return url;
+    return url.startsWith('http') ? url : `${BACKEND_URL}${url}`;
+  };
+
+  const handleQuickExtract = () => {
+    if (!pastedContent.trim()) {
+      alert('Please paste some content first!');
+      return;
+    }
+
+    // Basic regex-based extractor for the specified format
+    const questions = [];
+    const questionBlocks = pastedContent.split(/\n\s*\n/);
+    
+    questionBlocks.forEach((block, idx) => {
+      const qMatch = block.match(/^\d+\.\s*(.+)/);
+      if (!qMatch) return;
+
+      const questionText = qMatch[1].trim();
+      const options = { a: '', b: '', c: '', d: '' };
+      const optA = block.match(/a\)\s*(.+)/);
+      const optB = block.match(/b\)\s*(.+)/);
+      const optC = block.match(/c\)\s*(.+)/);
+      const optD = block.match(/d\)\s*(.+)/);
+      
+      if (optA) options.a = optA[1].trim();
+      if (optB) options.b = optB[1].trim();
+      if (optC) options.c = optC[1].trim();
+      if (optD) options.d = optD[1].trim();
+
+      const ansMatch = block.match(/Answer:\s*([abcd])/i);
+      const correctAnswer = ansMatch ? ansMatch[1].toLowerCase() : 'a';
+
+      const expMatch = block.match(/Explanation:\s*(.+)/s);
+      const explanation = expMatch ? expMatch[1].trim() : '';
+
+      questions.push({
+        id: Date.now() + idx,
+        question: questionText,
+        options,
+        correct_answer: correctAnswer,
+        explanation,
+        status: 'PENDING',
+        optionImages: { a: null, b: null, c: null, d: null },
+        questionImage: null,
+        explanationImage: null,
+        subcategory: subtopicId || topicId
+      });
+    });
+
+    if (questions.length === 0) {
+      alert('Could not find any questions in the pasted content. Please check the format.');
+      return;
+    }
+
+    setBatch([...batch, ...questions]);
+    setPastedContent('');
+    setMessage(`Extracted ${questions.length} questions!`);
+  };
+
+  const addManualQuestion = () => {
+    const newQ = {
+      id: Date.now(),
+      question: '',
+      options: { a: '', b: '', c: '', d: '' },
+      correct_answer: 'a',
+      explanation: '',
+      status: 'PENDING',
+      optionImages: { a: null, b: null, c: null, d: null },
+      questionImage: null,
+      explanationImage: null,
+      subcategory: subtopicId || topicId
+    };
+    setBatch([newQ, ...batch]);
+  };
+
+  const updateQuestion = (id, field, value) => {
+    setBatch(batch.map(q => q.id === id ? { ...q, [field]: value } : q));
+  };
+
+  const updateOption = (id, opt, value) => {
+    setBatch(batch.map(q => {
+      if (q.id === id) {
+        return { ...q, options: { ...q.options, [opt]: value } };
+      }
+      return q;
+    }));
+  };
+
+  const setStatus = (id, status) => {
+    if (status === 'APPROVED') {
+      saveSingleQuestion(id);
+    } else {
+      setBatch(batch.map(q => q.id === id ? { ...q, status } : q));
+    }
+  };
+
+  const deleteQuestion = (id) => {
+    setBatch(batch.filter(q => q.id !== id));
+  };
+
+  const clearBatch = () => {
+    setBatch([]);
+  };
+
+  const saveSingleQuestion = async (id) => {
+    const q = batch.find(item => item.id === id);
+    if (!q) return;
+
+    setLoading(true);
+    try {
+      const answerMap = { 'a': 0, 'b': 1, 'c': 2, 'd': 3 };
+      const questionData = {
+        unitId,
+        topicId,
+        subtopicId,
+        type: 'Theory-based MCQ',
+        question: q.question,
+        questionImage: q.questionImage,
+        options: q.options,
+        optionImages: q.optionImages,
+        correctAnswer: answerMap[q.correct_answer] || 0,
+        explanation: q.explanation,
+        explanationImage: q.explanationImage,
+        status: 'accepted',
+        is_published: false
+      };
+
+      await api.post('/api/questions', questionData);
+      setBatch(batch.filter(item => item.id !== id));
+      setMessage('Question saved successfully!');
+      fetchQuestionCount();
+    } catch (error) {
+      setMessage('Error saving question: ' + (error.response?.data?.message || error.message));
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const saveAll = async () => {
+    const toSave = batch.filter(q => q.status !== 'REJECTED');
+    if (toSave.length === 0) {
+      alert('No questions to save!');
+      return;
+    }
+
+    setLoading(true);
+    try {
+      const answerMap = { 'a': 0, 'b': 1, 'c': 2, 'd': 3 };
+
+      for (const q of toSave) {
+        const questionData = {
+          unitId,
+          topicId,
+          subtopicId,
+          type: 'Theory-based MCQ',
+          question: q.question,
+          questionImage: q.questionImage,
+          options: q.options,
+          optionImages: q.optionImages,
+          correctAnswer: answerMap[q.correct_answer] || 0,
+          explanation: q.explanation,
+          explanationImage: q.explanationImage,
+          status: 'accepted',
+          is_published: false
+        };
+        await api.post('/api/questions', questionData);
+      }
+      setMessage(`Successfully saved ${toSave.length} questions!`);
+      setBatch([]);
+      fetchQuestionCount();
+    } catch (error) {
+      setMessage('Error saving: ' + (error.response?.data?.message || error.message));
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const fileToBase64 = (file) => {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.readAsDataURL(file);
+      reader.onload = () => resolve(reader.result);
+      reader.onerror = (error) => reject(error);
+    });
+  };
+
+  const handleImageUpload = async (e, id, type, opt = null) => {
+    const file = e.target.files[0];
+    if (!file) return;
+
+    try {
+      const base64Image = await fileToBase64(file);
+      const response = await api.post('/api/questions/upload', { image: base64Image });
+      const imageUrl = response.data.imageUrl;
+
+      setBatch(batch.map(q => {
+        if (q.id === id) {
+          if (type === 'question') return { ...q, questionImage: imageUrl };
+          if (type === 'explanation') return { ...q, explanationImage: imageUrl };
+          if (type === 'option') return { ...q, optionImages: { ...q.optionImages, [opt]: imageUrl } };
+        }
+        return q;
+      }));
+    } catch (error) {
+      alert('Image upload failed: ' + error.message);
+    }
+  };
+
+  const removeImage = (id, type, opt = null) => {
+    setBatch(batch.map(q => {
+      if (q.id === id) {
+        if (type === 'question') return { ...q, questionImage: null };
+        if (type === 'explanation') return { ...q, explanationImage: null };
+        if (type === 'option') return { ...q, optionImages: { ...q.optionImages, [opt]: null } };
+      }
+      return q;
+    }));
+  };
 
   if (curriculumLoading) {
     return (
@@ -116,94 +327,11 @@ function AIGenerator() {
     );
   }
 
-  const handleQuickExtract = async () => {
-    setLoading(true);
-    try {
-      // Convert to new schema format
-      const answerMap = { 'a': 0, 'b': 1, 'c': 2, 'd': 3 };
-      const questionData = {
-        unitId: q.unitId || unitId,
-        topicId: q.topicId || topicId,
-        subtopicId: q.subtopicId || subtopicId,
-        type: q.type || 'Theory-based MCQ',
-        question: q.question,
-        questionImage: q.questionImage || null,
-        options: q.options,
-        optionImages: q.optionImages || { a: null, b: null, c: null, d: null },
-        correctAnswer: answerMap[q.correct_answer] || 0,
-        explanation: q.explanation || '',
-        explanationImage: q.explanationImage || null,
-        status: 'accepted',
-        is_published: false
-      };
-
-      await axios.post('/api/questions', questionData);
-
-      // Remove from batch after successful save
-      setBatch(batch.filter(item => item.id !== id));
-      setMessage('Question saved successfully!');
-      fetchQuestionCount();
-    } catch (error) {
-      setMessage('Error saving question: ' + error.message);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const setStatus = (id, status) => {
-    if (status === 'APPROVED') {
-      saveSingleQuestion(id);
-    } else {
-      setBatch(batch.map(q => q.id === id ? { ...q, status } : q));
-    }
-  };
-
-  const deleteQuestion = (id) => {
-    setBatch(batch.filter(q => q.id !== id));
-  };
-
-  const clearBatch = () => {
-    setBatch([]);
-  };
-
-  const saveAll = async () => {
-    const toSave = batch.filter(q => q.status !== 'REJECTED');
-    if (toSave.length === 0) {
-      alert('No questions to save!');
-      return;
-    }
-
-    setLoading(true);
-    try {
-      const answerMap = { 'a': 0, 'b': 1, 'c': 2, 'd': 3 };
-
-      for (const q of toSave) {
-        const questionData = {
-          unitId: q.unitId || unitId,
-          topicId: q.topicId || topicId,
-          subtopicId: q.subtopicId || subtopicId,
-          type: q.type || 'Theory-based MCQ',
-          question: q.question,
-          questionImage: q.questionImage || null,
-          options: q.options,
-          optionImages: q.optionImages || { a: null, b: null, c: null, d: null },
-          correctAnswer: answerMap[q.correct_answer] || 0,
-          explanation: q.explanation || '',
-          explanationImage: q.explanationImage || null,
-          status: 'accepted',
-          is_published: false
-        };
-        await axios.post('/api/questions', questionData);
-      }
-      setMessage(`Successfully saved ${toSave.length} questions!`);
-      setBatch([]);
-      fetchQuestionCount();
-    } catch (error) {
-      setMessage('Error saving: ' + error.message);
-    } finally {
-      setLoading(false);
-    }
-  };
+  const units = curriculum;
+  const selectedUnit = units.find(u => u._id === unitId);
+  const topics = selectedUnit ? selectedUnit.topics : [];
+  const selectedTopic = topics.find(t => t._id === topicId);
+  const subtopics = selectedTopic ? selectedTopic.subtopics : [];
 
   const progressPct = Math.min(100, (questionCount / 25) * 100);
 

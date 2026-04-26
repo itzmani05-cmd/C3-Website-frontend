@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import axios from 'axios';
+import api from '../api';
 import { BACKEND_URL } from '../config';
 
 function AddQuestion() {
@@ -25,7 +25,7 @@ function AddQuestion() {
   useEffect(() => {
     const loadCurriculum = async () => {
       try {
-        const response = await axios.get('/api/questions/curriculum');
+        const response = await api.get('/api/questions/curriculum');
         const data = response.data || [];
         setCurriculum(data);
 
@@ -99,6 +99,12 @@ function AddQuestion() {
   const selectedTopic = topics.find(t => t._id === topicId);
   const subtopics = selectedTopic ? selectedTopic.subtopics : [];
 
+  const getImagePreview = (url) => {
+    if (!url) return null;
+    if (url.startsWith('data:')) return url;
+    return url.startsWith('http') ? url : `${BACKEND_URL}${url}`;
+  };
+
   const handleOptionChange = (key, value) => {
     setOptions(prev => ({ ...prev, [key]: value }));
   };
@@ -122,7 +128,7 @@ function AddQuestion() {
       const base64Image = await fileToBase64(file);
 
       // Send to backend
-      const response = await axios.post('/api/questions/upload', {
+      const response = await api.post('/api/questions/upload', {
         image: base64Image
       });
       const imageUrl = response.data.imageUrl;
@@ -155,7 +161,7 @@ function AddQuestion() {
     setMessage('');
 
     try {
-      await axios.post('/api/questions', {
+      await api.post('/api/questions', {
         unitId,
         topicId,
         subtopicId,
@@ -182,6 +188,17 @@ function AddQuestion() {
       setExplanation('');
       setExplanationImage(null);
     } catch (error) {
+      setMessage('Error saving question: ' + (error.response?.data?.message || error.message));
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <div className="tab-content">
+      <h2>Add Question</h2>
+
+      {message && (
         <div className={message.includes('Error') ? 'error-message' : 'success-message'}>
           {message}
         </div>
