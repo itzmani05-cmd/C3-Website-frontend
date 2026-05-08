@@ -163,7 +163,8 @@ function AIGenerator() {
       }
 
       // Detect answer: "Answer: b", "Correct Answer: b", "Ans: b"
-      const ansMatch = trimmed.match(/(?:Answer|Correct Answer|Ans|Correct Option)\s*[:-\s]+\s*[([\s]*([a-d])(?:\s*[\)\.\,\]]|\s|$)/i);
+      // const ansMatch = trimmed.match(/(?:Answer|Correct Answer|Ans|Correct Option)\s*[:-\s]+\s*[([\s]*([a-d])(?:\s*[\)\.\,\]]|\s|$)/i);
+      const ansMatch = trimmed.match(/(?:Answer|Correct Answer|Ans|Correct Option)\s*[:-\s]+\s*[([\s]*([a-d])(?:\s*[).,\]]|\s|$)/i);
       if (ansMatch) {
         currentQuestion.correct_answer = ansMatch[1].toLowerCase();
         return;
