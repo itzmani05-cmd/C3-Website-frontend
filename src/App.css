@@ -90,7 +90,7 @@ body {
 
 .sidebar {
   width: 280px;
-  background: #000000;
+  background: #919090;
   color: white;
   padding: 0;
   position: fixed;
@@ -312,7 +312,6 @@ body {
   font-weight: 700;
 }
 
-/* Form Styles */
 .form-group {
   margin-bottom: 24px;
 }
@@ -661,9 +660,7 @@ body {
 /* Add Question Form Styles */
 .hierarchy-section {
   background: #FFFFFF;
-  padding: 20px;
-  border-radius: 10px;
-  border: 1px solid #000000;
+  padding: 10px 0;
   margin-bottom: 24px;
 }
 

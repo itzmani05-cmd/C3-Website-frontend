@@ -10,7 +10,6 @@ function AIGenerator() {
   const [curriculumLoading, setCurriculumLoading] = useState(true);
   const [curriculumError, setCurriculumError] = useState('');
 
-  const [notebookUrl, setNotebookUrl] = useState('');
   const [pastedContent, setPastedContent] = useState('');
   const [batch, setBatch] = useState([]);
   const [loading, setLoading] = useState(false);
@@ -93,6 +92,26 @@ function AIGenerator() {
     return url.startsWith('http') ? url : `${BACKEND_URL}${url}`;
   };
 
+  const normalizeCorrectAnswer = (val) => {
+    if (val === null || val === undefined) return 'a';
+    if (typeof val === 'number') return ['a', 'b', 'c', 'd'][val] || 'a';
+    
+    const str = val.toString().trim().toLowerCase();
+    
+    // If it's a numeric string like "0", "1", "2", "3"
+    if (/^\d+$/.test(str)) {
+      return ['a', 'b', 'c', 'd'][parseInt(str)] || 'a';
+    }
+    
+    // If it's something like "Option C", "Ans: B", "(a)", "a)"
+    const match = str.match(/[a-d]/);
+    if (match) {
+      return match[0];
+    }
+    
+    return 'a';
+  };
+
   const handleQuickExtract = () => {
     if (!pastedContent.trim()) {
       alert('Please paste some content first!');
@@ -108,7 +127,7 @@ function AIGenerator() {
       if (!trimmed && !currentQuestion) return;
 
       // Detect question start: "1. ", "1) ", "Q1: ", "Question 1: "
-      const qMatch = trimmed.match(/^(?:\d+[\.\)\:]|Question\s+\d+\:|Q\d+\:)\s*(.*)/i);
+      const qMatch = trimmed.match(/^(?:\d+[.):]|Question\s+\d+:|Q\d+:)\s*(.*)/i);
       if (qMatch) {
         if (currentQuestion && currentQuestion.question) {
           questions.push(currentQuestion);
@@ -130,8 +149,13 @@ function AIGenerator() {
 
       if (!currentQuestion) return;
 
+      // Ignore common labels that shouldn't be part of question or options
+      if (trimmed.match(/^(?:Options|Choices|Select the correct option|Select one):?\s*$/i)) {
+        return;
+      }
+
       // Detect options: "a) ", "a. ", "(a) ", "A) ", "A. "
-      const optMatch = trimmed.match(/^[\[\(]?([a-d])[\]\)\.\:\s]+(.*)/i);
+      const optMatch = trimmed.match(/^[[(]?([a-d])[\]).:\s]+(.*)/i);
       if (optMatch) {
         const letter = optMatch[1].toLowerCase();
         currentQuestion.options[letter] = optMatch[2].trim();
@@ -139,28 +163,25 @@ function AIGenerator() {
       }
 
       // Detect answer: "Answer: b", "Correct Answer: b", "Ans: b"
-      const ansMatch = trimmed.match(/^(?:Answer|Correct Answer|Ans|Correct Option)\s*[\:\-\s]+[\[\(\s]*([a-d])[\]\)\s]*/i);
+      const ansMatch = trimmed.match(/(?:Answer|Correct Answer|Ans|Correct Option)\s*[:-\s]+\s*[([\s]*([a-d])(?:\s*[\)\.\,\]]|\s|$)/i);
       if (ansMatch) {
         currentQuestion.correct_answer = ansMatch[1].toLowerCase();
         return;
       }
 
       // Detect explanation: "Explanation: ...", "Exp: ..."
-      const expMatch = trimmed.match(/^(?:Explanation|Exp|Detailed Explanation)\s*[\:\-\s]+(.*)/i);
+      const expMatch = trimmed.match(/^(?:Explanation|Exp|Detailed Explanation)\s*[:-\s]+(.*)/i);
       if (expMatch) {
         currentQuestion.explanation = expMatch[1].trim();
         return;
       }
 
-      // If it's none of the above, append to the last active section
       if (trimmed) {
         if (!currentQuestion.options.a) {
           currentQuestion.question += ' ' + trimmed;
         } else if (currentQuestion.explanation) {
           currentQuestion.explanation += ' ' + trimmed;
         } else if (currentQuestion.options.d) {
-          // If we have option D and this doesn't look like a new question, 
-          // it might be the start of explanation without the label
           if (!currentQuestion.explanation) {
              currentQuestion.explanation = trimmed;
           } else {
@@ -183,89 +204,6 @@ function AIGenerator() {
     setPastedContent('');
     setMessage(`Extracted ${questions.length} questions!`);
   };
-
-  const handleSmartExtract = async () => {
-    if (!pastedContent.trim()) {
-      alert('Please paste some content first!');
-      return;
-    }
-
-    setLoading(true);
-    setMessage('Using Smart Extract (Backend)...');
-    try {
-      const response = await api.post('/api/ai/extract', {
-        textContent: pastedContent,
-        unitId,
-        topicId,
-        subtopicId
-      });
-
-      if (response.data.success && response.data.questions.length > 0) {
-        const mappedQuestions = response.data.questions.map((q, idx) => ({
-          ...q,
-          id: Date.now() + idx,
-          correct_answer: q.correctAnswer || q.correct_answer || 'a',
-          status: 'PENDING',
-          optionImages: { a: null, b: null, c: null, d: null },
-          questionImage: null,
-          explanationImage: null,
-          subcategory: subtopicId || topicId
-        }));
-        setBatch([...batch, ...mappedQuestions]);
-        setPastedContent('');
-        setMessage(`Smart Extracted ${mappedQuestions.length} questions!`);
-      } else {
-        alert('Smart Extract failed to find questions. Try the Quick Extract or AI Generate.');
-      }
-    } catch (error) {
-      setMessage('Smart Extract Error: ' + (error.response?.data?.error || error.message));
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleAIGenerate = async () => {
-    if (!pastedContent.trim()) {
-      alert('Please paste some content first!');
-      return;
-    }
-
-    setLoading(true);
-    setMessage('AI is processing your content (Gemini)...');
-    try {
-      const selectedTopicName = topics.find(t => t._id === topicId)?.name || 'General';
-      const selectedSubtopicName = subtopics.find(st => st._id === subtopicId)?.name || '';
-
-      const response = await api.post('/api/ai/generate', {
-        textContent: pastedContent,
-        subject: selectedTopicName,
-        subtopic: selectedSubtopicName
-      });
-
-      if (response.data.success && response.data.questions.length > 0) {
-        const mappedQuestions = response.data.questions.map((q, idx) => ({
-          ...q,
-          id: Date.now() + idx,
-          correct_answer: q.correct_answer || 'a',
-          status: 'PENDING',
-          optionImages: { a: null, b: null, c: null, d: null },
-          questionImage: null,
-          explanationImage: null,
-          subcategory: subtopicId || topicId
-        }));
-        setBatch([...batch, ...mappedQuestions]);
-        setPastedContent('');
-        setMessage(`AI Generated ${mappedQuestions.length} questions!`);
-      } else {
-        alert('AI failed to generate questions. Ensure content is sufficient.');
-      }
-    } catch (error) {
-      setMessage('AI Generation Error: ' + (error.response?.data?.error || error.message));
-    } finally {
-      setLoading(false);
-    }
-  };
-
 
   const addManualQuestion = () => {
     const newQ = {
@@ -318,7 +256,6 @@ function AIGenerator() {
 
     setLoading(true);
     try {
-      const answerMap = { 'a': 0, 'b': 1, 'c': 2, 'd': 3 };
       const questionData = {
         unitId,
         topicId,
@@ -328,7 +265,7 @@ function AIGenerator() {
         questionImage: q.questionImage,
         options: q.options,
         optionImages: q.optionImages,
-        correctAnswer: answerMap[q.correct_answer] || 0,
+        correct_answer: q.correct_answer || 'a',
         explanation: q.explanation,
         explanationImage: q.explanationImage,
         status: 'accepted',
@@ -355,8 +292,6 @@ function AIGenerator() {
 
     setLoading(true);
     try {
-      const answerMap = { 'a': 0, 'b': 1, 'c': 2, 'd': 3 };
-
       for (const q of toSave) {
         const questionData = {
           unitId,
@@ -367,7 +302,7 @@ function AIGenerator() {
           questionImage: q.questionImage,
           options: q.options,
           optionImages: q.optionImages,
-          correctAnswer: answerMap[q.correct_answer] || 0,
+          correct_answer: q.correct_answer || 'a',
           explanation: q.explanation,
           explanationImage: q.explanationImage,
           status: 'accepted',
@@ -457,10 +392,6 @@ function AIGenerator() {
     <div className="tab-content">
       <h2>Question Extractor</h2>
 
-      <div className="info-box">
-        Paste content to extract questions automatically. Review and save individual questions or approve all at once.
-      </div>
-
       <div className={`form-row ${subtopics.length > 0 ? 'three-col' : 'two-col'}`}>
         <div className="form-group">
           <label>Select Unit</label>
@@ -509,41 +440,13 @@ function AIGenerator() {
       </div>
 
       <div className="form-group">
-        <label>Paste Notebook LLM Source URL</label>
-        <input 
-          type="text" 
-          value={notebookUrl} 
-          onChange={(e) => setNotebookUrl(e.target.value)}
-          placeholder="https://notebooklm.google.com/..."
-        />
-      </div>
-
-      <div className="form-group">
-        <label>Paste Questions Content</label>
+        <label>Paste Questions</label>
         <textarea
           value={pastedContent}
           onChange={(e) => setPastedContent(e.target.value)}
           rows={10}
-          placeholder={`Paste your questions here in this format:
-
-1. What is the capital of France?
-a) London
-b) Paris
-c) Berlin
-d) Madrid
-Answer: b
-Explanation: Paris is the capital of France.
-
-2. What is 2+2?
-a) 3
-b) 4
-c) 5
-d) 6
-Answer: b`}
+          placeholder={`Paste your questions here...`}
         />
-        <small style={{ color: '#000000', display: 'block', marginTop: '8px' }}>
-          Format: Numbered questions with options (a, b, c, d) and optional Answer/Explanation
-        </small>
       </div>
 
       <div className="action-row" style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
@@ -552,23 +455,7 @@ Answer: b`}
           onClick={handleQuickExtract}
           disabled={loading}
         >
-          {loading ? 'Processing...' : 'Quick Extract (Local)'}
-        </button>
-        <button
-          className="btn-secondary"
-          onClick={handleSmartExtract}
-          disabled={loading}
-          style={{ backgroundColor: '#4a90e2', color: 'white' }}
-        >
-          {loading ? 'Processing...' : 'Smart Extract (Backend)'}
-        </button>
-        <button
-          className="btn-primary"
-          onClick={handleAIGenerate}
-          disabled={loading}
-          style={{ background: 'linear-gradient(45deg, #6e8efb, #a777e3)' }}
-        >
-          {loading ? 'AI Thinking...' : '✨ Magic AI Extract (Gemini)'}
+          {loading ? 'Processing...' : 'Extract'}
         </button>
       </div>
 
@@ -583,13 +470,13 @@ Answer: b`}
         <>
           <div className="action-row" style={{ marginTop: '24px' }}>
             <button className="btn-secondary" onClick={addManualQuestion}>
-              Add Manual Question
+              Add Question
             </button>
             <button className="btn-primary" onClick={saveAll} disabled={loading}>
-              {loading ? 'Saving...' : 'Approve & Save Everything'}
+              {loading ? 'Saving...' : 'Save Everything'}
             </button>
             <button className="btn-danger" onClick={clearBatch}>
-              Clear Review List
+              Clear List
             </button>
           </div>
 
@@ -678,7 +565,7 @@ Answer: b`}
                 <div className="form-group">
                   <label>Correct Answer</label>
                   <select
-                    value={q.correct_answer}
+                    value={normalizeCorrectAnswer(q.correct_answer)}
                     onChange={(e) => updateQuestion(q.id, 'correct_answer', e.target.value)}
                   >
                     <option value="a">A</option>

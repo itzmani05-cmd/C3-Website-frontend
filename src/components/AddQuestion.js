@@ -15,7 +15,7 @@ function AddQuestion() {
   const [questionImage, setQuestionImage] = useState(null);
   const [options, setOptions] = useState({ a: '', b: '', c: '', d: '' });
   const [optionImages, setOptionImages] = useState({ a: null, b: null, c: null, d: null });
-  const [correctAnswer, setCorrectAnswer] = useState(0);
+  const [correct_answer, setCorrectAnswer] = useState('a');
   const [explanation, setExplanation] = useState('');
   const [explanationImage, setExplanationImage] = useState(null);
   const [isPublished, setIsPublished] = useState(false);
@@ -170,7 +170,7 @@ function AddQuestion() {
         questionImage,
         options,
         optionImages,
-        correctAnswer,
+        correct_answer,
         explanation,
         explanationImage,
         is_published: isPublished,
@@ -183,7 +183,7 @@ function AddQuestion() {
       setQuestionImage(null);
       setOptions({ a: '', b: '', c: '', d: '' });
       setOptionImages({ a: null, b: null, c: null, d: null });
-      setCorrectAnswer(0);
+      setCorrectAnswer('a');
       setType('Theory-based MCQ');
       setExplanation('');
       setExplanationImage(null);
@@ -205,9 +205,7 @@ function AddQuestion() {
       )}
 
       <form onSubmit={handleSubmit}>
-        {/* Hierarchy Selection */}
         <div className="hierarchy-section">
-          <h3>Category Hierarchy</h3>
           <div className={`form-row ${subtopics.length > 0 ? 'three-col' : 'two-col'}`}>
             <div className="form-group">
               <label>Unit</label>
@@ -317,10 +315,10 @@ function AddQuestion() {
                 <div className="correct-answer-radio">
                   <input
                     type="radio"
-                    name="correctAnswer"
+                    name="correct_answer"
                     id={`correct-${opt}`}
-                    checked={correctAnswer === idx}
-                    onChange={() => setCorrectAnswer(idx)}
+                    checked={correct_answer === opt}
+                    onChange={() => setCorrectAnswer(opt)}
                   />
                   <label htmlFor={`correct-${opt}`}>Correct</label>
                 </div>
