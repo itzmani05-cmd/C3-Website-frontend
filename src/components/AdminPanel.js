@@ -1,7 +1,6 @@
 import React, { useState } from 'react';
 import AddQuestion from './AddQuestion';
 import AIGenerator from './AIGenerator';
-// import EditQuestion from './EditQuestion';
 
 function AdminPanel({ onLogout }) {
   const [activeTab, setActiveTab] = useState('add');
@@ -12,8 +11,6 @@ function AdminPanel({ onLogout }) {
         return <AddQuestion />;
       case 'ai':
         return <AIGenerator />;
-      // case 'edit':
-      //   return <EditQuestion />;
       default:
         return <AddQuestion />;
     }
@@ -46,14 +43,6 @@ function AdminPanel({ onLogout }) {
             <span className="nav-icon">Ex</span>
             Extractor
           </button>
-
-          {/* <button
-            className={`nav-btn ${activeTab === 'edit' ? 'active' : ''}`}
-            onClick={() => setActiveTab('edit')}
-          >
-            <span className="nav-icon">📁</span>
-            Question Bank
-          </button> */}
         </nav>
 
         <div className="sidebar-footer">
