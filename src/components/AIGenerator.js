@@ -419,10 +419,10 @@ function AIGenerator() {
       <div className="progress-container">
         <div className="progress-header">
           <span className="progress-title">
-                      Live Pulse: {subtopicId
-                        ? subtopics.find(st => st._id === subtopicId)?.name
-                        : selectedTopic?.name || ''}
-                    </span>
+            Live Pulse: {subtopicId
+              ? subtopics.find(st => st._id === subtopicId)?.name
+              : selectedTopic?.name || ''}
+          </span>
           <span className={`progress-count ${questionCount >= 25 ? 'complete' : ''}`}>
             {questionCount} / 25 Questions Verified
           </span>
@@ -434,9 +434,9 @@ function AIGenerator() {
           />
         </div>
         {questionCount >= 25 ? (
-          <div style={{ color: '#008000', marginTop: '8px', fontWeight: 700 }}>Subtopic Complete!</div>
+          <div className="progress-note success">Subtopic Complete!</div>
         ) : (
-          <div style={{ color: '#000000', marginTop: '8px' }}>Add {25 - questionCount} more to unlock for students.</div>
+          <div className="progress-note muted">Add {25 - questionCount} more to unlock for students.</div>
         )}
       </div>
 
@@ -450,7 +450,7 @@ function AIGenerator() {
         />
       </div>
 
-      <div className="action-row" style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
+      <div className="action-row">
         <button
           className="btn-primary"
           onClick={handleQuickExtract}
@@ -469,7 +469,7 @@ function AIGenerator() {
 
       {batch.length > 0 && (
         <>
-          <div className="action-row" style={{ marginTop: '24px' }}>
+          <div className="action-row">
             <button className="btn-secondary" onClick={addManualQuestion}>
               Add Question
             </button>
@@ -481,7 +481,7 @@ function AIGenerator() {
             </button>
           </div>
 
-          <h3 style={{ marginTop: '24px', marginBottom: '16px' }}>Review Mode & Question Management</h3>
+          <h3 className="review-section-title">Review Mode & Question Management</h3>
 
           {batch.map((q, idx) => (
             <div key={q.id} className={`question-card ${q.status.toLowerCase()}`}>

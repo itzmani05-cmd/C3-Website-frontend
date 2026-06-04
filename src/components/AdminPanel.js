@@ -20,8 +20,8 @@ function AdminPanel({ onLogout }) {
     <div className="admin-container">
       <aside className="sidebar">
         <div className="sidebar-header">
-          <div className="logo" >
-            <img style={{width: '40px', height: '40px', marginBottom: '10px'}} src="/C3AppLogo.png" alt="C³ Logo" className="logo-image" />
+          <div className="logo">
+            <img src="/C3AppLogo.png" alt="C³ Institute logo" className="logo-image" />
           </div>
           <h2>Admin Portal</h2>
           <p className="sidebar-subtitle">Question Management System</p>

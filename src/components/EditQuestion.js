@@ -1,6 +1,5 @@
 import React, { useState, useEffect } from 'react';
 import api from '../api';
-import { BACKEND_URL } from '../config';
 
 function EditQuestion() {
   const [curriculum, setCurriculum] = useState([]);
@@ -81,7 +80,7 @@ function EditQuestion() {
 
   return (
     <div className="tab-content">
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
+      <div className="page-toolbar">
         <h2>Question Bank</h2>
         <button className="btn-secondary" onClick={fetchQuestions} disabled={!subtopicId}>
           Refresh List
@@ -94,7 +93,7 @@ function EditQuestion() {
         </div>
       )}
 
-      <div className="hierarchy-section" style={{ marginBottom: '20px', padding: '15px', backgroundColor: '#f9f9f9', borderRadius: '8px' }}>
+      <div className="hierarchy-section">
         <div className={`form-row ${subtopics.length > 0 ? 'three-col' : 'two-col'}`}>
           <div className="form-group">
             <label>Unit</label>
@@ -130,19 +129,16 @@ function EditQuestion() {
         <div className="question-list">
           {questions.map((q) => (
             <div key={q._id} className="question-list-item">
-              <div 
+              <div
                 className="question-summary"
                 onClick={() => setExpandedId(expandedId === q._id ? null : q._id)}
-                style={{ cursor: 'pointer', padding: '10px', borderBottom: '1px solid #eee', display: 'flex', justifyContent: 'space-between' }}
               >
                 <span>Q: {q.question?.substring(0, 80)}...</span>
-                <span style={{ color: '#666', fontSize: '12px' }}>
-                   Ans: {getAnswerDisplay(q)}
-                </span>
+                <span>Ans: {getAnswerDisplay(q)}</span>
               </div>
-              
+
               {expandedId === q._id && (
-                <QuestionEditor 
+                <QuestionEditor
                   question={q}
                   onUpdate={handleUpdate}
                   onDelete={handleDelete}
@@ -190,7 +186,7 @@ function QuestionEditor({ question, onUpdate, onDelete }) {
   };
 
   return (
-    <div className="question-detail" style={{ padding: '20px', backgroundColor: '#fff', border: '1px solid #ddd', borderRadius: '0 0 8px 8px' }}>
+    <div className="question-detail">
       <div className="form-group">
         <label>Question Text</label>
         <textarea
@@ -200,44 +196,44 @@ function QuestionEditor({ question, onUpdate, onDelete }) {
         />
       </div>
 
-      <div className="form-row" style={{ display: 'flex', gap: '10px', marginBottom: '10px' }}>
-        <div className="form-group" style={{ flex: 1 }}>
+      <div className="form-row">
+        <div className="form-group">
           <label>Option A</label>
-          <input 
+          <input
             value={formData.options.a}
             onChange={(e) => handleOptionChange('a', e.target.value)}
           />
         </div>
-        <div className="form-group" style={{ flex: 1 }}>
+        <div className="form-group">
           <label>Option B</label>
-          <input 
+          <input
             value={formData.options.b}
             onChange={(e) => handleOptionChange('b', e.target.value)}
           />
         </div>
       </div>
 
-      <div className="form-row" style={{ display: 'flex', gap: '10px', marginBottom: '10px' }}>
-        <div className="form-group" style={{ flex: 1 }}>
+      <div className="form-row">
+        <div className="form-group">
           <label>Option C</label>
-          <input 
+          <input
             value={formData.options.c}
             onChange={(e) => handleOptionChange('c', e.target.value)}
           />
         </div>
-        <div className="form-group" style={{ flex: 1 }}>
+        <div className="form-group">
           <label>Option D</label>
-          <input 
+          <input
             value={formData.options.d}
             onChange={(e) => handleOptionChange('d', e.target.value)}
           />
         </div>
       </div>
 
-      <div className="form-row" style={{ display: 'flex', gap: '10px', alignItems: 'flex-end' }}>
-        <div className="form-group" style={{ flex: 1 }}>
+      <div className="form-row">
+        <div className="form-group">
           <label>Correct Answer</label>
-          <select 
+          <select
             value={formData.correct_answer}
             onChange={(e) => handleChange('correct_answer', e.target.value)}
           >
@@ -247,9 +243,9 @@ function QuestionEditor({ question, onUpdate, onDelete }) {
             <option value="d">D</option>
           </select>
         </div>
-        <div className="form-group" style={{ flex: 2 }}>
+        <div className="form-group">
           <label>Explanation</label>
-          <textarea 
+          <textarea
             value={formData.explanation}
             onChange={(e) => handleChange('explanation', e.target.value)}
             rows={2}
@@ -257,17 +253,16 @@ function QuestionEditor({ question, onUpdate, onDelete }) {
         </div>
       </div>
 
-      <div className="card-actions" style={{ marginTop: '20px', display: 'flex', gap: '10px' }}>
-        <button 
-          className="btn-primary" 
+      <div className="card-actions">
+        <button
+          className="btn-primary"
           onClick={() => onUpdate(question._id, formData)}
         >
           Update Question
         </button>
-        <button 
-          className="btn-danger" 
+        <button
+          className="btn-danger"
           onClick={() => onDelete(question._id)}
-          style={{ backgroundColor: '#ff4d4f', color: '#fff' }}
         >
           Delete
         </button>
