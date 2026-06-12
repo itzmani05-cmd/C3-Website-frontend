@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import AddQuestion from './AddQuestion';
 import AIGenerator from './AIGenerator';
+import PdfDownload from './PdfDownload';
 
 function AdminPanel({ onLogout }) {
   const [activeTab, setActiveTab] = useState('add');
@@ -11,6 +12,8 @@ function AdminPanel({ onLogout }) {
         return <AddQuestion />;
       case 'ai':
         return <AIGenerator />;
+      case 'pdf':
+        return <PdfDownload />;
       default:
         return <AddQuestion />;
     }
@@ -42,6 +45,14 @@ function AdminPanel({ onLogout }) {
           >
             <span className="nav-icon">Ex</span>
             Extractor
+          </button>
+
+          <button
+            className={`nav-btn ${activeTab === 'pdf' ? 'active' : ''}`}
+            onClick={() => setActiveTab('pdf')}
+          >
+            <span className="nav-icon">PDF</span>
+            PDF Download
           </button>
         </nav>
 

@@ -92,19 +92,187 @@ function AIGenerator() {
     return url.startsWith('http') ? url : `${BACKEND_URL}${url}`;
   };
 
+  const normalizeLine = (value) => {
+    return (value || '')
+      .normalize('NFKC')
+      .replace(/\u00a0/g, ' ')
+      .replace(/\s+/g, ' ')
+      .trim();
+  };
+
+  const appendText = (existing, addition) => {
+    const base = normalizeLine(existing);
+    const extra = normalizeLine(addition);
+    if (!base) return extra;
+    if (!extra) return base;
+    return `${base} ${extra}`.replace(/\s+/g, ' ').trim();
+  };
+
+  const OPTION_TOKEN_MAP = {
+    a: 'a',
+    b: 'b',
+    c: 'c',
+    d: 'd',
+    1: 'a',
+    2: 'b',
+    3: 'c',
+    4: 'd',
+    'அ': 'a',
+    'ஆ': 'b',
+    'இ': 'c',
+    'ஈ': 'd'
+  };
+
+
+  const normalizeOptionKey = (value) => {
+    if (value === null || value === undefined) return null;
+    const token = normalizeLine(value).replace(/[()[\].:]/g, '').toLowerCase();
+    if (!token) return null;
+    return OPTION_TOKEN_MAP[token] || null;
+  };
+
+  const extractOptionKeyFromText = (value) => {
+    const text = normalizeLine(value);
+    if (!text) return null;
+
+    const directMatch = text.match(/^(?:\(?([a-d])\)?|\(?([1-4])\)?|([அஆஇஈ]))[).:]*\s*/iu);
+    if (directMatch) {
+      return normalizeOptionKey(directMatch[1] || directMatch[2] || directMatch[3]);
+    }
+
+    const labeledMatch = text.match(
+      /^(?:answer|ans|correct answer|correct option|option|பதில்|சரியான பதில்|விடை)\s*[:–—-]?\s*(?:\(?([a-d])\)?|\(?([1-4])\)?|([அஆஇஈ]))/iu
+    );
+    if (labeledMatch) {
+      return normalizeOptionKey(labeledMatch[1] || labeledMatch[2] || labeledMatch[3]);
+    }
+
+    const standaloneMatch = text.match(/\b([a-d])\b/i);
+    if (standaloneMatch) {
+      return standaloneMatch[1].toLowerCase();
+    }
+
+    return null;
+  };
+
+  const QUESTION_START_REGEX = /^(?:(?:question|q|கேள்வி)\s*\d+\s*[:.)–—-]\s*|\d+\s*[:.)–—-]\s*)/iu;
+  const ANSWER_LABEL_REGEX = /^(?:answer|ans|correct answer|correct option|பதில்|சரியான பதில்|விடை)\s*[:–—-]\s*/iu;
+  const EXPLANATION_LABEL_REGEX = /^(?:explanation|reason|detailed explanation|விளக்கம்|காரணம்)\s*[:–—-]\s*/iu;
+  const OPTIONS_LABEL_REGEX = /^(?:options?|choices?|answer choices?|விருப்பங்கள்|தேர்வுகள்)\s*[:–—-]?\s*/iu;
+  const STRICT_OPTION_MARKER_REGEX = /(?:^|[\s/|•·-])(\([a-dA-D1-4அஆஇஈ]\)|\([a-dA-D1-4அஆஇஈ]\)|\([1-4]\))\s*/gu;
+  const LOOSE_OPTION_MARKER_REGEX = /(?:^|[\s/|•·-])([a-dA-D1-4அஆஇஈ])[).:]\s*/gu;
+
+  const parseInlineOptions = (text) => {
+    const optionsText = text.replace(OPTIONS_LABEL_REGEX, '');
+    const strictMatches = [...optionsText.matchAll(STRICT_OPTION_MARKER_REGEX)];
+    const looseMatches = strictMatches.length > 0 ? [] : [...optionsText.matchAll(LOOSE_OPTION_MARKER_REGEX)];
+    const matches = strictMatches.length > 0 ? strictMatches : looseMatches;
+
+    return matches.map((tokenMatch, tokenIndex, allMatches) => {
+      const rawToken = tokenMatch[1];
+      const key = normalizeOptionKey(rawToken);
+      if (!key) return null;
+
+      const valueStart = tokenMatch.index + tokenMatch[0].length;
+      const nextToken = allMatches[tokenIndex + 1];
+      const valueEnd = nextToken ? nextToken.index : optionsText.length;
+      return {
+        key,
+        text: optionsText.slice(valueStart, valueEnd)
+      };
+    }).filter(Boolean);
+  };
+
+  const splitQuestionBlocks = (text) => {
+    const normalizedText = text.replace(/\r\n/g, '\n').replace(/\r/g, '\n');
+    const questionStartPattern = /(?:^|\n)\s*(?:(?:question|q|கேள்வி)\s*\d+|\d+)\s*[:.)–—-]\s*/giu;
+    const matches = [...normalizedText.matchAll(questionStartPattern)];
+
+    if (matches.length === 0) return [];
+
+    return matches.map((match, index) => {
+      const start = match.index + match[0].length;
+      const end = matches[index + 1]?.index ?? normalizedText.length;
+      return normalizedText.slice(start, end).trim();
+    }).filter(Boolean);
+  };
+
+  const parseQuestionBlock = (block, idx) => {
+    const compactBlock = normalizeLine(block);
+    if (!compactBlock) return null;
+
+    const optionsMatch = compactBlock.match(/\b(?:options?|choices?|answer choices?|விருப்பங்கள்|தேர்வுகள்)\s*[:–—-]?\s*/iu);
+    const answerMatch = compactBlock.match(/\b(?:correct answer|answer|ans|correct option|பதில்|சரியான பதில்|விடை)\s*[:–—-]\s*/iu);
+    const explanationMatch = compactBlock.match(/\b(?:detailed explanation|explanation|reason|விளக்கம்|காரணம்)\s*[:–—-]\s*/iu);
+
+    if (!optionsMatch) return null;
+
+    const questionText = compactBlock.slice(0, optionsMatch.index).trim();
+    const optionsStart = optionsMatch.index + optionsMatch[0].length;
+    const optionsEnd = [answerMatch?.index, explanationMatch?.index, compactBlock.length]
+      .filter((value) => typeof value === 'number' && value >= optionsStart)
+      .sort((a, b) => a - b)[0];
+    const optionsText = compactBlock.slice(optionsStart, optionsEnd).trim();
+
+    const options = { a: '', b: '', c: '', d: '' };
+    parseInlineOptions(`Options: ${optionsText}`).forEach((token) => {
+      options[token.key] = appendText(options[token.key], token.text);
+    });
+
+    let correctAnswer = 'a';
+    if (answerMatch) {
+      const answerStart = answerMatch.index + answerMatch[0].length;
+      const answerEnd = explanationMatch && explanationMatch.index > answerStart
+        ? explanationMatch.index
+        : compactBlock.length;
+      correctAnswer = extractOptionKeyFromText(compactBlock.slice(answerStart, answerEnd)) || 'a';
+    }
+
+    const explanation = explanationMatch
+      ? compactBlock.slice(explanationMatch.index + explanationMatch[0].length).trim()
+      : '';
+
+    if (!questionText || Object.values(options).filter(Boolean).length < 2) return null;
+
+    return {
+      id: Date.now() + idx,
+      question: questionText,
+      options,
+      correct_answer: correctAnswer,
+      explanation,
+      status: 'PENDING',
+      optionImages: { a: null, b: null, c: null, d: null },
+      questionImage: null,
+      explanationImage: null,
+      subcategory: subtopicId || topicId
+    };
+  };
+
   const normalizeCorrectAnswer = (val) => {
     if (val === null || val === undefined) return 'a';
     if (typeof val === 'number') return ['a', 'b', 'c', 'd'][val] || 'a';
     
-    const str = val.toString().trim().toLowerCase();
+    const str = normalizeLine(val).toLowerCase();
     
     // If it's a numeric string like "0", "1", "2", "3"
     if (/^\d+$/.test(str)) {
       return ['a', 'b', 'c', 'd'][parseInt(str)] || 'a';
     }
     
+    const directMatch = str.match(/^(?:\(?([a-d])\)?|\(?([1-4])\)?|([அஆஇஈ]))/iu);
+    if (directMatch) {
+      return normalizeOptionKey(directMatch[1] || directMatch[2] || directMatch[3]) || 'a';
+    }
+
+    const labeledMatch = str.match(
+      /^(?:answer|ans|correct answer|correct option|option|பதில்|சரியான பதில்|விடை)\s*[:\-–—]?\s*(?:\(?([a-d])\)?|\(?([1-4])\)?|([அஆஇஈ]))/iu
+    );
+    if (labeledMatch) {
+      return normalizeOptionKey(labeledMatch[1] || labeledMatch[2] || labeledMatch[3]) || 'a';
+    }
+    
     // If it's something like "Option C", "Ans: B", "(a)", "a)"
-    const match = str.match(/[a-d]/);
+    const match = str.match(/\b([a-d])\b/i);
     if (match) {
       return match[0];
     }
@@ -118,83 +286,138 @@ function AIGenerator() {
       return;
     }
 
+    const blockQuestions = splitQuestionBlocks(pastedContent)
+      .map(parseQuestionBlock)
+      .filter(Boolean);
+
+    if (blockQuestions.length > 0) {
+      setBatch([...batch, ...blockQuestions]);
+      setPastedContent('');
+      setMessage(`Extracted ${blockQuestions.length} questions!`);
+      return;
+    }
+
     const questions = [];
     const lines = pastedContent.split('\n');
     let currentQuestion = null;
+    let currentSection = null;
+    let currentOptionKey = null;
 
-    lines.forEach((line, idx) => {
-      const trimmed = line.trim();
-      if (!trimmed && !currentQuestion) return;
-
-      // Detect question start: "1. ", "1) ", "Q1: ", "Question 1: "
-      const qMatch = trimmed.match(/^(?:\d+[.):]|Question\s+\d+:|Q\d+:)\s*(.*)/i);
-      if (qMatch) {
-        if (currentQuestion && currentQuestion.question) {
-          questions.push(currentQuestion);
-        }
-        currentQuestion = {
-          id: Date.now() + idx,
-          question: qMatch[1].trim(),
-          options: { a: '', b: '', c: '', d: '' },
-          correct_answer: 'a',
-          explanation: '',
-          status: 'PENDING',
-          optionImages: { a: null, b: null, c: null, d: null },
-          questionImage: null,
-          explanationImage: null,
-          subcategory: subtopicId || topicId
-        };
-        return;
-      }
-
+    const finalizeQuestion = () => {
       if (!currentQuestion) return;
 
-      // Ignore common labels that shouldn't be part of question or options
-      if (trimmed.match(/^(?:Options|Choices|Select the correct option|Select one):?\s*$/i)) {
+      currentQuestion.question = normalizeLine(currentQuestion.question);
+      currentQuestion.explanation = normalizeLine(currentQuestion.explanation);
+      currentQuestion.options = {
+        a: normalizeLine(currentQuestion.options.a),
+        b: normalizeLine(currentQuestion.options.b),
+        c: normalizeLine(currentQuestion.options.c),
+        d: normalizeLine(currentQuestion.options.d)
+      };
+
+      if (currentQuestion.question) {
+        questions.push(currentQuestion);
+      }
+    };
+
+    const startQuestion = (questionText, idx) => {
+      finalizeQuestion();
+      currentQuestion = {
+        id: Date.now() + idx,
+        question: normalizeLine(questionText),
+        options: { a: '', b: '', c: '', d: '' },
+        correct_answer: 'a',
+        explanation: '',
+        status: 'PENDING',
+        optionImages: { a: null, b: null, c: null, d: null },
+        questionImage: null,
+        explanationImage: null,
+        subcategory: subtopicId || topicId
+      };
+      currentSection = 'question';
+      currentOptionKey = null;
+    };
+
+    lines.forEach((line, idx) => {
+      const trimmed = normalizeLine(line);
+      if (!trimmed && !currentQuestion) return;
+
+      // Detect question start: "1. ", "1) ", "Q1: ", "Question 1: ", "கேள்வி 1: "
+      const qMatch = trimmed.match(QUESTION_START_REGEX);
+      if (qMatch) {
+        startQuestion(trimmed.slice(qMatch[0].length), idx);
         return;
       }
 
-      // Detect options: "a) ", "a. ", "(a) ", "A) ", "A. "
-      const optMatch = trimmed.match(/^[[(]?([a-d])[\]).:\s]+(.*)/i);
-      if (optMatch) {
-        const letter = optMatch[1].toLowerCase();
-        currentQuestion.options[letter] = optMatch[2].trim();
+      if (!currentQuestion) {
+        const fallbackQuestionLike = trimmed.match(
+          /^(?:what|which|who|whom|whose|why|how|when|where|explain|describe|define|discuss|compare|prove|show|list|name|mention|state|write|calculate|derive|கேள்வி|என்ன|எப்படி|ஏன்|விளக்குக|வரையறு|விவரி)\b/i
+        );
+
+        if (fallbackQuestionLike) {
+          startQuestion(trimmed, idx);
+        } else {
+          return;
+        }
+      }
+
+      const hasOptionsLabel = OPTIONS_LABEL_REGEX.test(trimmed);
+      if (hasOptionsLabel) {
+        currentSection = 'options';
+        currentOptionKey = null;
+      }
+
+      const answerLabelMatch = trimmed.match(ANSWER_LABEL_REGEX);
+      if (answerLabelMatch) {
+        const answerValue = trimmed.slice(answerLabelMatch[0].length);
+        const parsedAnswer = extractOptionKeyFromText(answerValue);
+        if (parsedAnswer) {
+          currentQuestion.correct_answer = parsedAnswer;
+        }
+        currentSection = 'answer';
+        currentOptionKey = null;
         return;
       }
 
-      // Detect answer: "Answer: b", "Correct Answer: b", "Ans: b"
-      // const ansMatch = trimmed.match(/(?:Answer|Correct Answer|Ans|Correct Option)\s*[:-\s]+\s*[([\s]*([a-d])(?:\s*[\)\.\,\]]|\s|$)/i);
-      const ansMatch = trimmed.match(/(?:Answer|Correct Answer|Ans|Correct Option)\s*[:-\s]+\s*[([\s]*([a-d])(?:\s*[).,\]]|\s|$)/i);
-      if (ansMatch) {
-        currentQuestion.correct_answer = ansMatch[1].toLowerCase();
+      const explanationLabelMatch = trimmed.match(EXPLANATION_LABEL_REGEX);
+      if (explanationLabelMatch) {
+        currentQuestion.explanation = appendText(
+          currentQuestion.explanation,
+          trimmed.slice(explanationLabelMatch[0].length)
+        );
+        currentSection = 'explanation';
+        currentOptionKey = null;
         return;
       }
 
-      // Detect explanation: "Explanation: ...", "Exp: ..."
-      const expMatch = trimmed.match(/^(?:Explanation|Exp|Detailed Explanation)\s*[:-\s]+(.*)/i);
-      if (expMatch) {
-        currentQuestion.explanation = expMatch[1].trim();
+      const optionTokens = parseInlineOptions(trimmed);
+      if (optionTokens.length > 0) {
+        optionTokens.forEach((token) => {
+          currentQuestion.options[token.key] = appendText(currentQuestion.options[token.key], token.text);
+          currentOptionKey = token.key;
+        });
+        currentSection = 'options';
+        return;
+      }
+
+      if (hasOptionsLabel) {
         return;
       }
 
       if (trimmed) {
-        if (!currentQuestion.options.a) {
-          currentQuestion.question += ' ' + trimmed;
-        } else if (currentQuestion.explanation) {
-          currentQuestion.explanation += ' ' + trimmed;
-        } else if (currentQuestion.options.d) {
-          if (!currentQuestion.explanation) {
-             currentQuestion.explanation = trimmed;
-          } else {
-             currentQuestion.explanation += ' ' + trimmed;
-          }
+        if (currentSection === 'question' || (!currentQuestion.options.a && !currentQuestion.options.b && !currentQuestion.options.c && !currentQuestion.options.d && currentSection !== 'explanation')) {
+          currentQuestion.question = appendText(currentQuestion.question, trimmed);
+        } else if (currentSection === 'explanation') {
+          currentQuestion.explanation = appendText(currentQuestion.explanation, trimmed);
+        } else if (currentSection === 'options' && currentOptionKey) {
+          currentQuestion.options[currentOptionKey] = appendText(currentQuestion.options[currentOptionKey], trimmed);
+        } else if (!currentQuestion.explanation && currentQuestion.options.d) {
+          currentQuestion.explanation = appendText(currentQuestion.explanation, trimmed);
         }
       }
     });
 
-    if (currentQuestion && currentQuestion.question) {
-      questions.push(currentQuestion);
-    }
+    finalizeQuestion();
 
     if (questions.length === 0) {
       alert('Could not find any questions in the pasted content. Please ensure questions are numbered (e.g., 1. What is...) and options are labeled (a, b, c, d).');
@@ -487,10 +710,11 @@ function AIGenerator() {
             <div key={q.id} className={`question-card ${q.status.toLowerCase()}`}>
               <div className="question-header">
                 <h3>Question {idx + 1}</h3>
-                <span className={`status-badge ${q.status.toLowerCase()}`}>{q.status}</span>
+                <span className={`status-badge ${q.status.toLowerCase()}`}>
+                  {q.status}
+                </span>
               </div>
               
-              <div className="question-topic">[{q.subcategory}]</div>
               
               <div className="edit-form">
                 {/* Question Section */}
