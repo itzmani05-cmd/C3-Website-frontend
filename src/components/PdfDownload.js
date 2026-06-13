@@ -16,12 +16,10 @@ function PdfDownload() {
   const [loadingQuestions, setLoadingQuestions] = useState(false);
   const [questionsError, setQuestionsError] = useState('');
 
-  // Assessment Settings
-  const [examTitle, setExamTitle] = useState('C³ Institute - Assessment Test');
+  const [examTitle, setExamTitle] = useState('C³ - Assessment Test');
   const [examSubtitle, setExamSubtitle] = useState('Duration: 1.5 Hours | Max Marks: 50');
-  const [instructions, setInstructions] = useState('1. Attempt all questions.\n2. Each question carries equal marks.\n3. Do not open the booklet until instructed.');
-  
-  // Layout Options
+  const [instructions, setInstructions] = useState('1. Attempt all questions.\n2. Each question carries equal marks.');
+
   const [layoutColumns, setLayoutColumns] = useState('1'); // '1' or '2'
   const [fontSize, setFontSize] = useState('medium'); // 'small', 'medium', 'large'
   const [answerDisplay, setAnswerDisplay] = useState('end-key'); // 'none', 'each', 'end-key', 'end-explanations'
@@ -43,7 +41,6 @@ function PdfDownload() {
     loadCurriculum();
   }, []);
 
-  // Fetch questions when filters change
   useEffect(() => {
     const fetchQuestions = async () => {
       setLoadingQuestions(true);
@@ -140,13 +137,13 @@ function PdfDownload() {
   const selectedTopic = topics.find(t => t._id === topicId);
   const subtopics = selectedTopic ? selectedTopic.subtopics : [];
 
-  // Filtered list of questions to print
   const printableQuestions = questions.filter(q => selectedQuestionIds.has(q._id));
 
   return (
     <div className="pdf-generator-container">
-      {/* Configuration Panel - Hidden in Print View */}
+      {/* Left Side Content */}
       <div className="config-panel no-print">
+
         <div className="config-section">
           <h3>1. Filter Questions</h3>
           
@@ -183,8 +180,6 @@ function PdfDownload() {
               </select>
             </div>
           </div>
-
-          {/* Question status and type filters removed per user request */}
         </div>
 
         <div className="config-section">
@@ -296,13 +291,8 @@ function PdfDownload() {
         </div>
       </div>
 
-      {/* Assessment Live Preview - Prints Out and Displays In App */}
+      {/* Right Side Content */}
       <div className={`assessment-preview-panel font-size-${fontSize}`}>
-        <div className="preview-header no-print">
-          <h3>Assessment Live Preview</h3>
-          <span className="preview-badge">PDF Page Layout</span>
-        </div>
-
         {printableQuestions.length === 0 ? (
           <div className="no-questions-placeholder">
             <div className="placeholder-icon">📄</div>
@@ -311,10 +301,25 @@ function PdfDownload() {
           </div>
         ) : (
           <div className="assessment-document">
-            {/* Exam Header */}
             <div className="document-header">
               <h1 className="doc-title">{examTitle}</h1>
               <p className="doc-subtitle">{examSubtitle}</p>
+              <div className="curriculum-header">
+                <p>
+                  <strong>
+                    {selectedUnit?.name || "All Units"}
+                  </strong>
+
+                  {selectedTopic?.name &&
+                    topicId !== 'all' &&
+                    ` - ${selectedTopic.name}`}
+
+                  {subtopicId !== 'all' &&
+                    subtopicId &&
+                    subtopics.find(st => st._id === subtopicId)?.name &&
+                    ` (${subtopics.find(st => st._id === subtopicId)?.name})`}
+                </p>
+              </div>
               {instructions && (
                 <div className="doc-instructions">
                   <strong>General Instructions:</strong>

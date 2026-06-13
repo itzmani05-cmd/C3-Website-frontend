@@ -25,10 +25,10 @@ function Login({ onLogin }) {
     <div className="login-container">
       <div className="login-box">
         <div className="login-brand">
-          <img src="/C3AppLogo.png" alt="C³ Institute logo" className="login-logo" />
+          <img src="/C3AppLogo.png" alt="C³ logo" className="login-logo" />
         </div>
         <h1>Admin Login</h1>
-        <h2>C³ Institute</h2>
+        <h2>C³</h2>
 
         {error && <div className="error-message">{error}</div>}
 
