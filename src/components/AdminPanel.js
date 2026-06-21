@@ -4,18 +4,16 @@ import AIGenerator from './AIGenerator';
 import PdfDownload from './PdfDownload';
 
 function AdminPanel({ onLogout }) {
-  const [activeTab, setActiveTab] = useState('add');
+  const [activeTab, setActiveTab] = useState('ai');
 
   const renderContent = () => {
     switch (activeTab) {
-      case 'add':
-        return <AddQuestion />;
       case 'ai':
         return <AIGenerator />;
       case 'pdf':
         return <PdfDownload />;
       default:
-        return <AddQuestion />;
+        return <AIGenerator />;
     }
   };
 
