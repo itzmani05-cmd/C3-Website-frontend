@@ -120,14 +120,54 @@ function AIGenerator() {
     if (/match\s+the\s+following/i.test(text)) {
       text = text
         .replace(/match\s+the\s+following[.:]?\s*/i, 'Match the following.\n')
-        .replace(/\s+(?=List\s+I{1,2}\b)/gi, '\n');
+        .replace(/\s*(\/\s*பின்வருவனவற்றைப்\s*பொருத்துக[.:]?)\s*/iu, ' $1\n')
+        .replace(/\s+(?=List\s+I{1,2}\b)/gi, '\n')
+        .replace(/(List\s+I\b)[.:]?\s*/i, '$1\n')
+        .replace(/\s+(?=[A-D]\s*[.)]\s*)/g, '\n');
+
+      const listTwoMatch = text.match(/\bList\s+II\b[.:]?\s*/i);
+      if (listTwoMatch) {
+        const listTwoStart = listTwoMatch.index;
+        const listTwoBodyStart = listTwoStart + listTwoMatch[0].length;
+        const beforeListTwo = text.slice(0, listTwoStart).trimEnd();
+        let listTwoBody = text.slice(listTwoBodyStart).trim();
+
+        listTwoBody = listTwoBody
+          .replace(/\s+(?=(?:[1-4]|[A-D])\s*[.)]\s*)/g, '\n')
+          .replace(/([\u0B80-\u0BFF])\s+(?=[A-Za-z])/gu, '$1\n');
+
+        const listTwoItems = listTwoBody
+          .split('\n')
+          .map((item) => item.trim())
+          .filter(Boolean)
+          .map((item, index) => /^(?:[1-4]|[A-D])\s*[.)]/i.test(item)
+            ? item
+            : `${index + 1}. ${item}`);
+
+        text = `${beforeListTwo}\nList II\n${listTwoItems.join('\n')}`;
+      }
     }
 
     if (/assertion\s*[–—-]\s*reason|assertion\s*\(A\)|reason\s*\(R\)/i.test(text)) {
       text = text
         .replace(/assertion\s*[–—-]\s*reason(?:\s+questions?)?[.:]?\s*/i, 'Assertion–Reason Questions:\n\n')
-        .replace(/\s+(?=Assertion\s*\(A\)\s*:)/i, '\n')
-        .replace(/\s+(?=Reason\s*\(R\)\s*:)/i, '\n');
+        .replace(/\s*(?=Assertion\s*(?:\([Aஅ]\))?\s*:)/gi, '\n')
+        .replace(/\s+(?=Reason\s*(?:\([Rக]\))?\s*:)/gi, '\n')
+        .replace(/\s*(?=கூற்று\s*(?:\([Aஅ]\))?\s*:)/gu, '\n')
+        .replace(/\s+(?=காரணம்\s*(?:\([Rக]\))?\s*:)/gu, '\n');
+    }
+
+    const isStatementQuestion =
+      /\b(?:consider\s+the\s+following\s+statements?|statements?)\b/i.test(text) ||
+      /பின்வரும்\s+கூற்றுகள|கூற்றுகளைக்\s+கவனியுங்கள்/u.test(text);
+
+    if (isStatementQuestion) {
+      text = text
+        .replace(/\s+(?=\/\s*பின்வரும்\s+கூற்றுகள)/u, '\n\n')
+        .replace(/\s+(?=பின்வரும்\s+கூற்றுகள)/u, '\n\n')
+        .replace(/\s+(?=[1-9]\d*\s*[.)]\s*(?:[A-Za-z\u0B80-\u0BFF]))/gu, '\n')
+        .replace(/\s+(?=Statements?\s*(?:\(?I{1,3}\)?|\(?[1-3]\)?)\s*[:.)-])/gi, '\n')
+        .replace(/\s+(?=Statement\s+(?:I{1,3}|[1-3])\b)/gi, '\n');
     }
 
     return text.replace(/\n{3,}/g, '\n\n').trim();
@@ -137,6 +177,12 @@ function AIGenerator() {
     if (/match\s+the\s+following/i.test(question || '')) return 'Match the Following';
     if (/assertion\s*[–—-]\s*reason|assertion\s*\(A\)|reason\s*\(R\)/i.test(question || '')) {
       return 'Assertion-Reason';
+    }
+    if (
+      /\b(?:consider\s+the\s+following\s+statements?|statements?)\b/i.test(question || '') ||
+      /பின்வரும்\s+கூற்றுகள|கூற்றுகளைக்\s+கவனியுங்கள்/u.test(question || '')
+    ) {
+      return 'Statement type (True/False)';
     }
     return 'Theory-based MCQ';
   };
@@ -647,41 +693,60 @@ function AIGenerator() {
   const progressPct = Math.min(100, (questionCount / 25) * 100);
 
   return (
-    <div className="tab-content">
-      <h2>Question Extractor</h2>
+    <div className="tab-content extractor-page">
+      <div className="extractor-hero">
+        <div>
+          <span className="extractor-eyebrow">Question workspace</span>
+          <h2>Question Extractor</h2>
+          <p>Bring in your questions, give them a quick review, and add them to the question bank when they look right.</p>
+        </div>
+        <div className="extractor-summary">
+          <strong>{batch.length}</strong>
+          <span>In review</span>
+        </div>
+      </div>
 
-      <div className={`form-row ${subtopics.length > 0 ? 'three-col' : 'two-col'}`}>
-        <div className="form-group">
-          <label>Select Unit</label>
-          <select value={unitId} onChange={(e) => setUnitId(e.target.value)}>
-            {units.map(u => <option key={u._id} value={u._id}>{u.name}</option>)}
-          </select>
+      <div className="extractor-setup">
+        <div className="extractor-section-heading">
+          <span>01</span>
+          <div>
+            <h3>Choose destination</h3>
+            <p>Where should these questions live?</p>
+          </div>
         </div>
-        <div className="form-group">
-          <label>Select Topic</label>
-          <select value={topicId} onChange={(e) => setTopicId(e.target.value)}>
-            {topics.map(t => <option key={t._id} value={t._id}>{t.name}</option>)}
-          </select>
-        </div>
-        {subtopics.length > 0 && (
+        <div className={`form-row ${subtopics.length > 0 ? 'three-col' : 'two-col'}`}>
           <div className="form-group">
-            <label>Select Subtopic</label>
-            <select value={subtopicId} onChange={(e) => setSubtopicId(e.target.value)}>
-              {subtopics.map(st => <option key={st._id} value={st._id}>{st.name}</option>)}
+            <label>Unit</label>
+            <select value={unitId} onChange={(e) => setUnitId(e.target.value)}>
+              {units.map(u => <option key={u._id} value={u._id}>{u.name}</option>)}
             </select>
           </div>
-        )}
+          <div className="form-group">
+            <label>Topic</label>
+            <select value={topicId} onChange={(e) => setTopicId(e.target.value)}>
+              {topics.map(t => <option key={t._id} value={t._id}>{t.name}</option>)}
+            </select>
+          </div>
+          {subtopics.length > 0 && (
+            <div className="form-group">
+              <label>Subtopic</label>
+              <select value={subtopicId} onChange={(e) => setSubtopicId(e.target.value)}>
+                {subtopics.map(st => <option key={st._id} value={st._id}>{st.name}</option>)}
+              </select>
+            </div>
+          )}
+        </div>
       </div>
 
       <div className="progress-container">
         <div className="progress-header">
           <span className="progress-title">
-            Live Pulse: {subtopicId
+            Progress for {subtopicId
               ? subtopics.find(st => st._id === subtopicId)?.name
               : selectedTopic?.name || ''}
           </span>
           <span className={`progress-count ${questionCount >= 25 ? 'complete' : ''}`}>
-            {questionCount} / 25 Questions Verified
+            {questionCount} of 25 questions ready
           </span>
         </div>
         <div className="progress-bar">
@@ -691,30 +756,36 @@ function AIGenerator() {
           />
         </div>
         {questionCount >= 25 ? (
-          <div className="progress-note success">Subtopic Complete!</div>
+          <div className="progress-note success">This subtopic is ready to go.</div>
         ) : (
-          <div className="progress-note muted">Add {25 - questionCount} more to unlock for students.</div>
+          <div className="progress-note muted">{25 - questionCount} more {25 - questionCount === 1 ? 'question' : 'questions'} to complete this set.</div>
         )}
       </div>
 
-      <div className="form-group">
-        <label>Paste Questions</label>
+      <div className="extractor-compose">
+        <div className="extractor-section-heading">
+          <span>02</span>
+          <div>
+            <h3>Paste source content</h3>
+            <p>Paste what you have—we’ll organize numbered questions and choices A–D for you.</p>
+          </div>
+        </div>
         <textarea
           value={pastedContent}
           onChange={(e) => setPastedContent(e.target.value)}
           rows={10}
-          placeholder={`Paste your questions here...`}
+          placeholder={"1. Enter the question here\n(a) First option  (b) Second option  (c) Third option  (d) Fourth option\nAnswer: a\nExplanation: Add an explanation here"}
         />
-      </div>
-
-      <div className="action-row">
-        <button
-          className="btn-primary"
-          onClick={handleQuickExtract}
-          disabled={loading}
-        >
-          {loading ? 'Processing...' : 'Extract'}
-        </button>
+        <div className="extractor-compose-footer">
+          <span>{pastedContent.length.toLocaleString()} characters</span>
+          <button
+            className="btn-primary extractor-button"
+            onClick={handleQuickExtract}
+            disabled={loading || !pastedContent.trim()}
+          >
+            {loading ? 'Processing...' : 'Extract questions'}
+          </button>
+        </div>
       </div>
 
 
@@ -726,24 +797,30 @@ function AIGenerator() {
 
       {batch.length > 0 && (
         <>
-          <div className="action-row">
-            <button className="btn-secondary" onClick={addManualQuestion}>
-              Add Question
-            </button>
-            <button className="btn-primary" onClick={saveAll} disabled={loading}>
-              {loading ? 'Saving...' : 'Save Everything'}
-            </button>
-            <button className="btn-danger" onClick={clearBatch}>
-              Clear List
-            </button>
+          <div className="extractor-review-toolbar">
+            <div>
+              <span className="extractor-eyebrow">Review queue</span>
+              <h3>{batch.length} {batch.length === 1 ? 'question' : 'questions'} ready to review</h3>
+            </div>
+            <div className="action-row">
+              <button className="btn-secondary" onClick={addManualQuestion}>+ Add question</button>
+              <button className="btn-primary" onClick={saveAll} disabled={loading}>
+                {loading ? 'Saving...' : 'Save all'}
+              </button>
+              <button className="btn-text-danger" onClick={clearBatch}>Clear queue</button>
+            </div>
           </div>
-
-          <h3 className="review-section-title">Review Mode & Question Management</h3>
 
           {batch.map((q, idx) => (
             <div key={q.id} className={`question-card ${q.status.toLowerCase()}`}>
               <div className="question-header">
-                <h3>Question {idx + 1}</h3>
+                <div className="question-heading">
+                  <span>{String(idx + 1).padStart(2, '0')}</span>
+                  <div>
+                    <h3>Question {idx + 1}</h3>
+                    <p>{detectQuestionType(q.question)}</p>
+                  </div>
+                </div>
                 <span className={`status-badge ${q.status.toLowerCase()}`}>
                   {q.status}
                 </span>
@@ -876,7 +953,7 @@ function AIGenerator() {
                 <button className="btn-danger" onClick={() => setStatus(q.id, 'REJECTED')}>
                   Reject
                 </button>
-                <button className="btn-danger" onClick={() => deleteQuestion(q.id)}>
+                <button className="btn-text-danger" onClick={() => deleteQuestion(q.id)}>
                   Delete
                 </button>
               </div>
