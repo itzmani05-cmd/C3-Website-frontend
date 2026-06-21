@@ -108,6 +108,39 @@ function AIGenerator() {
     return `${base} ${extra}`.replace(/\s+/g, ' ').trim();
   };
 
+  const formatSpecialQuestion = (value) => {
+    let text = (value || '')
+      .normalize('NFKC')
+      .replace(/\u00a0/g, ' ')
+      .replace(/\r\n?/g, '\n')
+      .replace(/[ \t]+/g, ' ')
+      .replace(/ *\n */g, '\n')
+      .trim();
+
+    if (/match\s+the\s+following/i.test(text)) {
+      text = text
+        .replace(/match\s+the\s+following[.:]?\s*/i, 'Match the following.\n')
+        .replace(/\s+(?=List\s+I{1,2}\b)/gi, '\n');
+    }
+
+    if (/assertion\s*[–—-]\s*reason|assertion\s*\(A\)|reason\s*\(R\)/i.test(text)) {
+      text = text
+        .replace(/assertion\s*[–—-]\s*reason(?:\s+questions?)?[.:]?\s*/i, 'Assertion–Reason Questions:\n\n')
+        .replace(/\s+(?=Assertion\s*\(A\)\s*:)/i, '\n')
+        .replace(/\s+(?=Reason\s*\(R\)\s*:)/i, '\n');
+    }
+
+    return text.replace(/\n{3,}/g, '\n\n').trim();
+  };
+
+  const detectQuestionType = (question) => {
+    if (/match\s+the\s+following/i.test(question || '')) return 'Match the Following';
+    if (/assertion\s*[–—-]\s*reason|assertion\s*\(A\)|reason\s*\(R\)/i.test(question || '')) {
+      return 'Assertion-Reason';
+    }
+    return 'Theory-based MCQ';
+  };
+
   const OPTION_TOKEN_MAP = {
     a: 'a',
     b: 'b',
@@ -207,7 +240,7 @@ function AIGenerator() {
 
     if (!optionsMatch) return null;
 
-    const questionText = compactBlock.slice(0, optionsMatch.index).trim();
+    const questionText = formatSpecialQuestion(compactBlock.slice(0, optionsMatch.index));
     const optionsStart = optionsMatch.index + optionsMatch[0].length;
     const optionsEnd = [answerMatch?.index, explanationMatch?.index, compactBlock.length]
       .filter((value) => typeof value === 'number' && value >= optionsStart)
@@ -306,7 +339,7 @@ function AIGenerator() {
     const finalizeQuestion = () => {
       if (!currentQuestion) return;
 
-      currentQuestion.question = normalizeLine(currentQuestion.question);
+      currentQuestion.question = formatSpecialQuestion(currentQuestion.question);
       currentQuestion.explanation = normalizeLine(currentQuestion.explanation);
       currentQuestion.options = {
         a: normalizeLine(currentQuestion.options.a),
@@ -380,7 +413,8 @@ function AIGenerator() {
       }
 
       const explanationLabelMatch = trimmed.match(EXPLANATION_LABEL_REGEX);
-      if (explanationLabelMatch) {
+      const isAssertionReasonLine = /^reason\s*\(R\)\s*:/i.test(trimmed);
+      if (explanationLabelMatch && !isAssertionReasonLine) {
         currentQuestion.explanation = appendText(
           currentQuestion.explanation,
           trimmed.slice(explanationLabelMatch[0].length)
@@ -484,7 +518,7 @@ function AIGenerator() {
         unitId,
         topicId,
         subtopicId,
-        type: 'Theory-based MCQ',
+        type: detectQuestionType(q.question),
         question: q.question,
         questionImage: q.questionImage,
         options: q.options,
@@ -521,7 +555,7 @@ function AIGenerator() {
           unitId,
           topicId,
           subtopicId,
-          type: 'Theory-based MCQ',
+          type: detectQuestionType(q.question),
           question: q.question,
           questionImage: q.questionImage,
           options: q.options,

@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import api from '../api';
 
 function Login({ onLogin }) {
+  const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
@@ -12,7 +13,7 @@ function Login({ onLogin }) {
     setError('');
 
     try {
-      const response = await api.post('/api/auth/login', { password });
+      const response = await api.post('/api/auth/login', { email, password });
       onLogin(response.data.token);
     } catch (err) {
       setError(err.response?.data?.message || 'Login failed');
@@ -34,8 +35,15 @@ function Login({ onLogin }) {
 
         <form onSubmit={handleSubmit}>
           <input
+            type="email"
+            placeholder="Enter Email"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            required
+          />
+          <input
             type="password"
-            placeholder="Enter Admin Password"
+            placeholder="Enter Password"
             value={password}
             onChange={(e) => setPassword(e.target.value)}
             required
