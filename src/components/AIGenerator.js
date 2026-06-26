@@ -94,7 +94,7 @@ function AIGenerator() {
 
   const normalizeLine = (value) => {
     return (value || '')
-      .normalize('NFKC')
+      .normalize('NFC')
       .replace(/\u00a0/g, ' ')
       .replace(/\s+/g, ' ')
       .trim();
@@ -110,7 +110,7 @@ function AIGenerator() {
 
   const formatSpecialQuestion = (value) => {
     let text = (value || '')
-      .normalize('NFKC')
+      .normalize('NFC')
       .replace(/\u00a0/g, ' ')
       .replace(/\r\n?/g, '\n')
       .replace(/[ \t]+/g, ' ')
@@ -205,7 +205,13 @@ function AIGenerator() {
 
   const normalizeOptionKey = (value) => {
     if (value === null || value === undefined) return null;
-    const token = normalizeLine(value).replace(/[()[\].:]/g, '').toLowerCase();
+    const token = (value || '')
+      .normalize('NFKC')
+      .replace(/\u00a0/g, ' ')
+      .replace(/\s+/g, ' ')
+      .trim()
+      .replace(/[()[\].:]/g, '')
+      .toLowerCase();
     if (!token) return null;
     return OPTION_TOKEN_MAP[token] || null;
   };
