@@ -1,5 +1,4 @@
 import React, { useState } from 'react';
-import AddQuestion from './AddQuestion';
 import AIGenerator from './AIGenerator';
 import PdfDownload from './PdfDownload';
 
@@ -25,18 +24,9 @@ function AdminPanel({ onLogout }) {
             <img src="/C3AppLogo.png" alt="C³ Institute logo" className="logo-image" />
           </div>
           <h2>Admin Portal</h2>
-          <p className="sidebar-subtitle">Question Management System</p>
         </div>
 
         <nav className="sidebar-nav">
-          <button
-            className={`nav-btn ${activeTab === 'add' ? 'active' : ''}`}
-            onClick={() => setActiveTab('add')}
-          >
-            <span className="nav-icon">+</span>
-            Add Question
-          </button>
-
           <button
             className={`nav-btn ${activeTab === 'ai' ? 'active' : ''}`}
             onClick={() => setActiveTab('ai')}
@@ -70,15 +60,6 @@ function AdminPanel({ onLogout }) {
       </aside>
 
       <main className="main-content">
-        <header className="main-header">
-          <div className="header-title">
-            <h1>Dashboard</h1>
-            <p className="header-subtitle">Manage and organize your question bank</p>
-          </div>
-          <div className="header-meta">
-            <span className="institute-badge">C³ Institute</span>
-          </div>
-        </header>
         {renderContent()}
       </main>
     </div>

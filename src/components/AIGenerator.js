@@ -696,13 +696,7 @@ function AIGenerator() {
     <div className="tab-content extractor-page">
       <div className="extractor-hero">
         <div>
-          <span className="extractor-eyebrow">Question workspace</span>
           <h2>Question Extractor</h2>
-          <p>Bring in your questions, give them a quick review, and add them to the question bank when they look right.</p>
-        </div>
-        <div className="extractor-summary">
-          <strong>{batch.length}</strong>
-          <span>In review</span>
         </div>
       </div>
 
@@ -711,7 +705,6 @@ function AIGenerator() {
           <span>01</span>
           <div>
             <h3>Choose destination</h3>
-            <p>Where should these questions live?</p>
           </div>
         </div>
         <div className={`form-row ${subtopics.length > 0 ? 'three-col' : 'two-col'}`}>
@@ -767,17 +760,15 @@ function AIGenerator() {
           <span>02</span>
           <div>
             <h3>Paste source content</h3>
-            <p>Paste what you have—we’ll organize numbered questions and choices A–D for you.</p>
           </div>
         </div>
         <textarea
           value={pastedContent}
           onChange={(e) => setPastedContent(e.target.value)}
-          rows={10}
-          placeholder={"1. Enter the question here\n(a) First option  (b) Second option  (c) Third option  (d) Fourth option\nAnswer: a\nExplanation: Add an explanation here"}
+          rows={3}
+          placeholder={"Enter the questions here"}
         />
         <div className="extractor-compose-footer">
-          <span>{pastedContent.length.toLocaleString()} characters</span>
           <button
             className="btn-primary extractor-button"
             onClick={handleQuickExtract}
