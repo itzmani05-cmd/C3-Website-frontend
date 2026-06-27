@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import AIGenerator from './AIGenerator';
 import PdfDownload from './PdfDownload';
+import QuestionFix from './QuestionFix';
 
 function AdminPanel({ onLogout }) {
   const [activeTab, setActiveTab] = useState('ai');
@@ -11,6 +12,8 @@ function AdminPanel({ onLogout }) {
         return <AIGenerator />;
       case 'pdf':
         return <PdfDownload />;
+      case 'fix':
+        return <QuestionFix />;
       default:
         return <AIGenerator />;
     }
@@ -41,6 +44,14 @@ function AdminPanel({ onLogout }) {
           >
             <span className="nav-icon">PDF</span>
             PDF Download
+          </button>
+
+          <button
+            className={`nav-btn ${activeTab === 'fix' ? 'active' : ''}`}
+            onClick={() => setActiveTab('fix')}
+          >
+            <span className="nav-icon">Fix</span>
+            Question Fix
           </button>
         </nav>
 
