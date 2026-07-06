@@ -169,6 +169,7 @@ function TestArea({ onLogout }) {
       if (navigator.onLine) syncAnswersWithBackend(answers, unsyncedAnswers);
     }, 3000);
     return () => { if (syncTimeoutRef.current) clearTimeout(syncTimeoutRef.current); };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [unsyncedAnswers, examStarted]);
 
   // ─────────────────────────────────────────────────────────────────────────
