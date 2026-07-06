@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import api from '../api';
-import { BACKEND_URL } from '../config';
+import { detectQuestionType, normalizeOptionKey } from '../components/helpers';
+import QuestionForm from '../components/QuestionForm';
 
 function AIGenerator() {
   const [curriculum, setCurriculum] = useState([]);
@@ -10,6 +11,10 @@ function AIGenerator() {
   const [curriculumLoading, setCurriculumLoading] = useState(true);
   const [curriculumError, setCurriculumError] = useState('');
 
+  const [destinationMode, setDestinationMode] = useState('curriculum'); // 'curriculum' or 'test'
+  const [tests, setTests] = useState([]);
+  const [selectedTestId, setSelectedTestId] = useState('');
+
   const [pastedContent, setPastedContent] = useState('');
   const [batch, setBatch] = useState([]);
   const [loading, setLoading] = useState(false);
@@ -17,14 +22,15 @@ function AIGenerator() {
   const [message, setMessage] = useState('');
 
   useEffect(() => {
-    const loadCurriculum = async () => {
+    const loadData = async () => {
       try {
-        const response = await api.get('/api/questions/curriculum');
-        const data = response.data || [];
-        setCurriculum(data);
+        // Load curriculum
+        const currResponse = await api.get('/api/questions/curriculum');
+        const currData = currResponse.data || [];
+        setCurriculum(currData);
 
-        if (data.length > 0) {
-          const firstUnit = data[0];
+        if (currData.length > 0) {
+          const firstUnit = currData[0];
           const firstTopic = firstUnit.topics?.[0];
           const firstSubtopic = firstTopic?.subtopics?.[0];
 
@@ -32,15 +38,23 @@ function AIGenerator() {
           if (firstTopic) setTopicId(firstTopic._id);
           if (firstSubtopic) setSubtopicId(firstSubtopic._id);
         }
+
+        // Load tests
+        const testsResponse = await api.get('/api/questions/tests');
+        const testsData = testsResponse.data || [];
+        setTests(testsData);
+        if (testsData.length > 0) {
+          setSelectedTestId(testsData[0]._id);
+        }
       } catch (error) {
-        setCurriculumError('Failed to load curriculum from server.');
-        console.error('Curriculum load error:', error);
+        setCurriculumError('Failed to load curriculum or tests from server.');
+        console.error('Data load error:', error);
       } finally {
         setCurriculumLoading(false);
       }
     };
 
-    loadCurriculum();
+    loadData();
   }, []);
 
   useEffect(() => {
@@ -65,6 +79,25 @@ function AIGenerator() {
   }, [topicId, curriculum, subtopicId, unitId]);
 
   const fetchQuestionCount = useCallback(async () => {
+    if (destinationMode === 'test') {
+      if (!selectedTestId) {
+        setQuestionCount(0);
+        return;
+      }
+      const selectedTest = tests.find(t => t._id === selectedTestId);
+      if (!selectedTest) {
+        setQuestionCount(0);
+        return;
+      }
+      try {
+        const response = await api.get(`/api/questions/exam/count?testName=${encodeURIComponent(selectedTest.name)}`);
+        setQuestionCount(response.data.count || 0);
+      } catch (error) {
+        console.error('Error fetching exam count:', error);
+      }
+      return;
+    }
+
     if (!topicId) {
       setQuestionCount(0);
       return;
@@ -80,17 +113,11 @@ function AIGenerator() {
     } catch (error) {
       console.error('Error fetching count:', error);
     }
-  }, [subtopicId, topicId]);
+  }, [destinationMode, selectedTestId, tests, topicId, subtopicId]);
 
   useEffect(() => {
     fetchQuestionCount();
   }, [fetchQuestionCount]);
-
-  const getImagePreview = (url) => {
-    if (!url) return null;
-    if (url.startsWith('data:')) return url;
-    return url.startsWith('http') ? url : `${BACKEND_URL}${url}`;
-  };
 
   const normalizeLine = (value) => {
     return (value || '')
@@ -173,48 +200,7 @@ function AIGenerator() {
     return text.replace(/\n{3,}/g, '\n\n').trim();
   };
 
-  const detectQuestionType = (question) => {
-    if (/match\s+the\s+following/i.test(question || '')) return 'Match the Following';
-    if (/assertion\s*[–—-]\s*reason|assertion\s*\(A\)|reason\s*\(R\)/i.test(question || '')) {
-      return 'Assertion-Reason';
-    }
-    if (
-      /\b(?:consider\s+the\s+following\s+statements?|statements?)\b/i.test(question || '') ||
-      /பின்வரும்\s+கூற்றுகள|கூற்றுகளைக்\s+கவனியுங்கள்/u.test(question || '')
-    ) {
-      return 'Statement type (True/False)';
-    }
-    return 'Theory-based MCQ';
-  };
 
-  const OPTION_TOKEN_MAP = {
-    a: 'a',
-    b: 'b',
-    c: 'c',
-    d: 'd',
-    1: 'a',
-    2: 'b',
-    3: 'c',
-    4: 'd',
-    'அ': 'a',
-    'ஆ': 'b',
-    'இ': 'c',
-    'ஈ': 'd'
-  };
-
-
-  const normalizeOptionKey = (value) => {
-    if (value === null || value === undefined) return null;
-    const token = (value || '')
-      .normalize('NFKC')
-      .replace(/\u00a0/g, ' ')
-      .replace(/\s+/g, ' ')
-      .trim()
-      .replace(/[()[\].:]/g, '')
-      .toLowerCase();
-    if (!token) return null;
-    return OPTION_TOKEN_MAP[token] || null;
-  };
 
   const extractOptionKeyFromText = (value) => {
     const text = normalizeLine(value);
@@ -333,38 +319,6 @@ function AIGenerator() {
     };
   };
 
-  const normalizeCorrectAnswer = (val) => {
-    if (val === null || val === undefined) return 'a';
-    if (typeof val === 'number') return ['a', 'b', 'c', 'd'][val] || 'a';
-    
-    const str = normalizeLine(val).toLowerCase();
-    
-    // If it's a numeric string like "0", "1", "2", "3"
-    if (/^\d+$/.test(str)) {
-      return ['a', 'b', 'c', 'd'][parseInt(str)] || 'a';
-    }
-    
-    const directMatch = str.match(/^(?:\(?([a-d])\)?|\(?([1-4])\)?|([அஆஇஈ]))/iu);
-    if (directMatch) {
-      return normalizeOptionKey(directMatch[1] || directMatch[2] || directMatch[3]) || 'a';
-    }
-
-    const labeledMatch = str.match(
-      /^(?:answer|ans|correct answer|correct option|option|பதில்|சரியான பதில்|விடை)\s*[:\-–—]?\s*(?:\(?([a-d])\)?|\(?([1-4])\)?|([அஆஇஈ]))/iu
-    );
-    if (labeledMatch) {
-      return normalizeOptionKey(labeledMatch[1] || labeledMatch[2] || labeledMatch[3]) || 'a';
-    }
-    
-    // If it's something like "Option C", "Ans: B", "(a)", "a)"
-    const match = str.match(/\b([a-d])\b/i);
-    if (match) {
-      return match[0];
-    }
-    
-    return 'a';
-  };
-
   const handleQuickExtract = () => {
     if (!pastedContent.trim()) {
       alert('Please paste some content first!');
@@ -427,7 +381,6 @@ function AIGenerator() {
       const trimmed = normalizeLine(line);
       if (!trimmed && !currentQuestion) return;
 
-      // Detect question start: "1. ", "1) ", "Q1: ", "Question 1: ", "கேள்வி 1: "
       const qMatch = trimmed.match(QUESTION_START_REGEX);
       if (qMatch) {
         startQuestion(trimmed.slice(qMatch[0].length), idx);
@@ -531,19 +484,6 @@ function AIGenerator() {
     setBatch([newQ, ...batch]);
   };
 
-  const updateQuestion = (id, field, value) => {
-    setBatch(batch.map(q => q.id === id ? { ...q, [field]: value } : q));
-  };
-
-  const updateOption = (id, opt, value) => {
-    setBatch(batch.map(q => {
-      if (q.id === id) {
-        return { ...q, options: { ...q.options, [opt]: value } };
-      }
-      return q;
-    }));
-  };
-
   const setStatus = (id, status) => {
     if (status === 'APPROVED') {
       saveSingleQuestion(id);
@@ -566,23 +506,42 @@ function AIGenerator() {
 
     setLoading(true);
     try {
-      const questionData = {
-        unitId,
-        topicId,
-        subtopicId,
-        type: detectQuestionType(q.question),
-        question: q.question,
-        questionImage: q.questionImage,
-        options: q.options,
-        optionImages: q.optionImages,
-        correct_answer: q.correct_answer || 'a',
-        explanation: q.explanation,
-        explanationImage: q.explanationImage,
-        status: 'accepted',
-        is_published: false
-      };
-
-      await api.post('/api/questions', questionData);
+      if (destinationMode === 'test') {
+        const selectedTest = tests.find(t => t._id === selectedTestId);
+        if (!selectedTest) {
+          throw new Error('No test selected');
+        }
+        const questionData = {
+          testId: selectedTest._id,
+          testName: selectedTest.name,
+          type: detectQuestionType(q.question),
+          question: q.question,
+          questionImage: q.questionImage,
+          options: q.options,
+          optionImages: q.optionImages,
+          correct_answer: q.correct_answer || 'a',
+          explanation: q.explanation,
+          explanationImage: q.explanationImage
+        };
+        await api.post('/api/questions/exam', questionData);
+      } else {
+        const questionData = {
+          unitId,
+          topicId,
+          subtopicId,
+          type: detectQuestionType(q.question),
+          question: q.question,
+          questionImage: q.questionImage,
+          options: q.options,
+          optionImages: q.optionImages,
+          correct_answer: q.correct_answer || 'a',
+          explanation: q.explanation,
+          explanationImage: q.explanationImage,
+          status: 'accepted',
+          is_published: false
+        };
+        await api.post('/api/questions', questionData);
+      }
       setBatch(batch.filter(item => item.id !== id));
       setMessage('Question saved successfully!');
       fetchQuestionCount();
@@ -602,23 +561,45 @@ function AIGenerator() {
 
     setLoading(true);
     try {
-      for (const q of toSave) {
-        const questionData = {
-          unitId,
-          topicId,
-          subtopicId,
-          type: detectQuestionType(q.question),
-          question: q.question,
-          questionImage: q.questionImage,
-          options: q.options,
-          optionImages: q.optionImages,
-          correct_answer: q.correct_answer || 'a',
-          explanation: q.explanation,
-          explanationImage: q.explanationImage,
-          status: 'accepted',
-          is_published: false
-        };
-        await api.post('/api/questions', questionData);
+      if (destinationMode === 'test') {
+        const selectedTest = tests.find(t => t._id === selectedTestId);
+        if (!selectedTest) {
+          throw new Error('No test selected');
+        }
+        for (const q of toSave) {
+          const questionData = {
+            testId: selectedTest._id,
+            testName: selectedTest.name,
+            type: detectQuestionType(q.question),
+            question: q.question,
+            questionImage: q.questionImage,
+            options: q.options,
+            optionImages: q.optionImages,
+            correct_answer: q.correct_answer || 'a',
+            explanation: q.explanation,
+            explanationImage: q.explanationImage
+          };
+          await api.post('/api/questions/exam', questionData);
+        }
+      } else {
+        for (const q of toSave) {
+          const questionData = {
+            unitId,
+            topicId,
+            subtopicId,
+            type: detectQuestionType(q.question),
+            question: q.question,
+            questionImage: q.questionImage,
+            options: q.options,
+            optionImages: q.optionImages,
+            correct_answer: q.correct_answer || 'a',
+            explanation: q.explanation,
+            explanationImage: q.explanationImage,
+            status: 'accepted',
+            is_published: false
+          };
+          await api.post('/api/questions', questionData);
+        }
       }
       setMessage(`Successfully saved ${toSave.length} questions!`);
       setBatch([]);
@@ -628,48 +609,6 @@ function AIGenerator() {
     } finally {
       setLoading(false);
     }
-  };
-
-  const fileToBase64 = (file) => {
-    return new Promise((resolve, reject) => {
-      const reader = new FileReader();
-      reader.readAsDataURL(file);
-      reader.onload = () => resolve(reader.result);
-      reader.onerror = (error) => reject(error);
-    });
-  };
-
-  const handleImageUpload = async (e, id, type, opt = null) => {
-    const file = e.target.files[0];
-    if (!file) return;
-
-    try {
-      const base64Image = await fileToBase64(file);
-      const response = await api.post('/api/questions/upload', { image: base64Image });
-      const imageUrl = response.data.imageUrl;
-
-      setBatch(batch.map(q => {
-        if (q.id === id) {
-          if (type === 'question') return { ...q, questionImage: imageUrl };
-          if (type === 'explanation') return { ...q, explanationImage: imageUrl };
-          if (type === 'option') return { ...q, optionImages: { ...q.optionImages, [opt]: imageUrl } };
-        }
-        return q;
-      }));
-    } catch (error) {
-      alert('Image upload failed: ' + error.message);
-    }
-  };
-
-  const removeImage = (id, type, opt = null) => {
-    setBatch(batch.map(q => {
-      if (q.id === id) {
-        if (type === 'question') return { ...q, questionImage: null };
-        if (type === 'explanation') return { ...q, explanationImage: null };
-        if (type === 'option') return { ...q, optionImages: { ...q.optionImages, [opt]: null } };
-      }
-      return q;
-    }));
   };
 
   if (curriculumLoading) {
@@ -713,51 +652,106 @@ function AIGenerator() {
             <h3>Choose destination</h3>
           </div>
         </div>
-        <div className={`form-row ${subtopics.length > 0 ? 'three-col' : 'two-col'}`}>
-          <div className="form-group">
-            <label>Unit</label>
-            <select value={unitId} onChange={(e) => setUnitId(e.target.value)}>
-              {units.map(u => <option key={u._id} value={u._id}>{u.name}</option>)}
-            </select>
-          </div>
-          <div className="form-group">
-            <label>Topic</label>
-            <select value={topicId} onChange={(e) => setTopicId(e.target.value)}>
-              {topics.map(t => <option key={t._id} value={t._id}>{t.name}</option>)}
-            </select>
-          </div>
-          {subtopics.length > 0 && (
+
+        <div className="destination-toggle" style={{ display: 'flex', gap: '20px', marginBottom: '20px', padding: '0 8px' }}>
+          <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', fontWeight: 600, color: '#334155' }}>
+            <input
+              type="radio"
+              name="destinationMode"
+              value="curriculum"
+              checked={destinationMode === 'curriculum'}
+              onChange={() => setDestinationMode('curriculum')}
+              style={{ cursor: 'pointer' }}
+            />
+            Extract to Curriculum
+          </label>
+          <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', fontWeight: 600, color: '#334155' }}>
+            <input
+              type="radio"
+              name="destinationMode"
+              value="test"
+              checked={destinationMode === 'test'}
+              onChange={() => setDestinationMode('test')}
+              style={{ cursor: 'pointer' }}
+            />
+            Extract to Test
+          </label>
+        </div>
+
+        {destinationMode === 'curriculum' ? (
+          <div className={`form-row ${subtopics.length > 0 ? 'three-col' : 'two-col'}`}>
             <div className="form-group">
-              <label>Subtopic</label>
-              <select value={subtopicId} onChange={(e) => setSubtopicId(e.target.value)}>
-                {subtopics.map(st => <option key={st._id} value={st._id}>{st.name}</option>)}
+              <label>Unit</label>
+              <select value={unitId} onChange={(e) => setUnitId(e.target.value)}>
+                {units.map(u => <option key={u._id} value={u._id}>{u.name}</option>)}
               </select>
             </div>
-          )}
-        </div>
+            <div className="form-group">
+              <label>Topic</label>
+              <select value={topicId} onChange={(e) => setTopicId(e.target.value)}>
+                {topics.map(t => <option key={t._id} value={t._id}>{t.name}</option>)}
+              </select>
+            </div>
+            {subtopics.length > 0 && (
+              <div className="form-group">
+                <label>Subtopic</label>
+                <select value={subtopicId} onChange={(e) => setSubtopicId(e.target.value)}>
+                  {subtopics.map(st => <option key={st._id} value={st._id}>{st.name}</option>)}
+                </select>
+              </div>
+            )}
+          </div>
+        ) : (
+          <div className="form-row one-col">
+            <div className="form-group">
+              <label>Select Test Name</label>
+              {tests.length > 0 ? (
+                <select value={selectedTestId} onChange={(e) => setSelectedTestId(e.target.value)}>
+                  {tests.map(t => (
+                    <option key={t._id} value={t._id}>
+                      {t.name} {t.publishToStudent ? '(Published)' : '(Draft)'}
+                    </option>
+                  ))}
+                </select>
+              ) : (
+                <div style={{ color: '#ef4444', fontWeight: 500, padding: '8px 0' }}>
+                  No tests available. Please configure tests first.
+                </div>
+              )}
+            </div>
+          </div>
+        )}
       </div>
 
       <div className="progress-container">
         <div className="progress-header">
           <span className="progress-title">
-            Progress for {subtopicId
-              ? subtopics.find(st => st._id === subtopicId)?.name
-              : selectedTopic?.name || ''}
+            Progress for {destinationMode === 'test'
+              ? (tests.find(t => t._id === selectedTestId)?.name || 'Selected Test')
+              : (subtopicId
+                  ? subtopics.find(st => st._id === subtopicId)?.name
+                  : selectedTopic?.name || '')}
           </span>
-          <span className={`progress-count ${questionCount >= 25 ? 'complete' : ''}`}>
-            {questionCount} of 25 questions ready
+          <span className={`progress-count ${destinationMode !== 'test' && questionCount >= 25 ? 'complete' : ''}`}>
+            {questionCount} {destinationMode === 'test' ? 'questions' : 'of 25 questions'} ready
           </span>
         </div>
-        <div className="progress-bar">
-          <div
-            className={`progress-fill ${questionCount >= 25 ? 'complete' : ''}`}
-            style={{ width: `${progressPct}%` }}
-          />
-        </div>
-        {questionCount >= 25 ? (
-          <div className="progress-note success">This subtopic is ready to go.</div>
+        {destinationMode !== 'test' ? (
+          <>
+            <div className="progress-bar">
+              <div
+                className={`progress-fill ${questionCount >= 25 ? 'complete' : ''}`}
+                style={{ width: `${progressPct}%` }}
+              />
+            </div>
+            {questionCount >= 25 ? (
+              <div className="progress-note success">This subtopic is ready to go.</div>
+            ) : (
+              <div className="progress-note muted">{25 - questionCount} more {25 - questionCount === 1 ? 'question' : 'questions'} to complete this set.</div>
+            )}
+          </>
         ) : (
-          <div className="progress-note muted">{25 - questionCount} more {25 - questionCount === 1 ? 'question' : 'questions'} to complete this set.</div>
+          <div className="progress-note success">Questions will be saved into the ExamQuestions collection.</div>
         )}
       </div>
 
@@ -784,7 +778,6 @@ function AIGenerator() {
           </button>
         </div>
       </div>
-
 
       {message && (
         <div className={message.includes('Error') ? 'error-message' : 'success-message'}>
@@ -823,125 +816,12 @@ function AIGenerator() {
                 </span>
               </div>
               
-              
-              <div className="edit-form">
-                {/* Question Section */}
-                <div className="section">
-                  <h4>Question</h4>
-                  <div className="form-group">
-                    <label>Question Text</label>
-                    <textarea
-                      value={q.question}
-                      onChange={(e) => updateQuestion(q.id, 'question', e.target.value)}
-                      rows={3}
-                    />
-                  </div>
-                  <div className="form-group">
-                    <label>Question Image (Optional)</label>
-                    <input
-                      type="file"
-                      accept="image/*"
-                      onChange={(e) => handleImageUpload(e, q.id, 'question')}
-                    />
-                    {q.questionImage && (
-                      <div className="image-preview-container">
-                        <img
-                          src={getImagePreview(q.questionImage)}
-                          alt="Question"
-                          className="image-preview"
-                        />
-                        <button type="button" className="btn-remove-image" onClick={() => removeImage(q.id, 'question')}>
-                          Remove
-                        </button>
-                      </div>
-                    )}
-                  </div>
-                </div>
-
-                {/* Options Section */}
-                <div className="section">
-                  <h4>Options</h4>
-                  {['a', 'b', 'c', 'd'].map((opt) => (
-                    <div key={opt} className="option-row">
-                      <div className="option-input-group">
-                        <div className="form-group option-text">
-                          <label>Option {opt.toUpperCase()}</label>
-                          <input
-                            value={q.options[opt]}
-                            onChange={(e) => updateOption(q.id, opt, e.target.value)}
-                          />
-                        </div>
-                        <div className="form-group option-image">
-                          <label>Image</label>
-                          <input
-                            type="file"
-                            accept="image/*"
-                            onChange={(e) => handleImageUpload(e, q.id, 'option', opt)}
-                          />
-                          {q.optionImages?.[opt] && (
-                            <div className="image-preview-small">
-                              <img
-                                src={getImagePreview(q.optionImages[opt])}
-                                alt={`Option ${opt.toUpperCase()}`}
-                              />
-                              <button type="button" className="btn-remove-small" onClick={() => removeImage(q.id, 'option', opt)}>
-                                x
-                              </button>
-                            </div>
-                          )}
-                        </div>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-
-                <div className="form-group">
-                  <label>Correct Answer</label>
-                  <select
-                    value={normalizeCorrectAnswer(q.correct_answer)}
-                    onChange={(e) => updateQuestion(q.id, 'correct_answer', e.target.value)}
-                  >
-                    <option value="a">A</option>
-                    <option value="b">B</option>
-                    <option value="c">C</option>
-                    <option value="d">D</option>
-                  </select>
-                </div>
-
-                {/* Explanation Section */}
-                <div className="section">
-                  <h4>Explanation</h4>
-                  <div className="form-group">
-                    <label>Explanation Text</label>
-                    <textarea
-                      value={q.explanation}
-                      onChange={(e) => updateQuestion(q.id, 'explanation', e.target.value)}
-                      rows={4}
-                      placeholder="Enter detailed explanation here..."
-                    />
-                  </div>
-                  <div className="form-group">
-                    <label>Explanation Image (Optional)</label>
-                    <input
-                      type="file"
-                      accept="image/*"
-                      onChange={(e) => handleImageUpload(e, q.id, 'explanation')}
-                    />
-                    {q.explanationImage && (
-                      <div className="image-preview-container">
-                        <img
-                          src={getImagePreview(q.explanationImage)}
-                          alt="Explanation"
-                          className="image-preview"
-                        />
-                        <button type="button" className="btn-remove-image" onClick={() => removeImage(q.id, 'explanation')}>
-                          Remove
-                        </button>
-                      </div>
-                    )}
-                  </div>
-                </div>
-              </div>
+              <QuestionForm
+                question={q}
+                onChange={(updatedQ) => {
+                  setBatch(batch.map(item => item.id === q.id ? updatedQ : item));
+                }}
+              />
 
               <div className="card-actions">
                 <button className="btn-primary" onClick={() => setStatus(q.id, 'APPROVED')}>

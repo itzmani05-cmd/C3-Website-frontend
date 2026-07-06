@@ -1,131 +1,8 @@
 import React, { useState, useEffect } from 'react';
+import { FileTextOutlined } from '@ant-design/icons';
 import api from '../api';
-import { BACKEND_URL } from '../config';
-
-// Parser for Match the Following questions
-const parseMatchTheFollowing = (text) => {
-  if (!text) return null;
-  const lines = text.split('\n').map(l => l.trim()).filter(Boolean);
-  
-  let prompt = '';
-  let listI = [];
-  let listII = [];
-  let stage = 'prompt';
-
-  for (let line of lines) {
-    const isListIHeader = /^list\s*I\b/i.test(line) && !/list\s*II\b/i.test(line);
-    const isListIIHeader = /^list\s*II\b/i.test(line);
-
-    if (isListIHeader) {
-      stage = 'listI';
-      continue;
-    } else if (isListIIHeader) {
-      stage = 'listII';
-      continue;
-    }
-
-    if (stage === 'prompt') {
-      prompt += (prompt ? '\n' : '') + line;
-    } else if (stage === 'listI') {
-      listI.push(line);
-    } else if (stage === 'listII') {
-      listII.push(line);
-    }
-  }
-
-  if (listI.length === 0 || listII.length === 0) {
-    return null;
-  }
-
-  return { prompt, listI, listII };
-};
-
-// Parser for Assertion-Reason questions
-const parseAssertionReason = (text) => {
-  if (!text) return null;
-  const lines = text.split('\n').map(l => l.trim()).filter(Boolean);
-  
-  let header = '';
-  let assertion = '';
-  let reason = '';
-  
-  for (let line of lines) {
-    const isAssertion = /^(?:assertion\s*\(A\)|assertion|கூற்று\s*(?:\([Aஅ]\))?)\s*:/i.test(line);
-    const isReason = /^(?:reason\s*\(R\)|reason|காரணம்\s*(?:\([Rக]\))?)\s*:/i.test(line);
-
-    if (isAssertion) {
-      assertion = line;
-    } else if (isReason) {
-      reason = line;
-    } else {
-      if (!assertion && !reason) {
-        header += (header ? '\n' : '') + line;
-      } else if (assertion && !reason) {
-        assertion += '\n' + line;
-      } else if (reason) {
-        reason += '\n' + line;
-      }
-    }
-  }
-
-  if (!assertion || !reason) {
-    return null;
-  }
-
-  return { header, assertion, reason };
-};
-
-// Formatted renderer for special questions
-const renderQuestionText = (q) => {
-  const isMatch = q.type === 'Match the Following' || /match\s+the\s+following/i.test(q.question);
-  const isAR = q.type === 'Assertion-Reason' || /assertion\s*[–—-]\s*reason|assertion\s*\(A\)|reason\s*\(R\)/i.test(q.question);
-
-  if (isMatch) {
-    const parsed = parseMatchTheFollowing(q.question);
-    if (parsed) {
-      return (
-        <div className="matching-question-render">
-          <p className="question-text" style={{ whiteSpace: 'pre-wrap', marginBottom: '8px' }}>{parsed.prompt}</p>
-          <table className="matching-columns-table">
-            <tbody>
-              <tr>
-                <td>
-                  <div className="matching-column-header-inline">List I</div>
-                  {parsed.listI.map((item, idx) => (
-                    <div key={idx} className="matching-item">{item}</div>
-                  ))}
-                </td>
-                <td>
-                  <div className="matching-column-header-inline">List II</div>
-                  {parsed.listII.map((item, idx) => (
-                    <div key={idx} className="matching-item">{item}</div>
-                  ))}
-                </td>
-              </tr>
-            </tbody>
-          </table>
-        </div>
-      );
-    }
-  }
-
-  if (isAR) {
-    const parsed = parseAssertionReason(q.question);
-    if (parsed) {
-      return (
-        <div className="assertion-reason-question-render">
-          {parsed.header && <p className="question-text" style={{ whiteSpace: 'pre-wrap', marginBottom: '6px' }}>{parsed.header}</p>}
-          <div className="ar-container-inline">
-            <div className="ar-line-item">{parsed.assertion}</div>
-            <div className="ar-line-item">{parsed.reason}</div>
-          </div>
-        </div>
-      );
-    }
-  }
-
-  return <p className="question-text" style={{ whiteSpace: 'pre-wrap' }}>{q.question}</p>;
-};
+import { getImagePreview } from '../components/helpers';
+import QuestionRenderer from '../components/QuestionRenderer';
 
 // Render Answer Key as a table chunked into rows of 10 for MS Word/print compatibility
 const renderAnswerKeyTable = (questionsList) => {
@@ -263,12 +140,6 @@ function PdfDownload() {
 
   const deselectAllQuestions = () => {
     setSelectedQuestionIds(new Set());
-  };
-
-  const getImagePreview = (url) => {
-    if (!url) return null;
-    if (url.startsWith('data:')) return url;
-    return url.startsWith('http') ? url : `${BACKEND_URL}${url}`;
   };
 
   const handlePrint = () => {
@@ -711,7 +582,9 @@ function PdfDownload() {
 
           {printableQuestions.length === 0 ? (
             <div className="no-questions-placeholder">
-              <div className="placeholder-icon">📄</div>
+              <div className="placeholder-icon" style={{ fontSize: '32px', color: 'var(--muted)', display: 'inline-flex', alignItems: 'center' }}>
+                <FileTextOutlined />
+              </div>
               <h4>No questions selected</h4>
               <p>Select filter criteria and check at least one question in the left panel to populate the assessment preview.</p>
             </div>
@@ -755,7 +628,7 @@ function PdfDownload() {
                     <div className="doc-question-header">
                       <span className="question-number">Q{index + 1}.</span>
                       <div className="question-body">
-                        {renderQuestionText(q)}
+                        <QuestionRenderer question={q} />
                         
                         {q.questionImage && (
                           <div className="doc-image-container">
@@ -840,7 +713,7 @@ function PdfDownload() {
                           Q{index + 1}. Correct Answer: <span className="ans-highlight">{q.correct_answer.toUpperCase()}</span>
                         </h4>
                         <div className="original-q-text" style={{ whiteSpace: 'pre-wrap', color: '#4b5563', marginBottom: '8px', fontSize: '0.9em' }}>
-                          <em>Question:</em> {renderQuestionText(q)}
+                          <em>Question:</em> <QuestionRenderer question={q} />
                         </div>
                         {q.explanation ? (
                           <div className="ex-content">

@@ -1,7 +1,10 @@
 import React, { useState } from 'react';
+import { BulbOutlined, DownloadOutlined, ToolOutlined, TagsOutlined, FileDoneOutlined, LogoutOutlined, CrownOutlined } from '@ant-design/icons';
 import AIGenerator from './AIGenerator';
 import PdfDownload from './PdfDownload';
 import QuestionFix from './QuestionFix';
+import UnitswiseName from './UnitswiseName';
+import AdminResults from './AdminResults';
 
 function AdminPanel({ onLogout }) {
   const [activeTab, setActiveTab] = useState('ai');
@@ -14,6 +17,10 @@ function AdminPanel({ onLogout }) {
         return <PdfDownload />;
       case 'fix':
         return <QuestionFix />;
+      case 'unitswise':
+        return <UnitswiseName />;
+      case 'results':
+        return <AdminResults />;
       default:
         return <AIGenerator />;
     }
@@ -23,8 +30,8 @@ function AdminPanel({ onLogout }) {
     <div className="admin-container">
       <aside className="sidebar">
         <div className="sidebar-header">
-          <div className="logo">
-            <img src="/C3AppLogo.png" alt="C³ Institute logo" className="logo-image" />
+          <div className="logo" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+            <CrownOutlined style={{ fontSize: 24, color: '#fbbf24' }} />
           </div>
           <h2>Admin Portal</h2>
         </div>
@@ -34,7 +41,7 @@ function AdminPanel({ onLogout }) {
             className={`nav-btn ${activeTab === 'ai' ? 'active' : ''}`}
             onClick={() => setActiveTab('ai')}
           >
-            <span className="nav-icon">Ex</span>
+            <BulbOutlined className="nav-icon" />
             Extractor
           </button>
 
@@ -42,7 +49,7 @@ function AdminPanel({ onLogout }) {
             className={`nav-btn ${activeTab === 'pdf' ? 'active' : ''}`}
             onClick={() => setActiveTab('pdf')}
           >
-            <span className="nav-icon">PDF</span>
+            <DownloadOutlined className="nav-icon" />
             PDF Download
           </button>
 
@@ -50,21 +57,37 @@ function AdminPanel({ onLogout }) {
             className={`nav-btn ${activeTab === 'fix' ? 'active' : ''}`}
             onClick={() => setActiveTab('fix')}
           >
-            <span className="nav-icon">Fix</span>
+            <ToolOutlined className="nav-icon" />
             Question Fix
+          </button>
+
+          <button
+            className={`nav-btn ${activeTab === 'unitswise' ? 'active' : ''}`}
+            onClick={() => setActiveTab('unitswise')}
+          >
+            <TagsOutlined className="nav-icon" />
+            Unitswise Name
+          </button>
+
+          <button
+            className={`nav-btn ${activeTab === 'results' ? 'active' : ''}`}
+            onClick={() => setActiveTab('results')}
+          >
+            <FileDoneOutlined className="nav-icon" />
+            Results
           </button>
         </nav>
 
         <div className="sidebar-footer">
           <div className="user-info">
-            <div className="user-avatar">A</div>
+            <div className="user-avatar"><CrownOutlined style={{ fontSize: 13 }} /></div>
             <div className="user-details">
               <span className="user-name">Administrator</span>
               <span className="user-role">System Admin</span>
             </div>
           </div>
           <button className="logout-btn" onClick={onLogout}>
-            <span className="nav-icon">→</span>
+            <LogoutOutlined className="nav-icon" />
             Sign Out
           </button>
         </div>

@@ -3,16 +3,21 @@
   "version": "1.0.0",
   "private": true,
   "dependencies": {
+    "@ant-design/icons": "^6.3.2",
+    "@tailwindcss/cli": "^4.3.1",
     "ajv": "^8.18.0",
     "axios": "^1.6.0",
     "react": "^18.2.0",
     "react-dom": "^18.2.0",
     "react-router-dom": "^6.20.0",
-    "react-scripts": "5.0.1"
+    "react-scripts": "5.0.1",
+    "tailwindcss": "^4.3.1"
   },
   "scripts": {
+    "tailwind": "tailwindcss -i src/tailwind-input.css -o src/tailwind.css",
+    "tailwind:watch": "tailwindcss -i src/tailwind-input.css -o src/tailwind.css --watch",
     "start": "react-scripts start",
-    "build": "react-scripts build",
+    "build": "tailwindcss -i src/tailwind-input.css -o src/tailwind.css && react-scripts build",
     "test": "react-scripts test",
     "eject": "react-scripts eject"
   },
