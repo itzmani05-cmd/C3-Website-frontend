@@ -43,10 +43,10 @@ function ExamResultPage({ selectedTestName, studentEmail, questions, answers, su
           <div className="stats-dashboard-row">
             <div className="stat-pill correct">
               <CheckCircleOutlined />
-              <span className="pill-lbl">Correct: <strong>{correctCount}</strong></span>
+              <span className="pill-lbl">Corrects: <strong>{correctCount}</strong></span>
             </div>
             <div className="stat-pill wrong">
-              <CloseCircleOutlined />
+              <CloseCircleOutlined/>
               <span className="pill-lbl">Incorrect: <strong>{wrongCount}</strong></span>
             </div>
             <div className="stat-pill unanswered">
