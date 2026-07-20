@@ -1,5 +1,6 @@
 import React from 'react';
 import { LeftOutlined, RightOutlined, ClearOutlined } from '@ant-design/icons';
+import QuestionRenderer from '../QuestionRenderer';
 
 function QuestionCard({
   question,
@@ -31,7 +32,7 @@ function QuestionCard({
         <span className="question-type-tag">{question.type}</span>
       </div>
 
-      <div className="question-text">{question.question}</div>
+      <QuestionRenderer question={question} />
 
       {question.questionImage && (
         <div className="question-media-container">

@@ -1,9 +1,11 @@
 import React, { useState } from 'react';
-import { BulbOutlined, DownloadOutlined, ToolOutlined, TagsOutlined, FileDoneOutlined, LogoutOutlined, CrownOutlined } from '@ant-design/icons';
+import { BulbOutlined, DownloadOutlined, ToolOutlined, TagsOutlined, FileDoneOutlined, LogoutOutlined, CrownOutlined, ProfileOutlined } from '@ant-design/icons';
+import c3Logo from '../assests/C3AppLogo.png';
 import AIGenerator from './AIGenerator';
 import PdfDownload from './PdfDownload';
 import QuestionFix from './QuestionFix';
 import UnitswiseName from './UnitswiseName';
+import ManageTests from './ManageTests';
 import AdminResults from './AdminResults';
 
 function AdminPanel({ onLogout }) {
@@ -19,6 +21,8 @@ function AdminPanel({ onLogout }) {
         return <QuestionFix />;
       case 'unitswise':
         return <UnitswiseName />;
+      case 'tests':
+        return <ManageTests />;
       case 'results':
         return <AdminResults />;
       default:
@@ -30,10 +34,10 @@ function AdminPanel({ onLogout }) {
     <div className="admin-container">
       <aside className="sidebar">
         <div className="sidebar-header">
-          <div className="logo" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-            <CrownOutlined style={{ fontSize: 24, color: '#fbbf24' }} />
+          <div className="logo">
+            <img src={c3Logo} alt="C³" className="logo-image" />
+            <h2>Admin Portal</h2>
           </div>
-          <h2>Admin Portal</h2>
         </div>
 
         <nav className="sidebar-nav">
@@ -67,6 +71,14 @@ function AdminPanel({ onLogout }) {
           >
             <TagsOutlined className="nav-icon" />
             Unitswise Name
+          </button>
+
+          <button
+            className={`nav-btn ${activeTab === 'tests' ? 'active' : ''}`}
+            onClick={() => setActiveTab('tests')}
+          >
+            <ProfileOutlined className="nav-icon" />
+            Manage Tests
           </button>
 
           <button

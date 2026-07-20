@@ -46,9 +46,9 @@ function Login({ onLogin }) {
   return (
     <>
       <style>{`
-        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap');
+        @import url('https://fonts.googleapis.com/css2?family=Manrope:wght@200..800&display=swap');
 
-        .login-root * { font-family: 'Inter', system-ui, sans-serif; box-sizing: border-box; }
+        .login-root * { font-family: 'Manrope', system-ui, sans-serif; box-sizing: border-box; }
 
         @keyframes toast-in {
           from { transform: translateX(110%); opacity: 0; }

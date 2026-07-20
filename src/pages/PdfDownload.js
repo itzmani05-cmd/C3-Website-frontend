@@ -41,14 +41,19 @@ const renderAnswerKeyTable = (questionsList) => {
 };
 
 function PdfDownload() {
+  const [sourceMode, setSourceMode] = useState(null); // null (ask first), 'units', or 'test'
+
   const [curriculum, setCurriculum] = useState([]);
   const [unitId, setUnitId] = useState('');
   const [topicId, setTopicId] = useState('');
   const [subtopicId, setSubtopicId] = useState('');
-  
+
+  const [tests, setTests] = useState([]);
+  const [selectedTestId, setSelectedTestId] = useState('');
+
   const [curriculumLoading, setCurriculumLoading] = useState(true);
   const [curriculumError, setCurriculumError] = useState('');
-  
+
   const [questions, setQuestions] = useState([]);
   const [selectedQuestionIds, setSelectedQuestionIds] = useState(new Set());
   const [loadingQuestions, setLoadingQuestions] = useState(false);
@@ -63,35 +68,49 @@ function PdfDownload() {
   const [answerDisplay, setAnswerDisplay] = useState('end-key'); // 'none', 'each', 'end-key', 'end-explanations'
 
   useEffect(() => {
-    const loadCurriculum = async () => {
+    const loadData = async () => {
       try {
-        const response = await api.get('/api/questions/curriculum');
-        const data = response.data || [];
-        setCurriculum(data);
+        const [curriculumResponse, testsResponse] = await Promise.all([
+          api.get('/api/questions/curriculum'),
+          api.get('/api/questions/tests'),
+        ]);
+        setCurriculum(curriculumResponse.data || []);
+        setTests(testsResponse.data || []);
       } catch (error) {
-        setCurriculumError('Failed to load curriculum from server.');
-        console.error('Curriculum load error:', error);
+        setCurriculumError('Failed to load curriculum or tests from server.');
+        console.error('Data load error:', error);
       } finally {
         setCurriculumLoading(false);
       }
     };
 
-    loadCurriculum();
+    loadData();
   }, []);
 
   useEffect(() => {
+    if (!sourceMode || curriculumLoading) return;
+
     const fetchQuestions = async () => {
       setLoadingQuestions(true);
       setQuestionsError('');
       try {
-        const params = {};
-        if (unitId && unitId !== 'all') params.unitId = unitId;
-        if (topicId && topicId !== 'all') params.topicId = topicId;
-        if (subtopicId && subtopicId !== 'all') params.subtopicId = subtopicId;
-        
-        const response = await api.get('/api/questions', { params });
-        let fetchedQuestions = response.data || [];
-        
+        let fetchedQuestions = [];
+
+        if (sourceMode === 'test') {
+          if (selectedTestId) {
+            const response = await api.get('/api/questions/exam', { params: { testId: selectedTestId } });
+            fetchedQuestions = response.data || [];
+          }
+        } else {
+          const params = {};
+          if (unitId && unitId !== 'all') params.unitId = unitId;
+          if (topicId && topicId !== 'all') params.topicId = topicId;
+          if (subtopicId && subtopicId !== 'all') params.subtopicId = subtopicId;
+
+          const response = await api.get('/api/questions', { params });
+          fetchedQuestions = response.data || [];
+        }
+
         setQuestions(fetchedQuestions);
         // Automatically select all questions by default
         setSelectedQuestionIds(new Set(fetchedQuestions.map(q => q._id)));
@@ -103,10 +122,8 @@ function PdfDownload() {
       }
     };
 
-    if (!curriculumLoading) {
-      fetchQuestions();
-    }
-  }, [unitId, topicId, subtopicId, curriculumLoading]);
+    fetchQuestions();
+  }, [sourceMode, unitId, topicId, subtopicId, selectedTestId, curriculumLoading]);
 
   // Handle unit change
   const handleUnitChange = (e) => {
@@ -371,6 +388,44 @@ function PdfDownload() {
     );
   }
 
+  if (!sourceMode) {
+    return (
+      <div className="tab-content extractor-page pdf-generator-page">
+        <div className="extractor-hero">
+          <div>
+            <h2>Assessment Generator</h2>
+          </div>
+        </div>
+        <div style={{ padding: '48px 28px', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+          <h3 style={{ marginBottom: '4px' }}>What would you like to generate a question paper from?</h3>
+          <p style={{ color: 'var(--muted)', marginBottom: '28px' }}>Choose a source to continue.</p>
+          <div style={{ display: 'flex', gap: '20px', flexWrap: 'wrap', justifyContent: 'center', maxWidth: '640px' }}>
+            <button
+              onClick={() => setSourceMode('units')}
+              className="btn-secondary"
+              style={{ flex: '1 1 260px', minWidth: '220px', padding: '28px 20px', borderRadius: '20px', fontSize: '16px', fontWeight: 700, cursor: 'pointer' }}
+            >
+              Units (Curriculum)
+              <div style={{ marginTop: '8px', fontSize: '13px', fontWeight: 400, color: 'var(--muted)' }}>
+                Build a paper from Unit / Topic / Subtopic curriculum questions.
+              </div>
+            </button>
+            <button
+              onClick={() => setSourceMode('test')}
+              className="btn-secondary"
+              style={{ flex: '1 1 260px', minWidth: '220px', padding: '28px 20px', borderRadius: '20px', fontSize: '16px', fontWeight: 700, cursor: 'pointer' }}
+            >
+              Test
+              <div style={{ marginTop: '8px', fontSize: '13px', fontWeight: 400, color: 'var(--muted)' }}>
+                Download the question set belonging to a specific exam Test.
+              </div>
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   const selectedUnit = curriculum.find(u => u._id === unitId);
   const topics = selectedUnit ? selectedUnit.topics : [];
   const selectedTopic = topics.find(t => t._id === topicId);
@@ -391,46 +446,87 @@ function PdfDownload() {
         <div className="config-panel no-print">
 
           <div className="config-section" style={{ border: 0, borderRadius: '20px', background: '#ffffff', boxShadow: '0 8px 28px rgba(30, 41, 59, 0.055)', marginBottom: '20px' }}>
-            <div className="extractor-section-heading" style={{ marginBottom: '16px' }}>
-              <span>01</span>
-              <div>
-                <h3 style={{ margin: 0 }}>Filter Questions</h3>
+            <div className="extractor-section-heading" style={{ marginBottom: '16px', justifyContent: 'space-between' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                <span>01</span>
+                <div>
+                  <h3 style={{ margin: 0 }}>Filter Questions</h3>
+                  <p style={{ margin: '2px 0 0', fontSize: '12px', color: 'var(--muted)' }}>
+                    Source: {sourceMode === 'test' ? 'Test' : 'Units (Curriculum)'}
+                  </p>
+                </div>
               </div>
-            </div>
-            
-            <div className="form-group">
-              <label>Unit</label>
-              <select value={unitId} onChange={handleUnitChange}>
-                <option value="all">All Units</option>
-                {curriculum.map(u => <option key={u._id} value={u._id}>{u.name}</option>)}
-              </select>
+              <button
+                type="button"
+                className="btn-secondary"
+                onClick={() => {
+                  setSourceMode(null);
+                  setSelectedTestId('');
+                  setUnitId('');
+                  setTopicId('');
+                  setSubtopicId('');
+                }}
+                style={{ padding: '6px 12px', fontSize: '12px', borderRadius: '10px' }}
+              >
+                Change Source
+              </button>
             </div>
 
-            <div className="form-row">
+            {sourceMode === 'test' ? (
               <div className="form-group">
-                <label>Topic</label>
-                <select 
-                  value={topicId} 
-                  onChange={handleTopicChange} 
-                  disabled={!unitId || unitId === 'all'}
-                >
-                  <option value="all">All Topics</option>
-                  {topics.map(t => <option key={t._id} value={t._id}>{t.name}</option>)}
-                </select>
+                <label>Select Test</label>
+                {tests.length > 0 ? (
+                  <select value={selectedTestId} onChange={(e) => setSelectedTestId(e.target.value)}>
+                    <option value="">Select a test...</option>
+                    {tests.map(t => (
+                      <option key={t._id} value={t._id}>
+                        {t.name} {t.publishToStudent ? '(Published)' : '(Draft)'}
+                      </option>
+                    ))}
+                  </select>
+                ) : (
+                  <div style={{ color: '#ef4444', fontWeight: 500, padding: '8px 0' }}>
+                    No tests available. Please create a test first.
+                  </div>
+                )}
               </div>
+            ) : (
+              <>
+                <div className="form-group">
+                  <label>Unit</label>
+                  <select value={unitId} onChange={handleUnitChange}>
+                    <option value="all">All Units</option>
+                    {curriculum.map(u => <option key={u._id} value={u._id}>{u.name}</option>)}
+                  </select>
+                </div>
 
-              <div className="form-group">
-                <label>Subtopic</label>
-                <select 
-                  value={subtopicId} 
-                  onChange={(e) => setSubtopicId(e.target.value)}
-                  disabled={!topicId || topicId === 'all'}
-                >
-                  <option value="all">All Subtopics</option>
-                  {subtopics.map(st => <option key={st._id} value={st._id}>{st.name}</option>)}
-                </select>
-              </div>
-            </div>
+                <div className="form-row">
+                  <div className="form-group">
+                    <label>Topic</label>
+                    <select
+                      value={topicId}
+                      onChange={handleTopicChange}
+                      disabled={!unitId || unitId === 'all'}
+                    >
+                      <option value="all">All Topics</option>
+                      {topics.map(t => <option key={t._id} value={t._id}>{t.name}</option>)}
+                    </select>
+                  </div>
+
+                  <div className="form-group">
+                    <label>Subtopic</label>
+                    <select
+                      value={subtopicId}
+                      onChange={(e) => setSubtopicId(e.target.value)}
+                      disabled={!topicId || topicId === 'all'}
+                    >
+                      <option value="all">All Subtopics</option>
+                      {subtopics.map(st => <option key={st._id} value={st._id}>{st.name}</option>)}
+                    </select>
+                  </div>
+                </div>
+              </>
+            )}
           </div>
 
           <div className="config-section" style={{ border: 0, borderRadius: '20px', background: '#ffffff', boxShadow: '0 8px 28px rgba(30, 41, 59, 0.055)', marginBottom: '20px' }}>
@@ -594,20 +690,26 @@ function PdfDownload() {
                 <h1 className="doc-title">{examTitle}</h1>
                 <p className="doc-subtitle">{examSubtitle}</p>
                 <div className="curriculum-header">
-                  <p>
-                    <strong>
-                      {selectedUnit?.name || "All Units"}
-                    </strong>
+                  {sourceMode === 'test' ? (
+                    <p>
+                      <strong>{tests.find(t => t._id === selectedTestId)?.name || 'Selected Test'}</strong>
+                    </p>
+                  ) : (
+                    <p>
+                      <strong>
+                        {selectedUnit?.name || "All Units"}
+                      </strong>
 
-                    {selectedTopic?.name &&
-                      topicId !== 'all' &&
-                      ` - ${selectedTopic.name}`}
+                      {selectedTopic?.name &&
+                        topicId !== 'all' &&
+                        ` - ${selectedTopic.name}`}
 
-                    {subtopicId !== 'all' &&
-                      subtopicId &&
-                      subtopics.find(st => st._id === subtopicId)?.name &&
-                      ` (${subtopics.find(st => st._id === subtopicId)?.name})`}
-                  </p>
+                      {subtopicId !== 'all' &&
+                        subtopicId &&
+                        subtopics.find(st => st._id === subtopicId)?.name &&
+                        ` (${subtopics.find(st => st._id === subtopicId)?.name})`}
+                    </p>
+                  )}
                 </div>
                 {instructions && (
                   <div className="doc-instructions">

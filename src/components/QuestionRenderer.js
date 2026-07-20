@@ -1,9 +1,18 @@
 import React from 'react';
 
+// Strips an accidental leading list marker (e.g. "1.", "A.") from a bracketed
+// column subtitle like "1. (Key Characteristic)" -> "(Key Characteristic)".
+// Real list items (e.g. "1. Calcination of Kaolinite clay") aren't fully
+// parenthesized, so they're left untouched.
+const cleanListLine = (line) => {
+  const match = line.match(/^[A-Za-z0-9]+[.)]\s*(\(.+\))$/);
+  return match ? match[1] : line;
+};
+
 const parseMatchTheFollowing = (text) => {
   if (!text) return null;
   const lines = text.split('\n').map(l => l.trim()).filter(Boolean);
-  
+
   let prompt = '';
   let listI = [];
   let listII = [];
@@ -24,9 +33,9 @@ const parseMatchTheFollowing = (text) => {
     if (stage === 'prompt') {
       prompt += (prompt ? '\n' : '') + line;
     } else if (stage === 'listI') {
-      listI.push(line);
+      listI.push(cleanListLine(line));
     } else if (stage === 'listII') {
-      listII.push(line);
+      listII.push(cleanListLine(line));
     }
   }
 
