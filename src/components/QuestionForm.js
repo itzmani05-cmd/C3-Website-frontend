@@ -1,8 +1,11 @@
 import React from 'react';
 import api from '../api';
 import { fileToBase64, getImagePreview, normalizeCorrectAnswer } from './helpers';
+import { useModal } from './ModalProvider';
 
 function QuestionForm({ question, onChange, variant = 'extractor' }) {
+  const { showAlert } = useModal();
+
   const handleFieldChange = (field, value) => {
     onChange({ ...question, [field]: value });
   };
@@ -40,7 +43,7 @@ function QuestionForm({ question, onChange, variant = 'extractor' }) {
         });
       }
     } catch (error) {
-      alert('Image upload failed: ' + error.message);
+      showAlert('Image upload failed: ' + error.message, { variant: 'error', title: 'Upload Failed' });
     }
   };
 

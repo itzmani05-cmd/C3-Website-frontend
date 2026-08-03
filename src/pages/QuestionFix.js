@@ -3,13 +3,20 @@ import { UpOutlined, DownOutlined } from '@ant-design/icons';
 import api from '../api';
 import { detectQuestionType, normalizeCorrectAnswer } from '../components/helpers';
 import QuestionForm from '../components/QuestionForm';
+import { useModal } from '../components/ModalProvider';
 
 function QuestionFix() {
+  const { showAlert, showConfirm, showPrompt } = useModal();
+  const [destinationMode, setDestinationMode] = useState('curriculum'); // 'curriculum' or 'test'
+
   const [curriculum, setCurriculum] = useState([]);
   const [unitId, setUnitId] = useState('');
   const [topicId, setTopicId] = useState('');
   const [subtopicId, setSubtopicId] = useState('');
-  
+
+  const [tests, setTests] = useState([]);
+  const [selectedTestId, setSelectedTestId] = useState('');
+
   const [curriculumLoading, setCurriculumLoading] = useState(true);
   const [curriculumError, setCurriculumError] = useState('');
   
@@ -34,25 +41,53 @@ function QuestionFix() {
   const [newQuestionForm, setNewQuestionForm] = useState(initialFormState);
 
   useEffect(() => {
-    const loadCurriculum = async () => {
+    const loadData = async () => {
       try {
-        const response = await api.get('/api/questions/curriculum');
-        const data = response.data || [];
+        const [curriculumResponse, testsResponse] = await Promise.all([
+          api.get('/api/questions/curriculum'),
+          api.get('/api/questions/tests')
+        ]);
+
+        const data = curriculumResponse.data || [];
         setCurriculum(data);
         if (data.length > 0) {
           setUnitId(data[0]._id);
         }
+
+        const testsData = testsResponse.data || [];
+        setTests(testsData);
+        if (testsData.length > 0) {
+          setSelectedTestId(testsData[0]._id);
+        }
       } catch (error) {
-        setCurriculumError('Failed to load curriculum from server.');
+        setCurriculumError('Failed to load curriculum or tests from server.');
         console.error('Curriculum load error:', error);
       } finally {
         setCurriculumLoading(false);
       }
     };
-    loadCurriculum();
+    loadData();
   }, []);
 
   const fetchQuestions = useCallback(async () => {
+    if (destinationMode === 'test') {
+      if (!selectedTestId) {
+        setQuestions([]);
+        return;
+      }
+      setLoading(true);
+      try {
+        const response = await api.get('/api/questions/exam', { params: { testId: selectedTestId } });
+        setQuestions(response.data || []);
+      } catch (error) {
+        console.error('Error fetching exam questions:', error);
+        setMessage('Failed to load questions.');
+      } finally {
+        setLoading(false);
+      }
+      return;
+    }
+
     if (!unitId) return;
     setLoading(true);
     try {
@@ -69,11 +104,24 @@ function QuestionFix() {
     } finally {
       setLoading(false);
     }
-  }, [unitId, topicId, subtopicId]);
+  }, [destinationMode, unitId, topicId, subtopicId, selectedTestId]);
 
   useEffect(() => {
     fetchQuestions();
   }, [fetchQuestions]);
+
+  const handleModeChange = (mode) => {
+    setDestinationMode(mode);
+    setExpandedId(null);
+    setIsAdding(false);
+    setMessage('');
+  };
+
+  const handleTestChange = (e) => {
+    setSelectedTestId(e.target.value);
+    setExpandedId(null);
+    setIsAdding(false);
+  };
 
   const handleUnitChange = (e) => {
     setUnitId(e.target.value);
@@ -97,10 +145,12 @@ function QuestionFix() {
   };
 
   const handleUpdateQuestion = async (id, updatedData) => {
-    if (!window.confirm('Are you sure you want to update this question?')) return;
+    const confirmed = await showConfirm('Are you sure you want to update this question?', { title: 'Update Question' });
+    if (!confirmed) return;
     try {
       setLoading(true);
-      await api.put(`/api/questions/${id}`, {
+      const endpoint = destinationMode === 'test' ? `/api/questions/exam/${id}` : `/api/questions/${id}`;
+      await api.put(endpoint, {
         ...updatedData,
         type: detectQuestionType(updatedData.question)
       });
@@ -116,10 +166,12 @@ function QuestionFix() {
   };
 
   const handleDeleteQuestion = async (id) => {
-    if (!window.confirm('Are you sure you want to delete this question?')) return;
+    const confirmed = await showConfirm('Are you sure you want to delete this question?', { title: 'Delete Question', confirmText: 'Delete', variant: 'error' });
+    if (!confirmed) return;
     try {
       setLoading(true);
-      await api.delete(`/api/questions/${id}`);
+      const endpoint = destinationMode === 'test' ? `/api/questions/exam/${id}` : `/api/questions/${id}`;
+      await api.delete(endpoint);
       setMessage('Question deleted successfully!');
       fetchQuestions();
       setTimeout(() => setMessage(''), 3000);
@@ -132,39 +184,56 @@ function QuestionFix() {
 
   const handleDeleteAllQuestions = async () => {
     let targetName = '';
-    const selectedUnitObj = curriculum.find(u => u._id === unitId);
-    const topicsList = selectedUnitObj ? selectedUnitObj.topics : [];
-    const selectedTopicObj = topicsList.find(t => t._id === topicId);
-    const subtopicsList = selectedTopicObj ? selectedTopicObj.subtopics : [];
 
-    if (subtopicId && subtopicId !== 'all') {
-      const st = subtopicsList.find(s => s._id === subtopicId);
-      targetName = `Subtopic: "${st?.name}"`;
-    } else if (topicId && topicId !== 'all') {
-      const t = topicsList.find(tp => tp._id === topicId);
-      targetName = `Topic: "${t?.name}"`;
+    if (destinationMode === 'test') {
+      const selectedTest = tests.find(t => t._id === selectedTestId);
+      if (!selectedTest) {
+        await showAlert('Please select a test first to perform a bulk delete.', { variant: 'warning' });
+        return;
+      }
+      targetName = `Test: "${selectedTest.name}"`;
     } else {
-      alert('Please select a topic or subtopic first to perform a bulk delete.');
-      return;
+      const selectedUnitObj = curriculum.find(u => u._id === unitId);
+      const topicsList = selectedUnitObj ? selectedUnitObj.topics : [];
+      const selectedTopicObj = topicsList.find(t => t._id === topicId);
+      const subtopicsList = selectedTopicObj ? selectedTopicObj.subtopics : [];
+
+      if (subtopicId && subtopicId !== 'all') {
+        const st = subtopicsList.find(s => s._id === subtopicId);
+        targetName = `Subtopic: "${st?.name}"`;
+      } else if (topicId && topicId !== 'all') {
+        const t = topicsList.find(tp => tp._id === topicId);
+        targetName = `Topic: "${t?.name}"`;
+      } else {
+        await showAlert('Please select a topic or subtopic first to perform a bulk delete.', { variant: 'warning' });
+        return;
+      }
     }
 
-    const confirmMessage = `WARNING: Are you sure you want to delete ALL questions in ${targetName}? This will permanently delete all these questions and cannot be undone!`;
-    if (!window.confirm(confirmMessage)) return;
+    const confirmMessage = `Are you sure you want to delete ALL questions in ${targetName}? This will permanently delete all these questions and cannot be undone!`;
+    const confirmed = await showConfirm(confirmMessage, { title: 'Bulk Delete Warning', confirmText: 'Continue', variant: 'error' });
+    if (!confirmed) return;
 
-    const secondConfirm = `FINAL CONFIRMATION: Type 'DELETE' to confirm deletion of all questions in this category.`;
-    const responseText = window.prompt(secondConfirm);
+    const responseText = await showPrompt(
+      "Type 'DELETE' to confirm deletion of all questions in this category.",
+      { title: 'Final Confirmation', confirmText: 'Confirm Delete', placeholder: 'DELETE' }
+    );
     if (responseText !== 'DELETE') {
-      alert('Deletion cancelled. Confirmation text did not match.');
+      await showAlert('Deletion cancelled. Confirmation text did not match.', { variant: 'error' });
       return;
     }
 
     try {
       setLoading(true);
-      const params = {};
-      if (topicId && topicId !== 'all') params.topicId = topicId;
-      if (subtopicId && subtopicId !== 'all') params.subtopicId = subtopicId;
-
-      const response = await api.delete('/api/questions/delete/bulk', { params });
+      let response;
+      if (destinationMode === 'test') {
+        response = await api.delete('/api/questions/exam/delete/bulk', { params: { testId: selectedTestId } });
+      } else {
+        const params = {};
+        if (topicId && topicId !== 'all') params.topicId = topicId;
+        if (subtopicId && subtopicId !== 'all') params.subtopicId = subtopicId;
+        response = await api.delete('/api/questions/delete/bulk', { params });
+      }
       setMessage(response.data?.message || 'Bulk deletion completed successfully.');
       fetchQuestions();
       setTimeout(() => setMessage(''), 4000);
@@ -177,41 +246,66 @@ function QuestionFix() {
 
   const handleCreateQuestion = async () => {
     if (!newQuestionForm.question.trim()) {
-      alert('Question text is required.');
+      await showAlert('Question text is required.', { variant: 'warning' });
       return;
     }
     if (!newQuestionForm.options.a.trim() || !newQuestionForm.options.b.trim() || !newQuestionForm.options.c.trim() || !newQuestionForm.options.d.trim()) {
-      alert('All options (A, B, C, D) are required.');
+      await showAlert('All options (A, B, C, D) are required.', { variant: 'warning' });
+      return;
+    }
+
+    if (destinationMode === 'test' && !selectedTestId) {
+      await showAlert('Please select a test first.', { variant: 'warning' });
       return;
     }
 
     try {
       setLoading(true);
-      const payload = {
-        unitId,
-        topicId: topicId || null,
-        subtopicId: subtopicId && subtopicId !== 'all' ? subtopicId : null,
-        type: detectQuestionType(newQuestionForm.question),
-        question: newQuestionForm.question,
-        questionImage: newQuestionForm.questionImage,
-        options: newQuestionForm.options,
-        optionImages: newQuestionForm.optionImages,
-        correct_answer: newQuestionForm.correct_answer,
-        explanation: newQuestionForm.explanation,
-        explanationImage: newQuestionForm.explanationImage,
-        status: 'accepted',
-        is_published: true
-      };
 
-      if (!payload.topicId && curriculum.length > 0) {
-        // Fallback to first topic if none selected
-        const currentUnitObj = curriculum.find(u => u._id === unitId);
-        if (currentUnitObj && currentUnitObj.topics?.length > 0) {
-          payload.topicId = currentUnitObj.topics[0]._id;
+      if (destinationMode === 'test') {
+        const selectedTest = tests.find(t => t._id === selectedTestId);
+        const payload = {
+          testId: selectedTestId,
+          testName: selectedTest?.name,
+          type: detectQuestionType(newQuestionForm.question),
+          question: newQuestionForm.question,
+          questionImage: newQuestionForm.questionImage,
+          options: newQuestionForm.options,
+          optionImages: newQuestionForm.optionImages,
+          correct_answer: newQuestionForm.correct_answer,
+          explanation: newQuestionForm.explanation,
+          explanationImage: newQuestionForm.explanationImage
+        };
+
+        await api.post('/api/questions/exam', payload);
+      } else {
+        const payload = {
+          unitId,
+          topicId: topicId || null,
+          subtopicId: subtopicId && subtopicId !== 'all' ? subtopicId : null,
+          type: detectQuestionType(newQuestionForm.question),
+          question: newQuestionForm.question,
+          questionImage: newQuestionForm.questionImage,
+          options: newQuestionForm.options,
+          optionImages: newQuestionForm.optionImages,
+          correct_answer: newQuestionForm.correct_answer,
+          explanation: newQuestionForm.explanation,
+          explanationImage: newQuestionForm.explanationImage,
+          status: 'accepted',
+          is_published: true
+        };
+
+        if (!payload.topicId && curriculum.length > 0) {
+          // Fallback to first topic if none selected
+          const currentUnitObj = curriculum.find(u => u._id === unitId);
+          if (currentUnitObj && currentUnitObj.topics?.length > 0) {
+            payload.topicId = currentUnitObj.topics[0]._id;
+          }
         }
+
+        await api.post('/api/questions', payload);
       }
 
-      await api.post('/api/questions', payload);
       setMessage('Question created successfully!');
       setNewQuestionForm(initialFormState);
       setIsAdding(false);
@@ -278,30 +372,77 @@ function QuestionFix() {
             <h3>Select Category</h3>
           </div>
         </div>
-        <div className={`form-row ${subtopicsList.length > 0 ? 'three-col' : 'two-col'}`}>
-          <div className="form-group">
-            <label>Unit</label>
-            <select value={unitId} onChange={handleUnitChange}>
-              {curriculum.map(u => <option key={u._id} value={u._id}>{u.name}</option>)}
-            </select>
-          </div>
-          <div className="form-group">
-            <label>Topic</label>
-            <select value={topicId} onChange={handleTopicChange}>
-              <option value="">All Topics</option>
-              {topicsList.map(t => <option key={t._id} value={t._id}>{t.name}</option>)}
-            </select>
-          </div>
-          {subtopicsList.length > 0 && (
+
+        <div className="destination-toggle" style={{ display: 'flex', gap: '20px', marginBottom: '20px', padding: '0 8px' }}>
+          <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', fontWeight: 600, color: '#334155' }}>
+            <input
+              type="radio"
+              name="fixDestinationMode"
+              value="curriculum"
+              checked={destinationMode === 'curriculum'}
+              onChange={() => handleModeChange('curriculum')}
+              style={{ cursor: 'pointer' }}
+            />
+            Unit-wise Questions
+          </label>
+          <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', fontWeight: 600, color: '#334155' }}>
+            <input
+              type="radio"
+              name="fixDestinationMode"
+              value="test"
+              checked={destinationMode === 'test'}
+              onChange={() => handleModeChange('test')}
+              style={{ cursor: 'pointer' }}
+            />
+            Test Questions
+          </label>
+        </div>
+
+        {destinationMode === 'curriculum' ? (
+          <div className={`form-row ${subtopicsList.length > 0 ? 'three-col' : 'two-col'}`}>
             <div className="form-group">
-              <label>Subtopic</label>
-              <select value={subtopicId} onChange={handleSubtopicChange} disabled={!topicId}>
-                <option value="">All Subtopics</option>
-                {subtopicsList.map(st => <option key={st._id} value={st._id}>{st.name}</option>)}
+              <label>Unit</label>
+              <select value={unitId} onChange={handleUnitChange}>
+                {curriculum.map(u => <option key={u._id} value={u._id}>{u.name}</option>)}
               </select>
             </div>
-          )}
-        </div>
+            <div className="form-group">
+              <label>Topic</label>
+              <select value={topicId} onChange={handleTopicChange}>
+                <option value="">All Topics</option>
+                {topicsList.map(t => <option key={t._id} value={t._id}>{t.name}</option>)}
+              </select>
+            </div>
+            {subtopicsList.length > 0 && (
+              <div className="form-group">
+                <label>Subtopic</label>
+                <select value={subtopicId} onChange={handleSubtopicChange} disabled={!topicId}>
+                  <option value="">All Subtopics</option>
+                  {subtopicsList.map(st => <option key={st._id} value={st._id}>{st.name}</option>)}
+                </select>
+              </div>
+            )}
+          </div>
+        ) : (
+          <div className="form-row one-col">
+            <div className="form-group">
+              <label>Select Test</label>
+              {tests.length > 0 ? (
+                <select value={selectedTestId} onChange={handleTestChange}>
+                  {tests.map(t => (
+                    <option key={t._id} value={t._id}>
+                      {t.name} {t.publishToStudent ? '(Published)' : '(Draft)'}
+                    </option>
+                  ))}
+                </select>
+              ) : (
+                <div style={{ color: '#ef4444', fontWeight: 500, padding: '8px 0' }}>
+                  No tests available. Please configure tests first.
+                </div>
+              )}
+            </div>
+          </div>
+        )}
       </div>
 
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', margin: '20px 28px 10px' }}>
@@ -312,7 +453,7 @@ function QuestionFix() {
           <button className="btn-secondary" onClick={() => setIsAdding(!isAdding)}>
             {isAdding ? 'Cancel Add' : '+ Add Question'}
           </button>
-          {topicId && questions.length > 0 && (
+          {((destinationMode === 'test' && selectedTestId) || (destinationMode === 'curriculum' && topicId)) && questions.length > 0 && (
             <button className="btn-danger" onClick={handleDeleteAllQuestions}>
               Delete all
             </button>

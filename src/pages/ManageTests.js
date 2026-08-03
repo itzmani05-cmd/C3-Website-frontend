@@ -1,8 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import { EditOutlined, DeleteOutlined, CloseOutlined } from '@ant-design/icons';
 import api from '../api';
+import { useModal } from '../components/ModalProvider';
 
 function ManageTests() {
+  const { showConfirm } = useModal();
   const [tests, setTests] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
@@ -84,8 +86,9 @@ function ManageTests() {
   };
 
   const handleDeleteTest = async (testId, testName) => {
-    const confirmDelete = window.confirm(
-      `WARNING!\n\nAre you sure you want to delete the Test: "${testName}"?\n\nThis will permanently delete ALL exam questions and student attempts belonging to this test.`
+    const confirmDelete = await showConfirm(
+      `Are you sure you want to delete the Test: "${testName}"?\n\nThis will permanently delete ALL exam questions and student attempts belonging to this test.`,
+      { title: 'Delete Test', confirmText: 'Delete', variant: 'error' }
     );
     if (!confirmDelete) return;
 

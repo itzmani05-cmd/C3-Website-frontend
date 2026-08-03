@@ -1,7 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import { EditOutlined, DeleteOutlined, DownOutlined, RightOutlined, CloseOutlined } from '@ant-design/icons';
 import api from '../api';
+import { useModal } from '../components/ModalProvider';
 function UnitswiseName() {
+  const { showConfirm } = useModal();
   const [curriculum, setCurriculum] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
@@ -98,8 +100,9 @@ function UnitswiseName() {
   };
 
   const handleDeleteUnit = async (unitId, unitName) => {
-    const confirmDelete = window.confirm(
-      `WARNING!\n\nAre you sure you want to delete the Unit: "${unitName}"?\n\nThis will permanently delete ALL topics, subtopics, and questions belonging to this Unit.`
+    const confirmDelete = await showConfirm(
+      `Are you sure you want to delete the Unit: "${unitName}"?\n\nThis will permanently delete ALL topics, subtopics, and questions belonging to this Unit.`,
+      { title: 'Delete Unit', confirmText: 'Delete', variant: 'error' }
     );
     if (!confirmDelete) return;
 
@@ -157,8 +160,9 @@ function UnitswiseName() {
   };
 
   const handleDeleteTopic = async (topicId, topicName) => {
-    const confirmDelete = window.confirm(
-      `WARNING!\n\nAre you sure you want to delete the Topic: "${topicName}"?\n\nThis will permanently delete ALL subtopics and questions belonging to this Topic.`
+    const confirmDelete = await showConfirm(
+      `Are you sure you want to delete the Topic: "${topicName}"?\n\nThis will permanently delete ALL subtopics and questions belonging to this Topic.`,
+      { title: 'Delete Topic', confirmText: 'Delete', variant: 'error' }
     );
     if (!confirmDelete) return;
 
@@ -218,8 +222,9 @@ function UnitswiseName() {
   };
 
   const handleDeleteSubtopic = async (subtopicId, subtopicName) => {
-    const confirmDelete = window.confirm(
-      `WARNING!\n\nAre you sure you want to delete the Subtopic: "${subtopicName}"?\n\nThis will permanently delete ALL questions belonging to this Subtopic.`
+    const confirmDelete = await showConfirm(
+      `Are you sure you want to delete the Subtopic: "${subtopicName}"?\n\nThis will permanently delete ALL questions belonging to this Subtopic.`,
+      { title: 'Delete Subtopic', confirmText: 'Delete', variant: 'error' }
     );
     if (!confirmDelete) return;
 

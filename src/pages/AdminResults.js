@@ -1,33 +1,72 @@
 import React, { useState, useEffect } from 'react';
-import { SearchOutlined, ReloadOutlined, EyeOutlined, DeleteOutlined, CloseOutlined, CheckCircleOutlined, CloseCircleOutlined } from '@ant-design/icons';
+import {
+  SearchOutlined,
+  ReloadOutlined,
+  EyeOutlined,
+  DeleteOutlined,
+  CloseOutlined,
+  CheckCircleOutlined,
+  CloseCircleOutlined,
+  ArrowLeftOutlined,
+  FileTextOutlined,
+  TeamOutlined,
+  RightOutlined
+} from '@ant-design/icons';
 import api from '../api';
+import { useModal } from '../components/ModalProvider';
 
 const getApiConfig = () => ({
   headers: { Authorization: `Bearer ${localStorage.getItem('token')}` },
 });
 
+const PASS_PERCENTAGE = 35;
+
 function AdminResults() {
+  const { showConfirm, showAlert } = useModal();
+
+  // Master view: list of tests conducted
+  const [testsSummary, setTestsSummary] = useState([]);
+  const [summaryLoading, setSummaryLoading] = useState(true);
+  const [summaryError, setSummaryError] = useState('');
+
+  // Detail view: a single test's student results
+  const [selectedTest, setSelectedTest] = useState(null); // { testId, testName }
   const [results, setResults] = useState([]);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [searchTerm, setSearchTerm] = useState('');
   const [sortBy, setSortBy] = useState('date-desc');
-  
-  // Modal detail state
+
+  // Per-student detail modal state
   const [selectedResult, setSelectedResult] = useState(null);
   const [detailLoading, setDetailLoading] = useState(false);
   const [detailError, setDetailError] = useState('');
   const [detailData, setDetailData] = useState(null); // { studentExam, questions }
 
   useEffect(() => {
-    fetchResults();
+    fetchTestsSummary();
   }, []);
 
-  const fetchResults = async () => {
+  const fetchTestsSummary = async () => {
+    setSummaryLoading(true);
+    setSummaryError('');
+    try {
+      const response = await api.get('/api/exam/admin/tests-summary', getApiConfig());
+      setTestsSummary(response.data || []);
+    } catch (err) {
+      console.error(err);
+      setSummaryError('Failed to fetch conducted tests.');
+    } finally {
+      setSummaryLoading(false);
+    }
+  };
+
+  const fetchResultsForTest = async (test) => {
     setLoading(true);
     setError('');
     try {
-      const response = await api.get('/api/exam/admin/results', getApiConfig());
+      const params = test.testId ? { testId: test.testId } : { testName: test.testName };
+      const response = await api.get('/api/exam/admin/results', { ...getApiConfig(), params });
       setResults(response.data || []);
     } catch (err) {
       console.error(err);
@@ -37,9 +76,24 @@ function AdminResults() {
     }
   };
 
+  const handleSelectTest = (test) => {
+    setSelectedTest(test);
+    setSearchTerm('');
+    setSortBy('date-desc');
+    fetchResultsForTest(test);
+  };
+
+  const handleBackToList = () => {
+    setSelectedTest(null);
+    setResults([]);
+    setError('');
+    fetchTestsSummary();
+  };
+
   const handleDelete = async (id, studentEmail, testName) => {
-    const confirmed = window.confirm(
-      `Are you sure you want to delete the attempt for student "${studentEmail}" on test "${testName}"?\nThis will completely erase their progress and scores, allowing them to take the exam again.`
+    const confirmed = await showConfirm(
+      `Are you sure you want to delete the attempt for student "${studentEmail}" on test "${testName}"?\nThis will completely erase their progress and scores, allowing them to take the exam again.`,
+      { title: 'Delete Attempt', confirmText: 'Delete', variant: 'error' }
     );
     if (!confirmed) return;
 
@@ -50,10 +104,10 @@ function AdminResults() {
         setSelectedResult(null);
         setDetailData(null);
       }
-      alert('Student attempt cleared successfully.');
+      await showAlert('Student attempt cleared successfully.', { variant: 'success' });
     } catch (err) {
       console.error(err);
-      alert('Failed to clear attempt. Please try again.');
+      await showAlert('Failed to clear attempt. Please try again.', { variant: 'error' });
     }
   };
 
@@ -78,13 +132,10 @@ function AdminResults() {
     setDetailData(null);
   };
 
-  // Filter & Search
+  // Filter & Search (detail view, within the selected test)
   const filteredResults = results.filter(r => {
     const searchLower = searchTerm.toLowerCase();
-    return (
-      r.studentEmail?.toLowerCase().includes(searchLower) ||
-      r.testName?.toLowerCase().includes(searchLower)
-    );
+    return r.studentEmail?.toLowerCase().includes(searchLower);
   });
 
   // Sorting
@@ -114,11 +165,100 @@ function AdminResults() {
     return 0;
   });
 
+  // ─── Master View: list of conducted tests ────────────────────────────────
+  if (!selectedTest) {
+    return (
+      <div className="admin-results-container">
+        <div className="admin-results-header">
+          <h1>Student Assessment Results</h1>
+          <p className="subtitle">Select a test to review student performance for that assessment.</p>
+        </div>
+
+        <div className="admin-results-controls">
+          <div className="search-group" style={{ maxWidth: '100%' }}>
+            <span className="search-icon"><FileTextOutlined /></span>
+            <span style={{ color: '#64748b', fontSize: '0.9rem' }}>
+              {testsSummary.length} test{testsSummary.length === 1 ? '' : 's'} conducted
+            </span>
+          </div>
+          <button className="refresh-btn" style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }} onClick={fetchTestsSummary} title="Refresh">
+            <ReloadOutlined /> Refresh
+          </button>
+        </div>
+
+        {summaryLoading ? (
+          <div className="results-loading-state">
+            <div className="loader"></div>
+            <p>Fetching conducted tests...</p>
+          </div>
+        ) : summaryError ? (
+          <div className="results-error-state">
+            <p className="error-text" style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+              <CloseCircleOutlined style={{ color: '#ef4444' }} /> {summaryError}
+            </p>
+            <button onClick={fetchTestsSummary} className="retry-btn">Retry Connection</button>
+          </div>
+        ) : testsSummary.length === 0 ? (
+          <div className="results-empty-state">
+            <FileTextOutlined style={{ fontSize: '2rem', color: '#cbd5e1', marginBottom: '10px' }} />
+            <p>No tests have been conducted yet.</p>
+            <p style={{ fontSize: '0.85rem', color: '#94a3b8' }}>Results will appear here once students start submitting exams.</p>
+          </div>
+        ) : (
+          <div className="tests-summary-grid">
+            {testsSummary.map((test) => {
+              const pct = test.averagePercentage || 0;
+              let pctClass = 'pct-badge info';
+              if (pct >= 80) pctClass = 'pct-badge success';
+              else if (pct >= 50) pctClass = 'pct-badge warning';
+              else pctClass = 'pct-badge danger';
+
+              return (
+                <div
+                  key={test.testId || test.testName}
+                  className="test-summary-card"
+                  onClick={() => handleSelectTest(test)}
+                  role="button"
+                  tabIndex={0}
+                  onKeyDown={(e) => { if (e.key === 'Enter') handleSelectTest(test); }}
+                >
+                  <div className="test-summary-card-header">
+                    <h3>{test.testName}</h3>
+                    <RightOutlined style={{ color: '#94a3b8' }} />
+                  </div>
+                  <p className="test-summary-date">
+                    Last submission: {test.lastSubmittedAt ? new Date(test.lastSubmittedAt).toLocaleString() : 'N/A'}
+                  </p>
+                  <div className="test-summary-card-stats">
+                    <div className="test-summary-stat">
+                      <TeamOutlined />
+                      <span><strong>{test.studentsAttempted}</strong> Attempted</span>
+                    </div>
+                    <span className={pctClass}>Avg {pct}%</span>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </div>
+    );
+  }
+
+  // ─── Detail View: students who attempted the selected test ───────────────
   return (
     <div className="admin-results-container">
+      <div className="results-breadcrumb">
+        <button className="back-btn" onClick={handleBackToList}>
+          <ArrowLeftOutlined /> Back to Tests
+        </button>
+        <span className="breadcrumb-sep">/</span>
+        <span className="breadcrumb-current">{selectedTest.testName}</span>
+      </div>
+
       <div className="admin-results-header">
-        <h1>Student Assessment Results</h1>
-        <p className="subtitle">Track and review student performances across all exams.</p>
+        <h1>{selectedTest.testName}</h1>
+        <p className="subtitle">Track and review student performances for this test.</p>
       </div>
 
       {/* Control Panel: Search & Sorting */}
@@ -127,7 +267,7 @@ function AdminResults() {
           <span className="search-icon"><SearchOutlined /></span>
           <input
             type="text"
-            placeholder="Search by student email or test name..."
+            placeholder="Search by student email..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
           />
@@ -142,7 +282,7 @@ function AdminResults() {
             <option value="pct-desc">Percentage: Highest First</option>
             <option value="pct-asc">Percentage: Lowest First</option>
           </select>
-          <button className="refresh-btn" style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }} onClick={fetchResults} title="Refresh Results">
+          <button className="refresh-btn" style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }} onClick={() => fetchResultsForTest(selectedTest)} title="Refresh Results">
             <ReloadOutlined /> Refresh
           </button>
         </div>
@@ -158,11 +298,11 @@ function AdminResults() {
           <p className="error-text" style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
             <CloseCircleOutlined style={{ color: '#ef4444' }} /> {error}
           </p>
-          <button onClick={fetchResults} className="retry-btn">Retry Connection</button>
+          <button onClick={() => fetchResultsForTest(selectedTest)} className="retry-btn">Retry Connection</button>
         </div>
       ) : sortedResults.length === 0 ? (
         <div className="results-empty-state">
-          <p>No test submissions found.</p>
+          <p>No students have attempted this test yet.</p>
         </div>
       ) : (
         <div className="results-table-wrapper">
@@ -170,9 +310,9 @@ function AdminResults() {
             <thead>
               <tr>
                 <th>Student Email</th>
-                <th>Test Name</th>
                 <th>Raw Score</th>
                 <th>Percentage</th>
+                <th>Status</th>
                 <th>Submitted Date</th>
                 <th>Actions</th>
               </tr>
@@ -184,18 +324,23 @@ function AdminResults() {
                 if (pct >= 80) pctClass = 'pct-badge success';
                 else if (pct >= 50) pctClass = 'pct-badge warning';
                 else pctClass = 'pct-badge danger';
+                const passed = pct >= PASS_PERCENTAGE;
 
                 return (
                   <tr key={result._id}>
                     <td className="student-email-cell">
                       <strong>{result.studentEmail}</strong>
                     </td>
-                    <td>{result.testName}</td>
                     <td className="score-cell">
                       {result.score} / {result.totalQuestions}
                     </td>
                     <td>
                       <span className={pctClass}>{pct}%</span>
+                    </td>
+                    <td>
+                      <span className={`pct-badge ${passed ? 'success' : 'danger'}`}>
+                        {passed ? 'Pass' : 'Fail'}
+                      </span>
                     </td>
                     <td>{result.submittedAt ? new Date(result.submittedAt).toLocaleString() : 'N/A'}</td>
                     <td className="actions-cell">

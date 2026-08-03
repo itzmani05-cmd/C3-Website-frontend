@@ -2,8 +2,10 @@ import React, { useState, useEffect, useCallback } from 'react';
 import api from '../api';
 import { detectQuestionType, normalizeOptionKey } from '../components/helpers';
 import QuestionForm from '../components/QuestionForm';
+import { useModal } from '../components/ModalProvider';
 
 function AIGenerator() {
+  const { showAlert } = useModal();
   const [curriculum, setCurriculum] = useState([]);
   const [unitId, setUnitId] = useState('');
   const [topicId, setTopicId] = useState('');
@@ -321,7 +323,7 @@ function AIGenerator() {
 
   const handleQuickExtract = () => {
     if (!pastedContent.trim()) {
-      alert('Please paste some content first!');
+      showAlert('Please paste some content first!', { variant: 'warning' });
       return;
     }
 
@@ -459,7 +461,10 @@ function AIGenerator() {
     finalizeQuestion();
 
     if (questions.length === 0) {
-      alert('Could not find any questions in the pasted content. Please ensure questions are numbered (e.g., 1. What is...) and options are labeled (a, b, c, d).');
+      showAlert(
+        'Could not find any questions in the pasted content. Please ensure questions are numbered (e.g., 1. What is...) and options are labeled (a, b, c, d).',
+        { variant: 'error', title: 'No Questions Found' }
+      );
       return;
     }
 
@@ -555,7 +560,7 @@ function AIGenerator() {
   const saveAll = async () => {
     const toSave = batch.filter(q => q.status !== 'REJECTED');
     if (toSave.length === 0) {
-      alert('No questions to save!');
+      showAlert('No questions to save!', { variant: 'warning' });
       return;
     }
 
