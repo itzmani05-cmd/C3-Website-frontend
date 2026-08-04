@@ -20,6 +20,12 @@ const getApiConfig = () => ({
 });
 
 const PASS_PERCENTAGE = 35;
+const MARKS_PER_QUESTION = 1.5;
+
+const formatMarks = (value) => {
+  const rounded = Math.round(value * 100) / 100;
+  return Number.isInteger(rounded) ? String(rounded) : rounded.toFixed(2).replace(/0+$/, '').replace(/\.$/, '');
+};
 
 function AdminResults() {
   const { showConfirm, showAlert } = useModal();
@@ -135,7 +141,8 @@ function AdminResults() {
   // Filter & Search (detail view, within the selected test)
   const filteredResults = results.filter(r => {
     const searchLower = searchTerm.toLowerCase();
-    return r.studentEmail?.toLowerCase().includes(searchLower);
+    return r.studentEmail?.toLowerCase().includes(searchLower)
+      || r.studentName?.toLowerCase().includes(searchLower);
   });
 
   // Sorting
@@ -267,7 +274,7 @@ function AdminResults() {
           <span className="search-icon"><SearchOutlined /></span>
           <input
             type="text"
-            placeholder="Search by student email..."
+            placeholder="Search by student name or email..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
           />
@@ -309,8 +316,10 @@ function AdminResults() {
           <table className="results-table">
             <thead>
               <tr>
+                <th>Student Name</th>
                 <th>Student Email</th>
                 <th>Raw Score</th>
+                <th>Marks</th>
                 <th>Percentage</th>
                 <th>Status</th>
                 <th>Submitted Date</th>
@@ -328,11 +337,17 @@ function AdminResults() {
 
                 return (
                   <tr key={result._id}>
+                    <td className="student-name-cell">
+                      <strong>{result.studentName || '—'}</strong>
+                    </td>
                     <td className="student-email-cell">
-                      <strong>{result.studentEmail}</strong>
+                      {result.studentEmail}
                     </td>
                     <td className="score-cell">
                       {result.score} / {result.totalQuestions}
+                    </td>
+                    <td className="score-cell">
+                      {formatMarks((result.score || 0) * MARKS_PER_QUESTION)} / {formatMarks((result.totalQuestions || 0) * MARKS_PER_QUESTION)}
                     </td>
                     <td>
                       <span className={pctClass}>{pct}%</span>
@@ -378,7 +393,10 @@ function AdminResults() {
                 <h2>Attempt Review</h2>
                 {detailData && (
                   <p className="student-info">
-                    Student: <strong>{detailData.studentExam?.studentEmail}</strong> | Test: <strong>{detailData.studentExam?.testName}</strong>
+                    Student: <strong>{detailData.studentExam?.studentName || detailData.studentExam?.studentEmail}</strong>
+                    {detailData.studentExam?.studentName && (
+                      <> ({detailData.studentExam?.studentEmail})</>
+                    )} | Test: <strong>{detailData.studentExam?.testName}</strong>
                   </p>
                 )}
               </div>
@@ -407,6 +425,12 @@ function AdminResults() {
                       <span>Overall Score</span>
                       <strong>
                         {detailData.studentExam?.score} / {detailData.studentExam?.totalQuestions}
+                      </strong>
+                    </div>
+                    <div className="m-stat-box score">
+                      <span>Marks</span>
+                      <strong>
+                        {formatMarks((detailData.studentExam?.score || 0) * MARKS_PER_QUESTION)} / {formatMarks((detailData.studentExam?.totalQuestions || 0) * MARKS_PER_QUESTION)}
                       </strong>
                     </div>
                     <div className="m-stat-box pct">

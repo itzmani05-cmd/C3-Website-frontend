@@ -2269,7 +2269,11 @@ img {
   background: #f8fafc;
 }
 
-.student-email-cell strong {
+.student-email-cell {
+  color: #64748b;
+}
+
+.student-name-cell strong {
   color: #0f172a;
 }
 

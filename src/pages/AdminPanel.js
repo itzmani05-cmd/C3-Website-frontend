@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { BulbOutlined, DownloadOutlined, ToolOutlined, TagsOutlined, FileDoneOutlined, LogoutOutlined, CrownOutlined, ProfileOutlined } from '@ant-design/icons';
+import { BulbOutlined, DownloadOutlined, ToolOutlined, TagsOutlined, FileDoneOutlined, LogoutOutlined, CrownOutlined, ProfileOutlined, TeamOutlined } from '@ant-design/icons';
 import c3Logo from '../assests/C3AppLogo.png';
 import AIGenerator from './AIGenerator';
 import PdfDownload from './PdfDownload';
@@ -7,6 +7,7 @@ import QuestionFix from './QuestionFix';
 import UnitswiseName from './UnitswiseName';
 import ManageTests from './ManageTests';
 import AdminResults from './AdminResults';
+import ManageStudents from './ManageStudents';
 
 function AdminPanel({ onLogout }) {
   const [activeTab, setActiveTab] = useState('ai');
@@ -23,6 +24,8 @@ function AdminPanel({ onLogout }) {
         return <UnitswiseName />;
       case 'tests':
         return <ManageTests />;
+      case 'students':
+        return <ManageStudents />;
       case 'results':
         return <AdminResults />;
       default:
@@ -79,6 +82,14 @@ function AdminPanel({ onLogout }) {
           >
             <ProfileOutlined className="nav-icon" />
             Manage Tests
+          </button>
+
+          <button
+            className={`nav-btn ${activeTab === 'students' ? 'active' : ''}`}
+            onClick={() => setActiveTab('students')}
+          >
+            <TeamOutlined className="nav-icon" />
+            Manage Students
           </button>
 
           <button
