@@ -332,7 +332,6 @@ function AdminResults() {
                 if (pct >= 80) pctClass = 'pct-badge success';
                 else if (pct >= 50) pctClass = 'pct-badge warning';
                 else pctClass = 'pct-badge danger';
-                const passed = pct >= PASS_PERCENTAGE;
 
                 return (
                   <tr key={result._id}>
