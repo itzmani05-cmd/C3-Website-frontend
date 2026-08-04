@@ -317,11 +317,10 @@ function AdminResults() {
             <thead>
               <tr>
                 <th>Student Name</th>
-                <th>Student Email</th>
-                <th>Raw Score</th>
-                <th>Marks</th>
-                <th>Percentage</th>
-                <th>Status</th>
+               
+                <th>Raw Score(200)</th>
+                <th>Marks(300)</th>
+                <th>Percentage(100)</th>
                 <th>Submitted Date</th>
                 <th>Actions</th>
               </tr>
@@ -340,23 +339,17 @@ function AdminResults() {
                     <td className="student-name-cell">
                       <strong>{result.studentName || '—'}</strong>
                     </td>
-                    <td className="student-email-cell">
-                      {result.studentEmail}
+                   
+                    <td className="score-cell">
+                      {result.score}
                     </td>
                     <td className="score-cell">
-                      {result.score} / {result.totalQuestions}
-                    </td>
-                    <td className="score-cell">
-                      {formatMarks((result.score || 0) * MARKS_PER_QUESTION)} / {formatMarks((result.totalQuestions || 0) * MARKS_PER_QUESTION)}
+                      {formatMarks((result.score || 0) * MARKS_PER_QUESTION)}
                     </td>
                     <td>
                       <span className={pctClass}>{pct}%</span>
                     </td>
-                    <td>
-                      <span className={`pct-badge ${passed ? 'success' : 'danger'}`}>
-                        {passed ? 'Pass' : 'Fail'}
-                      </span>
-                    </td>
+                    
                     <td>{result.submittedAt ? new Date(result.submittedAt).toLocaleString() : 'N/A'}</td>
                     <td className="actions-cell">
                       <button
