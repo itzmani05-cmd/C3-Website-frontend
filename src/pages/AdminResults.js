@@ -19,7 +19,6 @@ const getApiConfig = () => ({
   headers: { Authorization: `Bearer ${localStorage.getItem('token')}` },
 });
 
-const PASS_PERCENTAGE = 35;
 const MARKS_PER_QUESTION = 1.5;
 
 const formatMarks = (value) => {
