@@ -1,0 +1,103 @@
+@import url("https://fonts.googleapis.com/css2?family=Manrope:wght@200..800&display=swap");
+@import "tailwindcss";
+
+@theme {
+  --font-sans: "Manrope", ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+
+  --color-brand-50: #eef2ff;
+  --color-brand-100: #e0e7ff;
+  --color-brand-500: #6366f1;
+  --color-brand-600: #4f46e5;
+  --color-brand-700: #4338ca;
+
+  --color-accent-500: #8b5cf6;
+  --color-accent-600: #7c3aed;
+  --color-accent-700: #6d28d9;
+
+  --color-success-500: #10b981;
+  --color-success-600: #059669;
+  --color-success-soft: #d1fae5;
+
+  --color-danger-500: #ef4444;
+  --color-danger-600: #dc2626;
+  --color-danger-700: #b91c1c;
+  --color-danger-soft: #fee2e2;
+
+  --color-warning-500: #f59e0b;
+  --color-warning-soft: #fef3c7;
+  --color-warning-text: #92400e;
+
+  --color-info-500: #3b82f6;
+  --color-info-600: #2563eb;
+
+  --shadow-soft-sm: 0 1px 2px rgba(15, 23, 42, 0.06);
+  --shadow-soft-md: 0 12px 28px rgba(15, 23, 42, 0.08);
+  --shadow-soft-lg: 0 24px 60px rgba(15, 23, 42, 0.14);
+
+  --radius-xl: 14px;
+  --radius-2xl: 20px;
+  --radius-3xl: 28px;
+}
+
+@layer base {
+  * {
+    box-sizing: border-box;
+  }
+
+  html,
+  body,
+  #root {
+    height: 100%;
+  }
+
+  body {
+    font-family: var(--font-sans);
+    background: #f3f6fb;
+    color: #0f172a;
+    -webkit-font-smoothing: antialiased;
+  }
+}
+
+@layer utilities {
+  .scrollbar-thin::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+  }
+  .scrollbar-thin::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  .scrollbar-thin::-webkit-scrollbar-thumb {
+    background-color: #cbd5e1;
+    border-radius: 9999px;
+  }
+}
+
+/*
+ * Print stylesheet for the Assessment Generator (PdfDownload page).
+ * Necessary exception to the Tailwind-only rule: `window.print()` needs
+ * page-break control and a serif exam-paper look that utility classes
+ * can't express, and the same class names are the print-time contract
+ * that page relies on.
+ */
+@media print {
+  body * {
+    visibility: hidden;
+  }
+  .assessment-document,
+  .assessment-document * {
+    visibility: visible;
+  }
+  .assessment-document {
+    position: absolute;
+    inset: 0;
+    font-family: 'Times New Roman', Times, serif;
+    color: #000;
+  }
+  .doc-question-card,
+  .explanation-detail-item {
+    break-inside: avoid;
+  }
+  .page-break-before {
+    break-before: page;
+  }
+}
