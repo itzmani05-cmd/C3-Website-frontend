@@ -1,4 +1,4 @@
-import { ChevronLeft, ChevronRight, Eraser } from 'lucide-react';
+import { Bookmark, ChevronLeft, ChevronRight, Eraser } from 'lucide-react';
 import QuestionRenderer from '../QuestionRenderer';
 import type { ExamQuestion } from '../../types/models';
 
@@ -7,8 +7,10 @@ interface QuestionCardProps {
   questionIndex: number;
   totalQuestions: number;
   selectedAnswer: string | undefined;
+  isMarkedForReview: boolean;
   onSelectOption: (questionId: string, optionLetter: string) => void;
   onClearSelection: (questionId: string) => void;
+  onToggleMarkForReview: () => void;
   onPrev: () => void;
   onNext: () => void;
 }
@@ -18,8 +20,10 @@ export default function QuestionCard({
   questionIndex,
   totalQuestions,
   selectedAnswer,
+  isMarkedForReview,
   onSelectOption,
   onClearSelection,
+  onToggleMarkForReview,
   onPrev,
   onNext,
 }: QuestionCardProps) {
@@ -40,7 +44,20 @@ export default function QuestionCard({
         <span className="text-sm font-bold text-slate-500">
           Question {questionIndex + 1} of {totalQuestions}
         </span>
-        <span className="rounded-full bg-slate-100 px-2.5 py-1 text-xs font-semibold text-slate-500">{question.type}</span>
+        <div className="flex items-center gap-2">
+          <span className="rounded-full bg-slate-100 px-2.5 py-1 text-xs font-semibold text-slate-500">{question.type}</span>
+          <button
+            onClick={onToggleMarkForReview}
+            aria-pressed={isMarkedForReview}
+            className={[
+              'flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs font-semibold transition-colors',
+              isMarkedForReview ? 'border-accent-600 bg-accent-500 text-white' : 'border-slate-200 bg-white text-slate-500 hover:border-accent-500 hover:text-accent-600',
+            ].join(' ')}
+          >
+            <Bookmark className="size-3.5" fill={isMarkedForReview ? 'currentColor' : 'none'} />
+            {isMarkedForReview ? 'Marked for Review' : 'Mark for Review'}
+          </button>
+        </div>
       </div>
 
       <div className="rounded-2xl border border-slate-200 bg-white p-6">

@@ -1,4 +1,4 @@
-import { CheckCircle2, Clock, FileEdit, RefreshCw, Wifi } from 'lucide-react';
+import { Calculator, CheckCircle2, Clock, FileEdit, RefreshCw, Wifi } from 'lucide-react';
 
 interface ExamHeaderProps {
   selectedTestName: string;
@@ -8,9 +8,21 @@ interface ExamHeaderProps {
   unsyncedAnswers: Record<string, string | null>;
   remainingTime: number;
   formatTime: (secs: number) => string;
+  calculatorOpen: boolean;
+  onToggleCalculator: () => void;
 }
 
-export default function ExamHeader({ selectedTestName, studentEmail, online, syncing, unsyncedAnswers, remainingTime, formatTime }: ExamHeaderProps) {
+export default function ExamHeader({
+  selectedTestName,
+  studentEmail,
+  online,
+  syncing,
+  unsyncedAnswers,
+  remainingTime,
+  formatTime,
+  calculatorOpen,
+  onToggleCalculator,
+}: ExamHeaderProps) {
   const isTimeCritical = remainingTime < 600;
   const hasUnsynced = Object.keys(unsyncedAnswers).length > 0;
 
@@ -34,6 +46,20 @@ export default function ExamHeader({ selectedTestName, studentEmail, online, syn
       </div>
 
       <div className="flex items-center gap-3">
+        <button
+          type="button"
+          onClick={onToggleCalculator}
+          aria-pressed={calculatorOpen}
+          aria-label={calculatorOpen ? 'Close calculator' : 'Open calculator'}
+          className={[
+            'inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-semibold transition-colors',
+            calculatorOpen ? 'bg-brand-600 text-white' : 'bg-slate-100 text-slate-600 hover:bg-slate-200',
+          ].join(' ')}
+        >
+          <Calculator className="size-3.5" />
+          <span className="hidden sm:inline">Calculator</span>
+        </button>
+
         <div className={['inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-semibold', syncColorClasses].join(' ')}>
           <SyncIcon className={['size-3.5', syncing || hasUnsynced ? 'animate-spin' : ''].join(' ')} />
           <span>{syncLabel}</span>

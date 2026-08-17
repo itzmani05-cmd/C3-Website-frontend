@@ -8,8 +8,10 @@ import ExamHeader from '../components/exam/ExamHeader';
 import QuestionSidebar from '../components/exam/QuestionSidebar';
 import QuestionCard from '../components/exam/QuestionCard';
 import SubmitModal from '../components/exam/SubmitModal';
+import ExitConfirmModal from '../components/exam/ExitConfirmModal';
 import TestSelectionPage from '../components/exam/TestSelectionPage';
 import ExamResultPage from '../components/exam/ExamResultPage';
+import ScientificCalculator from '../components/exam/ScientificCalculator';
 import type { AvailableTest, ExamQuestion } from '../types/models';
 
 interface TestAreaProps {
@@ -38,6 +40,10 @@ export default function TestArea({ onLogout }: TestAreaProps) {
   const [online, setOnline] = useState(navigator.onLine);
   const [tabConflict, setTabConflict] = useState(false);
   const [showSubmitModal, setShowSubmitModal] = useState(false);
+  const [showExitModal, setShowExitModal] = useState(false);
+  const [showCalculator, setShowCalculator] = useState(false);
+  const [visitedQuestions, setVisitedQuestions] = useState<Set<string>>(new Set());
+  const [markedForReview, setMarkedForReview] = useState<Set<string>>(new Set());
 
   const emailRef = useRef('student');
   const tabIdRef = useRef('');
@@ -124,6 +130,14 @@ export default function TestArea({ onLogout }: TestAreaProps) {
     return () => clearInterval(heartbeat);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [loading, submitted, unsyncedAnswers, examStarted]);
+
+  // Mark the active question visited (drives the "Not Visited" vs "Not Answered" sidebar state)
+  useEffect(() => {
+    if (!examStarted || questions.length === 0) return;
+    const activeId = questions[activeQuestionIndex]?._id;
+    if (!activeId) return;
+    setVisitedQuestions((prev) => (prev.has(activeId) ? prev : new Set(prev).add(activeId)));
+  }, [examStarted, questions, activeQuestionIndex]);
 
   // Detect duplicate-tab conflict
   useEffect(() => {
@@ -348,6 +362,20 @@ export default function TestArea({ onLogout }: TestAreaProps) {
     localStorage.setItem(`c3_exam_unsynced_${emailRef.current}_${selectedTestId}`, JSON.stringify(newUnsynced));
   };
 
+  const handleSubmitClick = async () => {
+    await forceImmediateSync();
+    setShowSubmitModal(true);
+  };
+
+  const handleToggleMarkForReview = (questionId: string) => {
+    setMarkedForReview((prev) => {
+      const next = new Set(prev);
+      if (next.has(questionId)) next.delete(questionId);
+      else next.add(questionId);
+      return next;
+    });
+  };
+
   const handleNavigateQuestion = async (index: number) => {
     if (index < 0 || index >= questions.length) return;
     if (Object.keys(unsyncedAnswers).length > 0) await forceImmediateSync();
@@ -432,7 +460,7 @@ export default function TestArea({ onLogout }: TestAreaProps) {
   const unansweredCount = questions.length - answeredCount;
 
   return (
-    <div className="flex min-h-screen flex-col bg-slate-50">
+    <div className="flex h-screen flex-col overflow-hidden bg-slate-50">
       <ExamHeader
         selectedTestName={selectedTestName}
         studentEmail={emailRef.current}
@@ -441,6 +469,8 @@ export default function TestArea({ onLogout }: TestAreaProps) {
         unsyncedAnswers={unsyncedAnswers}
         remainingTime={remainingTime}
         formatTime={formatTime}
+        calculatorOpen={showCalculator}
+        onToggleCalculator={() => setShowCalculator((v) => !v)}
       />
 
       {!online && (
@@ -450,37 +480,51 @@ export default function TestArea({ onLogout }: TestAreaProps) {
         </div>
       )}
 
-      <div className="flex flex-1 flex-col lg:flex-row">
-        <QuestionSidebar
-          questions={questions}
-          answers={answers}
-          unsyncedAnswers={unsyncedAnswers}
-          activeQuestionIndex={activeQuestionIndex}
-          onNavigate={handleNavigateQuestion}
-          onSubmitClick={async () => {
-            await forceImmediateSync();
-            setShowSubmitModal(true);
-          }}
-          onBackToExams={handleBackToExams}
-        />
-
-        <main className="flex-1">
+      <div className="flex min-h-0 flex-1 flex-col lg:flex-row">
+        <main className="min-h-0 flex-1 overflow-y-auto">
           <QuestionCard
             question={currentQuestion}
             questionIndex={activeQuestionIndex}
             totalQuestions={questions.length}
             selectedAnswer={answers[currentQuestion?._id]}
+            isMarkedForReview={!!currentQuestion && markedForReview.has(currentQuestion._id)}
             onSelectOption={handleSelectOption}
             onClearSelection={handleClearSelection}
+            onToggleMarkForReview={() => currentQuestion && handleToggleMarkForReview(currentQuestion._id)}
             onPrev={() => handleNavigateQuestion(activeQuestionIndex - 1)}
             onNext={() => handleNavigateQuestion(activeQuestionIndex + 1)}
           />
         </main>
+
+        <QuestionSidebar
+          questions={questions}
+          answers={answers}
+          unsyncedAnswers={unsyncedAnswers}
+          visitedQuestions={visitedQuestions}
+          markedForReview={markedForReview}
+          activeQuestionIndex={activeQuestionIndex}
+          selectedTestName={selectedTestName}
+          onNavigate={handleNavigateQuestion}
+          onSubmitClick={handleSubmitClick}
+          onExitClick={() => setShowExitModal(true)}
+        />
       </div>
 
       {showSubmitModal && (
         <SubmitModal answeredCount={answeredCount} unansweredCount={unansweredCount} onConfirm={handleManualSubmit} onCancel={() => setShowSubmitModal(false)} />
       )}
+
+      {showExitModal && (
+        <ExitConfirmModal
+          onConfirm={() => {
+            setShowExitModal(false);
+            handleBackToExams();
+          }}
+          onCancel={() => setShowExitModal(false)}
+        />
+      )}
+
+      <ScientificCalculator open={showCalculator} onToggle={() => setShowCalculator((v) => !v)} />
     </div>
   );
 }
