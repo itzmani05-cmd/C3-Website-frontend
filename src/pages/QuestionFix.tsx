@@ -335,7 +335,7 @@ export default function QuestionFix() {
 
   if (curriculumLoading) {
     return (
-      <div className="mx-auto max-w-4xl">
+      <div className="mx-auto w-full max-w-4xl 2xl:max-w-5xl">
         <h1 className="mb-6 text-2xl font-bold text-slate-900">Question Fixer</h1>
         <LoadingState message="Loading curriculum..." />
       </div>
@@ -344,7 +344,7 @@ export default function QuestionFix() {
 
   if (curriculumError) {
     return (
-      <div className="mx-auto max-w-4xl">
+      <div className="mx-auto w-full max-w-4xl 2xl:max-w-5xl">
         <h1 className="mb-6 text-2xl font-bold text-slate-900">Question Fixer</h1>
         <Banner variant="error" message={curriculumError} />
       </div>
@@ -352,7 +352,7 @@ export default function QuestionFix() {
   }
 
   return (
-    <div className="mx-auto max-w-4xl">
+    <div className="mx-auto w-full max-w-4xl 2xl:max-w-5xl">
       <h1 className="mb-6 text-2xl font-bold text-slate-900">Question Fixer</h1>
 
       <div className="mb-6 rounded-2xl border border-slate-100 bg-white p-6 shadow-[0_8px_28px_rgba(30,41,59,0.055)]">

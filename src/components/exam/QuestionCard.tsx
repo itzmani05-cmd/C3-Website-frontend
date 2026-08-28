@@ -39,7 +39,7 @@ export default function QuestionCard({
   }
 
   return (
-    <div className="mx-auto flex max-w-3xl flex-col gap-5 p-5 sm:p-8">
+    <div className="mx-auto flex max-w-3xl flex-col gap-5 p-5 sm:p-8 2xl:max-w-4xl">
       <div className="flex items-center justify-between">
         <span className="text-sm font-bold text-slate-500">
           Question {questionIndex + 1} of {totalQuestions}

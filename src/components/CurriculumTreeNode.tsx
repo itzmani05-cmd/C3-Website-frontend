@@ -58,8 +58,8 @@ export default function CurriculumTreeNode({
 
   return (
     <div className={isUnit ? 'overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-soft-sm' : 'rounded-xl border border-slate-200/80 bg-white'}>
-      <div className={['flex items-center justify-between gap-3', styles.header, expanded ? 'border-b border-slate-100' : ''].join(' ')}>
-        <div className="flex flex-1 items-center gap-3">
+      <div className={['flex flex-wrap items-center justify-between gap-3', styles.header, expanded ? 'border-b border-slate-100' : ''].join(' ')}>
+        <div className="flex min-w-0 flex-1 items-center gap-3">
           <button
             type="button"
             onClick={onToggleExpand}

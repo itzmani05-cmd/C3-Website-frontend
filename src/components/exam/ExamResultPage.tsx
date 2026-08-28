@@ -35,8 +35,8 @@ export default function ExamResultPage({ selectedTestName, studentEmail, questio
   const percentage = totalQuestions > 0 ? ((correctCount / totalQuestions) * 100).toFixed(2) : '0.00';
 
   return (
-    <div className="min-h-screen bg-slate-50 px-4 py-8 sm:px-6">
-      <div className="mx-auto max-w-4xl rounded-3xl border border-slate-200 bg-white shadow-[0_24px_60px_rgba(15,23,42,0.08)]">
+    <div className="min-h-screen bg-slate-50 px-4 py-8 sm:px-6 lg:px-8">
+      <div className="mx-auto max-w-4xl rounded-3xl border border-slate-200 bg-white shadow-[0_24px_60px_rgba(15,23,42,0.08)] xl:max-w-5xl">
         <div className="rounded-t-3xl bg-gradient-to-br from-brand-600 to-brand-700 px-6 py-10 text-center text-white">
           <div className="mb-3 inline-flex items-center gap-1.5 rounded-full bg-white/15 px-3 py-1 text-xs font-bold">
             <Trophy className="size-3.5" /> Assessment Completed

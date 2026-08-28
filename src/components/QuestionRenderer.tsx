@@ -105,28 +105,30 @@ export default function QuestionRenderer({ question }: QuestionRendererProps) {
       return (
         <div>
           <p className="mb-2 whitespace-pre-wrap text-sm text-slate-800">{parsed.prompt}</p>
-          <table className="w-full border-collapse overflow-hidden rounded-lg border border-slate-200 text-sm">
-            <tbody>
-              <tr>
-                <td className="w-1/2 border-r border-slate-200 p-3 align-top">
-                  <div className="mb-1.5 text-xs font-bold uppercase tracking-wide text-slate-500">List I</div>
-                  {parsed.listI.map((item, idx) => (
-                    <div key={idx} className="py-0.5 text-slate-700">
-                      {item}
-                    </div>
-                  ))}
-                </td>
-                <td className="w-1/2 p-3 align-top">
-                  <div className="mb-1.5 text-xs font-bold uppercase tracking-wide text-slate-500">List II</div>
-                  {parsed.listII.map((item, idx) => (
-                    <div key={idx} className="py-0.5 text-slate-700">
-                      {item}
-                    </div>
-                  ))}
-                </td>
-              </tr>
-            </tbody>
-          </table>
+          <div className="overflow-x-auto">
+            <table className="w-full min-w-[420px] border-collapse overflow-hidden rounded-lg border border-slate-200 text-sm">
+              <tbody>
+                <tr>
+                  <td className="w-1/2 border-r border-slate-200 p-3 align-top">
+                    <div className="mb-1.5 text-xs font-bold uppercase tracking-wide text-slate-500">List I</div>
+                    {parsed.listI.map((item, idx) => (
+                      <div key={idx} className="py-0.5 text-slate-700">
+                        {item}
+                      </div>
+                    ))}
+                  </td>
+                  <td className="w-1/2 p-3 align-top">
+                    <div className="mb-1.5 text-xs font-bold uppercase tracking-wide text-slate-500">List II</div>
+                    {parsed.listII.map((item, idx) => (
+                      <div key={idx} className="py-0.5 text-slate-700">
+                        {item}
+                      </div>
+                    ))}
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
         </div>
       );
     }

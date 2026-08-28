@@ -410,7 +410,7 @@ export default function PdfDownload() {
         {/* Config Panel */}
         <div className="no-print flex flex-col gap-5">
           <Card className="p-5">
-            <div className="mb-4 flex items-center justify-between gap-3">
+            <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
               <div>
                 <h3 className="text-sm font-semibold text-slate-900">Filter Questions</h3>
                 <p className="mt-0.5 text-xs text-slate-400">Source: {sourceMode === 'test' ? 'Test' : 'Units (Curriculum)'}</p>
@@ -455,7 +455,7 @@ export default function PdfDownload() {
                     </option>
                   ))}
                 </Select>
-                <div className="grid grid-cols-2 gap-3">
+                <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                   <Select label="Topic" value={topicId} onChange={handleTopicChange} disabled={!unitId || unitId === 'all'}>
                     <option value="all">All Topics</option>
                     {topics.map((t) => (
@@ -500,7 +500,7 @@ export default function PdfDownload() {
                 <option value="end-key">Include Answer Key at the end of PDF</option>
                 <option value="end-explanations">Include Answer Key & Explanations at the end</option>
               </Select>
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                 <Select label="Columns Layout" value={layoutColumns} onChange={(e) => setLayoutColumns(e.target.value as '1' | '2')}>
                   <option value="1">1 Column (Standard)</option>
                   <option value="2">2 Columns (Compact/Exam Style)</option>
@@ -511,7 +511,7 @@ export default function PdfDownload() {
                   <option value="large">Large</option>
                 </Select>
               </div>
-              <div className="flex gap-3">
+              <div className="flex flex-col gap-3 sm:flex-row">
                 <Button className="flex-1" onClick={handlePrint} disabled={printableQuestions.length === 0}>
                   Export as PDF
                 </Button>
@@ -564,10 +564,10 @@ export default function PdfDownload() {
         </div>
 
         {/* Preview Panel */}
-        <Card className={`p-6 font-size-${fontSize}`}>
-          <div className="no-print mb-6 flex items-center justify-between border-b border-slate-100 pb-4">
-            <h3 className="text-xl font-extrabold text-slate-900">Question Paper Preview</h3>
-            <span className="rounded-full bg-brand-100 px-3 py-1.5 text-xs font-bold text-brand-700">
+        <Card className={`p-4 font-size-${fontSize} sm:p-6`}>
+          <div className="no-print mb-6 flex flex-wrap items-center justify-between gap-3 border-b border-slate-100 pb-4">
+            <h3 className="text-lg font-extrabold text-slate-900 sm:text-xl">Question Paper Preview</h3>
+            <span className="shrink-0 rounded-full bg-brand-100 px-3 py-1.5 text-xs font-bold text-brand-700">
               {printableQuestions.length} {printableQuestions.length === 1 ? 'Question' : 'Questions'}
             </span>
           </div>
@@ -581,6 +581,7 @@ export default function PdfDownload() {
               </p>
             </div>
           ) : (
+            <div className="overflow-x-auto">
             <div className="assessment-document">
               <div className="document-header mb-6 border-b-2 border-double border-slate-900 pb-4 text-center">
                 <h1 className="doc-title text-xl font-bold uppercase tracking-tight">{examTitle}</h1>
@@ -700,6 +701,7 @@ export default function PdfDownload() {
                   </div>
                 </div>
               )}
+            </div>
             </div>
           )}
         </Card>

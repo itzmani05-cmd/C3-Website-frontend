@@ -11,7 +11,7 @@ interface TestSelectionPageProps {
 export default function TestSelectionPage({ availableTests, studentEmail, onStartExam, onLogout }: TestSelectionPageProps) {
   return (
     <div className="min-h-screen bg-slate-50">
-      <header className="flex items-center justify-between border-b border-slate-200 bg-white px-6 py-4">
+      <header className="flex items-center justify-between border-b border-slate-200 bg-white px-4 py-4 sm:px-6 lg:px-8">
         <div className="flex items-center gap-2.5">
           <img src="/C3AppLogo.png" alt="C³" className="h-[30px] object-contain" />
           <h2 className="text-base font-bold text-slate-900">C³ Assessment</h2>
@@ -24,14 +24,14 @@ export default function TestSelectionPage({ availableTests, studentEmail, onStar
         </button>
       </header>
 
-      <main className="mx-auto max-w-4xl px-6 py-10">
+      <main className="mx-auto max-w-4xl px-4 py-10 sm:px-6 lg:px-8 xl:max-w-6xl">
         <div className="mb-8">
           <h1 className="text-2xl font-bold text-slate-900">Active Assessments</h1>
           <p className="mt-1 text-sm text-slate-500">Welcome, {studentEmail}. Please select a test to begin your examination.</p>
         </div>
 
         {availableTests.length > 0 ? (
-          <div className="grid grid-cols-1 gap-5 sm:grid-cols-2">
+          <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 xl:grid-cols-3">
             {availableTests.map((test) => (
               <div key={test._id} className="flex flex-col justify-between rounded-2xl border border-slate-200 bg-white p-6 shadow-soft-sm">
                 <div>

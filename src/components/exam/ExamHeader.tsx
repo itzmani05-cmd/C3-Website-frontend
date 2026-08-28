@@ -36,7 +36,7 @@ export default function ExamHeader({
   const SyncIcon = !online ? Wifi : syncing || hasUnsynced ? RefreshCw : CheckCircle2;
 
   return (
-    <header className="sticky top-0 z-20 flex flex-wrap items-center justify-between gap-3 border-b border-slate-200 bg-white px-5 py-3">
+    <header className="sticky top-0 z-20 flex flex-wrap items-center justify-between gap-3 border-b border-slate-200 bg-white px-4 py-3 sm:px-6 lg:px-8">
       <div className="flex items-center gap-3">
         <FileEdit className="size-[22px] text-brand-600" />
         <div>

@@ -147,7 +147,7 @@ export default function AdminPanel({ onLogout }: AdminPanelProps) {
         )}
       </AnimatePresence>
 
-      <main className="flex-1 overflow-x-hidden px-4 pb-10 pt-20 sm:px-6 md:pt-8 lg:px-10">
+      <main className="flex-1 overflow-x-hidden px-4 pb-10 pt-20 sm:px-6 md:pt-8 lg:px-10 xl:px-12 2xl:px-16">
         <ActiveComponent />
       </main>
     </div>

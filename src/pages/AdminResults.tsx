@@ -175,7 +175,7 @@ export default function AdminResults() {
   // ─── Master View: list of conducted tests ────────────────────────────────
   if (!selectedTest) {
     return (
-      <div className="mx-auto max-w-6xl">
+      <div className="mx-auto w-full max-w-6xl 2xl:max-w-7xl">
         <div className="mb-6">
           <h1 className="text-2xl font-bold text-slate-900">Student Assessment Results</h1>
           <p className="mt-1 text-sm text-slate-500">Select a test to review student performance for that assessment.</p>
@@ -209,7 +209,7 @@ export default function AdminResults() {
             description="Results will appear here once students start submitting exams."
           />
         ) : (
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-4">
             {testsSummary.map((test) => {
               const pct = test.averagePercentage || 0;
               return (
@@ -250,7 +250,7 @@ export default function AdminResults() {
 
   // ─── Detail View: students who attempted the selected test ───────────────
   return (
-    <div className="mx-auto max-w-6xl">
+    <div className="mx-auto w-full max-w-6xl 2xl:max-w-7xl">
       <div className="mb-4 flex items-center gap-2 text-sm">
         <button onClick={handleBackToList} className="flex items-center gap-1.5 font-medium text-brand-600 hover:text-brand-700">
           <ArrowLeft className="size-3.5" /> Back to Tests

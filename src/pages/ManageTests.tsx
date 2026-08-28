@@ -105,7 +105,7 @@ export default function ManageTests() {
   };
 
   return (
-    <div className="mx-auto max-w-4xl">
+    <div className="mx-auto w-full max-w-4xl xl:max-w-5xl 2xl:max-w-6xl">
       <div className="mb-6 flex flex-wrap items-center justify-between gap-4">
         <div>
           <h1 className="text-2xl font-bold text-slate-900">Manage Tests</h1>
