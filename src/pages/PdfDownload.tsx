@@ -1,12 +1,12 @@
 import { useEffect, useState } from 'react';
-import { FileText } from 'lucide-react';
+import { BookOpen, ClipboardList, Download, FileText } from 'lucide-react';
 import api from '../api';
 import { getImagePreview } from '../lib/helpers';
 import QuestionRenderer from '../components/QuestionRenderer';
 import Button from '../components/ui/Button';
 import Card from '../components/ui/Card';
 import { Input, Select, Textarea } from '../components/ui/Field';
-import { LoadingState } from '../components/ui/Spinner';
+import { LoadingState, Spinner } from '../components/ui/Spinner';
 import type { CurriculumTree, ExamQuestion, OptionKey, Test } from '../types/models';
 
 type SourceMode = null | 'units' | 'test';
@@ -349,10 +349,22 @@ export default function PdfDownload() {
     URL.revokeObjectURL(url);
   };
 
+  const pageHeader = (
+    <div className="mb-6 flex items-center gap-3.5">
+      <span className="flex size-11 shrink-0 items-center justify-center rounded-2xl bg-brand-100 text-brand-600">
+        <Download className="size-5" />
+      </span>
+      <div>
+        <h1 className="font-heading text-2xl font-bold text-slate-900">Assessment Generator</h1>
+        <p className="mt-0.5 text-sm text-slate-500">Build and export a printable question paper</p>
+      </div>
+    </div>
+  );
+
   if (curriculumLoading) {
     return (
       <div className="mx-auto max-w-4xl">
-        <h1 className="mb-6 text-2xl font-bold text-slate-900">Assessment Generator</h1>
+        {pageHeader}
         <LoadingState message="Loading curriculum..." />
       </div>
     );
@@ -361,7 +373,7 @@ export default function PdfDownload() {
   if (curriculumError) {
     return (
       <div className="mx-auto max-w-4xl">
-        <h1 className="mb-6 text-2xl font-bold text-slate-900">Assessment Generator</h1>
+        {pageHeader}
         <p className="font-medium text-danger-600">{curriculumError}</p>
       </div>
     );
@@ -370,23 +382,29 @@ export default function PdfDownload() {
   if (!sourceMode) {
     return (
       <div className="mx-auto max-w-4xl">
-        <h1 className="mb-6 text-2xl font-bold text-slate-900">Assessment Generator</h1>
+        {pageHeader}
         <div className="flex flex-col items-center py-16">
-          <h3 className="mb-1 text-lg font-bold text-slate-900">What would you like to generate a question paper from?</h3>
+          <h3 className="font-heading mb-1 text-lg font-bold text-slate-900">What would you like to generate a question paper from?</h3>
           <p className="mb-7 text-sm text-slate-500">Choose a source to continue.</p>
           <div className="flex max-w-2xl flex-wrap justify-center gap-5">
             <button
               onClick={() => setSourceMode('units')}
-              className="min-w-55 flex-1 rounded-2xl border border-slate-200 bg-white px-5 py-7 text-left text-base font-bold text-slate-900 shadow-soft-sm transition-all hover:-translate-y-0.5 hover:shadow-[0_12px_28px_rgba(15,23,42,0.1)]"
+              className="min-w-55 flex-1 rounded-2xl border border-slate-200 bg-white px-5 py-7 text-left shadow-soft-sm transition-all hover:-translate-y-0.5 hover:shadow-[0_12px_28px_rgba(15,23,42,0.1)]"
             >
-              Units (Curriculum)
+              <span className="mb-3 flex size-9 items-center justify-center rounded-lg bg-brand-100 text-brand-600">
+                <BookOpen className="size-4" />
+              </span>
+              <div className="font-heading text-base font-bold text-slate-900">Units (Curriculum)</div>
               <div className="mt-2 text-xs font-normal text-slate-500">Build a paper from Unit / Topic / Subtopic curriculum questions.</div>
             </button>
             <button
               onClick={() => setSourceMode('test')}
-              className="min-w-55 flex-1 rounded-2xl border border-slate-200 bg-white px-5 py-7 text-left text-base font-bold text-slate-900 shadow-soft-sm transition-all hover:-translate-y-0.5 hover:shadow-[0_12px_28px_rgba(15,23,42,0.1)]"
+              className="min-w-55 flex-1 rounded-2xl border border-slate-200 bg-white px-5 py-7 text-left shadow-soft-sm transition-all hover:-translate-y-0.5 hover:shadow-[0_12px_28px_rgba(15,23,42,0.1)]"
             >
-              Test
+              <span className="mb-3 flex size-9 items-center justify-center rounded-lg bg-brand-100 text-brand-600">
+                <ClipboardList className="size-4" />
+              </span>
+              <div className="font-heading text-base font-bold text-slate-900">Test</div>
               <div className="mt-2 text-xs font-normal text-slate-500">Download the question set belonging to a specific exam Test.</div>
             </button>
           </div>
@@ -404,7 +422,7 @@ export default function PdfDownload() {
 
   return (
     <div className="mx-auto max-w-350">
-      <h1 className="mb-6 text-2xl font-bold text-slate-900">Assessment Generator</h1>
+      {pageHeader}
 
       <div className="grid grid-cols-1 gap-6 xl:grid-cols-[420px_1fr]">
         {/* Config Panel */}
@@ -412,7 +430,7 @@ export default function PdfDownload() {
           <Card className="p-5">
             <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
               <div>
-                <h3 className="text-sm font-semibold text-slate-900">Filter Questions</h3>
+                <h3 className="font-heading text-sm font-semibold text-slate-900">Filter Questions</h3>
                 <p className="mt-0.5 text-xs text-slate-400">Source: {sourceMode === 'test' ? 'Test' : 'Units (Curriculum)'}</p>
               </div>
               <Button
@@ -478,7 +496,7 @@ export default function PdfDownload() {
           </Card>
 
           <Card className="p-5">
-            <h3 className="mb-4 text-sm font-semibold text-slate-900">Assessment Details</h3>
+            <h3 className="font-heading mb-4 text-sm font-semibold text-slate-900">Assessment Details</h3>
             <div className="flex flex-col gap-4">
               <Input label="Exam Title" value={examTitle} onChange={(e) => setExamTitle(e.target.value)} placeholder="e.g. Unit 1 Examination" />
               <Input
@@ -492,7 +510,7 @@ export default function PdfDownload() {
           </Card>
 
           <Card className="p-5">
-            <h3 className="mb-4 text-sm font-semibold text-slate-900">Layout Preferences</h3>
+            <h3 className="font-heading mb-4 text-sm font-semibold text-slate-900">Layout Preferences</h3>
             <div className="flex flex-col gap-4">
               <Select label="Answers & Explanations" value={answerDisplay} onChange={(e) => setAnswerDisplay(e.target.value as AnswerDisplay)}>
                 <option value="none">Exclude Answers (Student Question Paper)</option>
@@ -524,9 +542,9 @@ export default function PdfDownload() {
 
           <Card className="p-5">
             <div className="mb-4 flex items-center justify-between">
-              <h3 className="text-sm font-semibold text-slate-900">Select Questions</h3>
-              <p className="text-xs text-slate-400">
-                Selected {selectedQuestionIds.size} of {questions.length}
+              <h3 className="font-heading text-sm font-semibold text-slate-900">Select Questions</h3>
+              <p className="rounded-full bg-brand-50 px-2.5 py-1 text-xs font-semibold text-brand-700">
+                {selectedQuestionIds.size} of {questions.length} selected
               </p>
             </div>
             <div className="mb-4 flex gap-2">
@@ -539,7 +557,10 @@ export default function PdfDownload() {
             </div>
 
             {loadingQuestions ? (
-              <p className="text-sm text-slate-500">Loading matching questions...</p>
+              <div className="flex items-center gap-2 py-2 text-sm text-slate-500">
+                <Spinner className="size-4 text-brand-600" />
+                Loading matching questions...
+              </div>
             ) : questionsError ? (
               <p className="text-sm font-medium text-danger-600">{questionsError}</p>
             ) : questions.length === 0 ? (
@@ -547,7 +568,7 @@ export default function PdfDownload() {
             ) : (
               <div className="scrollbar-thin flex max-h-96 flex-col gap-1 overflow-y-auto">
                 {questions.map((q, index) => (
-                  <label key={q._id} className="flex cursor-pointer items-start gap-2 rounded-lg px-2 py-2 text-sm hover:bg-slate-50">
+                  <label key={q._id} className="flex cursor-pointer items-start gap-2 rounded-lg px-2 py-2 text-sm transition-colors hover:bg-slate-50">
                     <input
                       type="checkbox"
                       checked={selectedQuestionIds.has(q._id)}
@@ -566,7 +587,7 @@ export default function PdfDownload() {
         {/* Preview Panel */}
         <Card className={`p-4 font-size-${fontSize} sm:p-6`}>
           <div className="no-print mb-6 flex flex-wrap items-center justify-between gap-3 border-b border-slate-100 pb-4">
-            <h3 className="text-lg font-extrabold text-slate-900 sm:text-xl">Question Paper Preview</h3>
+            <h3 className="font-heading text-lg font-extrabold text-slate-900 sm:text-xl">Question Paper Preview</h3>
             <span className="shrink-0 rounded-full bg-brand-100 px-3 py-1.5 text-xs font-bold text-brand-700">
               {printableQuestions.length} {printableQuestions.length === 1 ? 'Question' : 'Questions'}
             </span>

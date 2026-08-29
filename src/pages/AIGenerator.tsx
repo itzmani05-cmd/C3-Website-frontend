@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
+import { Lightbulb } from 'lucide-react';
 import api from '../api';
 import { detectQuestionType } from '../lib/helpers';
 import { parseQuestionBlock, parseLineByLine, splitQuestionBlocks } from '../lib/questionParser';
@@ -6,6 +7,7 @@ import type { DraftQuestion } from '../lib/questionParser';
 import QuestionForm from '../components/QuestionForm';
 import { useModal } from '../components/ui';
 import Button from '../components/ui/Button';
+import Card from '../components/ui/Card';
 import { Select, Textarea } from '../components/ui/Field';
 import Banner from '../components/ui/Banner';
 import { LoadingState } from '../components/ui/Spinner';
@@ -281,10 +283,22 @@ export default function AIGenerator() {
     }
   };
 
+  const pageHeader = (
+    <div className="mb-6 flex items-center gap-3.5">
+      <span className="flex size-11 shrink-0 items-center justify-center rounded-2xl bg-brand-100 text-brand-600">
+        <Lightbulb className="size-5" />
+      </span>
+      <div>
+        <h1 className="font-heading text-2xl font-bold text-slate-900">Question Extractor</h1>
+        <p className="mt-0.5 text-sm text-slate-500">Paste raw content and turn it into review-ready questions</p>
+      </div>
+    </div>
+  );
+
   if (curriculumLoading) {
     return (
       <div className="mx-auto w-full max-w-4xl 2xl:max-w-5xl">
-        <h1 className="mb-6 text-2xl font-bold text-slate-900">Question Extractor</h1>
+        {pageHeader}
         <LoadingState message="Loading curriculum..." />
       </div>
     );
@@ -293,7 +307,7 @@ export default function AIGenerator() {
   if (curriculumError) {
     return (
       <div className="mx-auto w-full max-w-4xl 2xl:max-w-5xl">
-        <h1 className="mb-6 text-2xl font-bold text-slate-900">Question Extractor</h1>
+        {pageHeader}
         <Banner variant="error" message={curriculumError} />
       </div>
     );
@@ -309,32 +323,32 @@ export default function AIGenerator() {
 
   return (
     <div className="mx-auto w-full max-w-4xl 2xl:max-w-5xl">
-      <h1 className="mb-6 text-2xl font-bold text-slate-900">Question Extractor</h1>
+      {pageHeader}
 
-      <div className="mb-6 rounded-2xl border border-slate-100 bg-white p-6 shadow-[0_8px_28px_rgba(30,41,59,0.055)]">
+      <Card className="mb-6 p-6">
         <h3 className="mb-4 text-sm font-semibold uppercase tracking-wide text-slate-500">01 &middot; Choose destination</h3>
 
-        <div className="mb-5 flex gap-6">
-          <label className="flex cursor-pointer items-center gap-2 font-semibold text-slate-700">
-            <input
-              type="radio"
-              name="destinationMode"
-              checked={destinationMode === 'curriculum'}
-              onChange={() => setDestinationMode('curriculum')}
-              className="cursor-pointer accent-brand-600"
-            />
+        <div className="mb-5 inline-flex rounded-lg border border-slate-200 bg-slate-50 p-1">
+          <button
+            type="button"
+            onClick={() => setDestinationMode('curriculum')}
+            className={[
+              'rounded-md px-4 py-2 text-sm font-semibold transition-colors',
+              destinationMode === 'curriculum' ? 'bg-white text-brand-700 shadow-soft-sm' : 'text-slate-500 hover:text-slate-700',
+            ].join(' ')}
+          >
             Extract to Curriculum
-          </label>
-          <label className="flex cursor-pointer items-center gap-2 font-semibold text-slate-700">
-            <input
-              type="radio"
-              name="destinationMode"
-              checked={destinationMode === 'test'}
-              onChange={() => setDestinationMode('test')}
-              className="cursor-pointer accent-brand-600"
-            />
+          </button>
+          <button
+            type="button"
+            onClick={() => setDestinationMode('test')}
+            className={[
+              'rounded-md px-4 py-2 text-sm font-semibold transition-colors',
+              destinationMode === 'test' ? 'bg-white text-brand-700 shadow-soft-sm' : 'text-slate-500 hover:text-slate-700',
+            ].join(' ')}
+          >
             Extract to Test
-          </label>
+          </button>
         </div>
 
         {destinationMode === 'curriculum' ? (
@@ -378,9 +392,9 @@ export default function AIGenerator() {
             )}
           </div>
         )}
-      </div>
+      </Card>
 
-      <div className="mb-6 rounded-2xl border border-slate-100 bg-white p-6 shadow-[0_8px_28px_rgba(30,41,59,0.055)]">
+      <Card className="mb-6 p-6">
         <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
           <span className="text-sm font-semibold text-slate-700">
             Progress for{' '}
@@ -409,9 +423,9 @@ export default function AIGenerator() {
         ) : (
           <p className="mt-1 text-xs font-semibold text-success-600">Questions will be saved into the ExamQuestions collection.</p>
         )}
-      </div>
+      </Card>
 
-      <div className="mb-6 rounded-2xl border border-slate-100 bg-white p-6 shadow-[0_8px_28px_rgba(30,41,59,0.055)]">
+      <Card className="mb-6 p-6">
         <h3 className="mb-4 text-sm font-semibold uppercase tracking-wide text-slate-500">02 &middot; Paste source content</h3>
         <Textarea value={pastedContent} onChange={(e) => setPastedContent(e.target.value)} rows={5} placeholder="Enter the questions here" />
         <div className="mt-4 flex justify-end">
@@ -419,7 +433,7 @@ export default function AIGenerator() {
             Extract questions
           </Button>
         </div>
-      </div>
+      </Card>
 
       {message && <Banner variant={message.includes('Error') ? 'error' : 'success'} message={message} />}
 
@@ -447,7 +461,7 @@ export default function AIGenerator() {
 
           <div className="flex flex-col gap-4">
             {batch.map((q, idx) => (
-              <div key={q.id} className="rounded-2xl border border-slate-200 bg-white p-6">
+              <Card key={q.id} className="p-6">
                 <div className="mb-4 flex items-center justify-between">
                   <div className="flex items-center gap-3">
                     <span className="flex size-9 items-center justify-center rounded-lg bg-brand-100 text-sm font-bold text-brand-700">
@@ -472,7 +486,7 @@ export default function AIGenerator() {
                     Delete
                   </Button>
                 </div>
-              </div>
+              </Card>
             ))}
           </div>
         </>

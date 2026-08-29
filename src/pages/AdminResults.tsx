@@ -3,6 +3,7 @@ import {
   ArrowLeft,
   CheckCircle2,
   Eye,
+  FileCheck2,
   FileText,
   RotateCcw,
   Search,
@@ -176,20 +177,41 @@ export default function AdminResults() {
   if (!selectedTest) {
     return (
       <div className="mx-auto w-full max-w-6xl 2xl:max-w-7xl">
-        <div className="mb-6">
-          <h1 className="text-2xl font-bold text-slate-900">Student Assessment Results</h1>
-          <p className="mt-1 text-sm text-slate-500">Select a test to review student performance for that assessment.</p>
-        </div>
-
         <div className="mb-6 flex flex-wrap items-center justify-between gap-4">
-          <div className="flex items-center gap-2 text-sm text-slate-500">
-            <FileText className="size-4" />
-            {testsSummary.length} test{testsSummary.length === 1 ? '' : 's'} conducted
+          <div className="flex items-center gap-3.5">
+            <span className="flex size-11 shrink-0 items-center justify-center rounded-2xl bg-brand-100 text-brand-600">
+              <FileCheck2 className="size-5" />
+            </span>
+            <div>
+              <h1 className="font-heading text-2xl font-bold text-slate-900">Student Assessment Results</h1>
+              <p className="mt-0.5 text-sm text-slate-500">Select a test to review student performance for that assessment.</p>
+            </div>
           </div>
           <Button variant="secondary" size="sm" onClick={fetchTestsSummary} icon={<RotateCcw className="size-3.5" />}>
             Refresh
           </Button>
         </div>
+
+        {!summaryLoading && testsSummary.length > 0 && (
+          <div className="mb-6 grid grid-cols-2 gap-3 sm:grid-cols-3">
+            <Card className="px-4 py-3">
+              <p className="font-heading text-lg font-bold leading-tight text-slate-900">{testsSummary.length}</p>
+              <p className="text-xs text-slate-500">Tests conducted</p>
+            </Card>
+            <Card className="px-4 py-3">
+              <p className="font-heading text-lg font-bold leading-tight text-slate-900">
+                {testsSummary.reduce((sum, t) => sum + (t.studentsAttempted || 0), 0)}
+              </p>
+              <p className="text-xs text-slate-500">Total attempts</p>
+            </Card>
+            <Card className="col-span-2 px-4 py-3 sm:col-span-1">
+              <p className="font-heading text-lg font-bold leading-tight text-brand-600">
+                {Math.round(testsSummary.reduce((sum, t) => sum + (t.averagePercentage || 0), 0) / testsSummary.length)}%
+              </p>
+              <p className="text-xs text-slate-500">Average score</p>
+            </Card>
+          </div>
+        )}
 
         {summaryLoading ? (
           <LoadingState message="Fetching conducted tests..." />
@@ -259,9 +281,14 @@ export default function AdminResults() {
         <span className="font-medium text-slate-500">{selectedTest.testName}</span>
       </div>
 
-      <div className="mb-6">
-        <h1 className="text-2xl font-bold text-slate-900">{selectedTest.testName}</h1>
-        <p className="mt-1 text-sm text-slate-500">Track and review student performances for this test.</p>
+      <div className="mb-6 flex items-center gap-3.5">
+        <span className="flex size-11 shrink-0 items-center justify-center rounded-2xl bg-brand-100 text-brand-600">
+          <FileCheck2 className="size-5" />
+        </span>
+        <div>
+          <h1 className="font-heading text-2xl font-bold text-slate-900">{selectedTest.testName}</h1>
+          <p className="mt-0.5 text-sm text-slate-500">Track and review student performances for this test.</p>
+        </div>
       </div>
 
       <div className="mb-6 flex flex-wrap items-center justify-between gap-4">
@@ -317,7 +344,7 @@ export default function AdminResults() {
               {sortedResults.map((result) => {
                 const pct = result.percentage ?? 0;
                 return (
-                  <tr key={result._id} className="border-b border-slate-100 last:border-0 hover:bg-slate-50">
+                  <tr key={result._id} className="border-b border-slate-100 transition-colors last:border-0 hover:bg-slate-50">
                     <td className="px-5 py-4 font-semibold text-slate-900">{result.studentName || '—'}</td>
                     <td className="px-5 py-4 font-semibold text-slate-700">{result.score}</td>
                     <td className="px-5 py-4 font-semibold text-slate-700">{formatMarks((result.score || 0) * MARKS_PER_QUESTION)}</td>
@@ -354,7 +381,7 @@ export default function AdminResults() {
         size="xl"
         title={
           <div>
-            <div className="text-base font-semibold text-slate-900">Attempt Review</div>
+            <div className="font-heading text-base font-semibold text-slate-900">Attempt Review</div>
             {detailData && (
               <p className="mt-0.5 text-xs font-normal text-slate-500">
                 Student: <strong className="font-semibold text-slate-700">{detailData.studentExam.studentName || detailData.studentExam.studentEmail}</strong>
@@ -399,7 +426,7 @@ export default function AdminResults() {
               </strong>
             </p>
 
-            <h3 className="mb-3 text-sm font-semibold text-slate-900">Response Breakdown</h3>
+            <h3 className="font-heading mb-3 text-sm font-semibold text-slate-900">Response Breakdown</h3>
             <div className="flex flex-col gap-4">
               {detailData.questions?.map((q, idx) => {
                 if (!q || !q._id) return null;
@@ -415,7 +442,7 @@ export default function AdminResults() {
                 const statusBadgeVariant: BadgeVariant = status === 'correct' ? 'success' : status === 'incorrect' ? 'danger' : 'neutral';
 
                 return (
-                  <div key={qId} className={['rounded-2xl border bg-white p-5', statusBorder].join(' ')}>
+                  <div key={qId} className={['rounded-2xl border bg-white p-5 shadow-soft-sm', statusBorder].join(' ')}>
                     <div className="mb-3 flex items-center justify-between">
                       <span className="text-xs font-semibold text-slate-400">
                         Question {idx + 1} of {detailData.questions.length}

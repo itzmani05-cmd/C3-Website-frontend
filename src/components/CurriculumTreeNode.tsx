@@ -1,5 +1,5 @@
 import type { ReactNode } from 'react';
-import { ChevronDown, ChevronRight, Pencil, Trash2 } from 'lucide-react';
+import { BookOpen, ChevronDown, ChevronRight, ListTree, Pencil, Trash2 } from 'lucide-react';
 import Button from './ui/Button';
 import { Input } from './ui/Field';
 
@@ -8,6 +8,7 @@ type Variant = 'unit' | 'topic';
 interface CurriculumTreeNodeProps {
   name: string;
   countLabel: string;
+  order?: number;
   variant: Variant;
   expanded: boolean;
   onToggleExpand: () => void;
@@ -23,22 +24,30 @@ interface CurriculumTreeNodeProps {
   children?: ReactNode;
 }
 
-const VARIANT_STYLES: Record<Variant, { header: string; title: string; badge: string }> = {
+const VARIANT_STYLES: Record<
+  Variant,
+  { header: string; title: string; badge: string; icon: ReactNode; iconWrap: string }
+> = {
   unit: {
     header: 'bg-slate-50 px-5 py-4',
-    title: 'text-base font-bold text-slate-900',
+    title: 'font-heading text-base font-bold text-slate-900',
     badge: 'bg-black/5 text-slate-500',
+    icon: <BookOpen className="size-4" />,
+    iconWrap: 'bg-brand-100 text-brand-600',
   },
   topic: {
     header: 'bg-white px-4 py-3',
     title: 'text-sm font-semibold text-slate-900',
     badge: 'bg-black/[0.04] text-slate-500',
+    icon: <ListTree className="size-3.5" />,
+    iconWrap: 'bg-slate-100 text-slate-500',
   },
 };
 
 export default function CurriculumTreeNode({
   name,
   countLabel,
+  order,
   variant,
   expanded,
   onToggleExpand,
@@ -57,21 +66,29 @@ export default function CurriculumTreeNode({
   const isUnit = variant === 'unit';
 
   return (
-    <div className={isUnit ? 'overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-soft-sm' : 'rounded-xl border border-slate-200/80 bg-white'}>
+    <div
+      className={
+        isUnit
+          ? 'overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-soft-sm transition-shadow hover:shadow-soft-md'
+          : 'overflow-hidden rounded-xl border border-slate-200/80 bg-white'
+      }
+    >
       <div className={['flex flex-wrap items-center justify-between gap-3', styles.header, expanded ? 'border-b border-slate-100' : ''].join(' ')}>
         <div className="flex min-w-0 flex-1 items-center gap-3">
           <button
             type="button"
             onClick={onToggleExpand}
             aria-label={expanded ? `Collapse ${name}` : `Expand ${name}`}
-            className="flex size-6 shrink-0 items-center justify-center text-slate-400 hover:text-slate-600"
+            className="flex size-6 shrink-0 items-center justify-center rounded-md text-slate-400 transition-colors hover:bg-black/5 hover:text-slate-600"
           >
             {expanded ? <ChevronDown className="size-4" /> : <ChevronRight className="size-4" />}
           </button>
 
+          <span className={['flex size-8 shrink-0 items-center justify-center rounded-lg', styles.iconWrap].join(' ')}>{styles.icon}</span>
+
           {isEditing ? (
             <div className="flex flex-1 items-center gap-2">
-              <Input value={editName} onChange={(e) => onEditNameChange(e.target.value)} wrapperClassName="flex-1" />
+              <Input value={editName} onChange={(e) => onEditNameChange(e.target.value)} wrapperClassName="flex-1" autoFocus />
               <Button size="sm" onClick={onSaveEdit}>
                 Save
               </Button>
@@ -80,9 +97,12 @@ export default function CurriculumTreeNode({
               </Button>
             </div>
           ) : (
-            <div className="flex items-center gap-2.5">
-              <span className={styles.title}>{name}</span>
-              <span className={['rounded-full px-2 py-0.5 text-[11px] font-semibold', styles.badge].join(' ')}>{countLabel}</span>
+            <div className="flex min-w-0 flex-wrap items-center gap-2.5">
+              <span className={['truncate', styles.title].join(' ')}>{name}</span>
+              <span className={['shrink-0 rounded-full px-2 py-0.5 text-[11px] font-semibold', styles.badge].join(' ')}>{countLabel}</span>
+              {typeof order === 'number' && (
+                <span className="shrink-0 rounded-full bg-brand-50 px-2 py-0.5 text-[10px] font-semibold text-brand-600">Order {order}</span>
+              )}
             </div>
           )}
         </div>

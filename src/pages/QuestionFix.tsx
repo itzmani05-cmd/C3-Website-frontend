@@ -1,14 +1,17 @@
 import { useCallback, useEffect, useState } from 'react';
-import { ChevronDown, ChevronUp } from 'lucide-react';
+import { ChevronDown, ChevronUp, Plus, Wrench } from 'lucide-react';
 import api from '../api';
 import { detectQuestionType, normalizeCorrectAnswer } from '../lib/helpers';
 import QuestionForm from '../components/QuestionForm';
 import type { QuestionFormValue } from '../components/QuestionForm';
 import { useModal } from '../components/ui';
 import Button from '../components/ui/Button';
+import Card from '../components/ui/Card';
 import { Select } from '../components/ui/Field';
+import Badge from '../components/ui/Badge';
 import Banner from '../components/ui/Banner';
 import { LoadingState } from '../components/ui/Spinner';
+import EmptyState from '../components/ui/EmptyState';
 import type { CurriculumTree, Test } from '../types/models';
 
 interface FixableQuestion extends QuestionFormValue {
@@ -333,10 +336,22 @@ export default function QuestionFix() {
 
   const getAnswerDisplay = (q: FixableQuestion) => normalizeCorrectAnswer(q.correct_answer || q.correctAnswer).toUpperCase();
 
+  const pageHeader = (
+    <div className="mb-6 flex items-center gap-3.5">
+      <span className="flex size-11 shrink-0 items-center justify-center rounded-2xl bg-brand-100 text-brand-600">
+        <Wrench className="size-5" />
+      </span>
+      <div>
+        <h1 className="font-heading text-2xl font-bold text-slate-900">Question Fixer</h1>
+        <p className="mt-0.5 text-sm text-slate-500">Review, edit, and clean up existing questions</p>
+      </div>
+    </div>
+  );
+
   if (curriculumLoading) {
     return (
       <div className="mx-auto w-full max-w-4xl 2xl:max-w-5xl">
-        <h1 className="mb-6 text-2xl font-bold text-slate-900">Question Fixer</h1>
+        {pageHeader}
         <LoadingState message="Loading curriculum..." />
       </div>
     );
@@ -345,7 +360,7 @@ export default function QuestionFix() {
   if (curriculumError) {
     return (
       <div className="mx-auto w-full max-w-4xl 2xl:max-w-5xl">
-        <h1 className="mb-6 text-2xl font-bold text-slate-900">Question Fixer</h1>
+        {pageHeader}
         <Banner variant="error" message={curriculumError} />
       </div>
     );
@@ -353,32 +368,32 @@ export default function QuestionFix() {
 
   return (
     <div className="mx-auto w-full max-w-4xl 2xl:max-w-5xl">
-      <h1 className="mb-6 text-2xl font-bold text-slate-900">Question Fixer</h1>
+      {pageHeader}
 
-      <div className="mb-6 rounded-2xl border border-slate-100 bg-white p-6 shadow-[0_8px_28px_rgba(30,41,59,0.055)]">
+      <Card className="mb-6 p-6">
         <h3 className="mb-4 text-sm font-semibold uppercase tracking-wide text-slate-500">Select Category</h3>
 
-        <div className="mb-5 flex gap-6">
-          <label className="flex cursor-pointer items-center gap-2 font-semibold text-slate-700">
-            <input
-              type="radio"
-              name="fixDestinationMode"
-              checked={destinationMode === 'curriculum'}
-              onChange={() => handleModeChange('curriculum')}
-              className="cursor-pointer accent-brand-600"
-            />
+        <div className="mb-5 inline-flex rounded-lg border border-slate-200 bg-slate-50 p-1">
+          <button
+            type="button"
+            onClick={() => handleModeChange('curriculum')}
+            className={[
+              'rounded-md px-4 py-2 text-sm font-semibold transition-colors',
+              destinationMode === 'curriculum' ? 'bg-white text-brand-700 shadow-soft-sm' : 'text-slate-500 hover:text-slate-700',
+            ].join(' ')}
+          >
             Unit-wise Questions
-          </label>
-          <label className="flex cursor-pointer items-center gap-2 font-semibold text-slate-700">
-            <input
-              type="radio"
-              name="fixDestinationMode"
-              checked={destinationMode === 'test'}
-              onChange={() => handleModeChange('test')}
-              className="cursor-pointer accent-brand-600"
-            />
+          </button>
+          <button
+            type="button"
+            onClick={() => handleModeChange('test')}
+            className={[
+              'rounded-md px-4 py-2 text-sm font-semibold transition-colors',
+              destinationMode === 'test' ? 'bg-white text-brand-700 shadow-soft-sm' : 'text-slate-500 hover:text-slate-700',
+            ].join(' ')}
+          >
             Test Questions
-          </label>
+          </button>
         </div>
 
         {destinationMode === 'curriculum' ? (
@@ -424,13 +439,16 @@ export default function QuestionFix() {
             )}
           </div>
         )}
-      </div>
+      </Card>
 
-      <div className="mb-3 flex items-center justify-between">
-        <p className="font-bold text-slate-800">Found {questions.length} questions in this selection.</p>
+      <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
+        <div className="flex items-center gap-2">
+          <p className="font-semibold text-slate-800">Questions in this selection</p>
+          <Badge variant="brand">{questions.length}</Badge>
+        </div>
         <div className="flex gap-3">
-          <Button variant="secondary" size="sm" onClick={() => setIsAdding(!isAdding)}>
-            {isAdding ? 'Cancel Add' : '+ Add Question'}
+          <Button variant="secondary" size="sm" icon={<Plus className="size-3.5" />} onClick={() => setIsAdding(!isAdding)}>
+            {isAdding ? 'Cancel Add' : 'Add Question'}
           </Button>
           {((destinationMode === 'test' && selectedTestId) || (destinationMode === 'curriculum' && topicId)) && questions.length > 0 && (
             <Button variant="danger" size="sm" onClick={handleDeleteAllQuestions}>
@@ -443,8 +461,13 @@ export default function QuestionFix() {
       {message && <Banner variant={message.includes('Error') ? 'error' : 'success'} message={message} />}
 
       {isAdding && (
-        <div className="mb-5 rounded-2xl border-l-4 border-brand-600 bg-white p-6 shadow-[0_8px_28px_rgba(15,23,42,0.06)]">
-          <h3 className="mb-4 text-base font-semibold text-slate-900">Create New Question</h3>
+        <Card className="mb-5 border-brand-200 bg-brand-50/40 p-6">
+          <div className="mb-4 flex items-center gap-2.5">
+            <span className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-brand-100 text-brand-600">
+              <Plus className="size-4" />
+            </span>
+            <h3 className="text-sm font-semibold text-slate-900">Create New Question</h3>
+          </div>
           <QuestionForm question={newQuestionForm} onChange={setNewQuestionForm} variant="fixer" />
           <div className="mt-5 flex gap-3">
             <Button onClick={handleCreateQuestion} loading={loading}>
@@ -454,19 +477,21 @@ export default function QuestionFix() {
               Cancel
             </Button>
           </div>
-        </div>
+        </Card>
       )}
 
       {loading && questions.length === 0 ? (
         <LoadingState message="Loading questions..." />
+      ) : !loading && questions.length === 0 ? (
+        <EmptyState title="No questions found." description="Try a different unit, topic, or test — or add a new question above." />
       ) : (
         <div className="flex flex-col gap-4">
           {questions.map((q, idx) => (
-            <div key={q._id} className="overflow-hidden rounded-2xl border border-slate-200 bg-white">
+            <Card key={q._id} className="overflow-hidden transition-shadow hover:shadow-soft-md">
               <button
                 type="button"
                 onClick={() => setExpandedId(expandedId === q._id ? null : q._id)}
-                className="flex w-full items-center justify-between gap-3 bg-slate-50 px-5 py-4 text-left"
+                className="flex w-full items-center justify-between gap-3 rounded-t-2xl bg-slate-50 px-5 py-4 text-left"
               >
                 <div className="flex items-center gap-2.5 overflow-hidden">
                   <span className="shrink-0 font-extrabold text-brand-600">Q{idx + 1}.</span>
@@ -507,7 +532,7 @@ export default function QuestionFix() {
                   </div>
                 </div>
               )}
-            </div>
+            </Card>
           ))}
         </div>
       )}

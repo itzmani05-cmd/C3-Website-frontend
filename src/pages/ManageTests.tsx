@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import type { FormEvent } from 'react';
-import { Pencil, Plus, Trash2 } from 'lucide-react';
+import { ClipboardList, Pencil, Plus, Trash2 } from 'lucide-react';
 import api from '../api';
 import { useModal } from '../components/ui';
 import Button from '../components/ui/Button';
@@ -107,14 +107,36 @@ export default function ManageTests() {
   return (
     <div className="mx-auto w-full max-w-4xl xl:max-w-5xl 2xl:max-w-6xl">
       <div className="mb-6 flex flex-wrap items-center justify-between gap-4">
-        <div>
-          <h1 className="text-2xl font-bold text-slate-900">Manage Tests</h1>
-          <p className="mt-1 text-sm text-slate-500">Add, edit, and delete exam tests shown to students</p>
+        <div className="flex items-center gap-3.5">
+          <span className="flex size-11 shrink-0 items-center justify-center rounded-2xl bg-brand-100 text-brand-600">
+            <ClipboardList className="size-5" />
+          </span>
+          <div>
+            <h1 className="font-heading text-2xl font-bold text-slate-900">Manage Tests</h1>
+            <p className="mt-0.5 text-sm text-slate-500">Add, edit, and delete exam tests shown to students</p>
+          </div>
         </div>
         <Button onClick={() => setIsAdding(true)} icon={<Plus className="size-4" />}>
           Add Test
         </Button>
       </div>
+
+      {!loading && tests.length > 0 && (
+        <div className="mb-6 grid grid-cols-2 gap-3 sm:grid-cols-3">
+          <Card className="px-4 py-3">
+            <p className="font-heading text-lg font-bold leading-tight text-slate-900">{tests.length}</p>
+            <p className="text-xs text-slate-500">Total tests</p>
+          </Card>
+          <Card className="px-4 py-3">
+            <p className="font-heading text-lg font-bold leading-tight text-success-600">{tests.filter((t) => t.publishToStudent).length}</p>
+            <p className="text-xs text-slate-500">Published</p>
+          </Card>
+          <Card className="col-span-2 px-4 py-3 sm:col-span-1">
+            <p className="font-heading text-lg font-bold leading-tight text-slate-400">{tests.filter((t) => !t.publishToStudent).length}</p>
+            <p className="text-xs text-slate-500">Draft</p>
+          </Card>
+        </div>
+      )}
 
       {successMessage && <Banner variant="success" message={successMessage} />}
       {error && <Banner variant="error" message={error} onDismiss={() => setError('')} />}
@@ -161,7 +183,7 @@ export default function ManageTests() {
           const isEditing = editingId === test._id;
 
           return (
-            <Card key={test._id} className="flex flex-wrap items-center justify-between gap-4 px-5 py-4">
+            <Card key={test._id} className="flex flex-wrap items-center justify-between gap-4 px-5 py-4 transition-shadow hover:shadow-soft-md">
               {isEditing ? (
                 <div className="flex flex-1 flex-wrap items-center gap-3">
                   <Input

@@ -1,12 +1,13 @@
-import { useEffect, useState } from 'react';
-import type { FormEvent } from 'react';
-import { Pencil, Plus, Trash2 } from 'lucide-react';
+import { useEffect, useMemo, useState } from 'react';
+import type { FormEvent, ReactNode } from 'react';
+import { BookOpen, ListTree, Pencil, Plus, Tag, Trash2 } from 'lucide-react';
 import api from '../api';
 import { useModal } from '../components/ui';
 import Button from '../components/ui/Button';
 import { Input } from '../components/ui/Field';
 import Banner from '../components/ui/Banner';
 import EmptyState from '../components/ui/EmptyState';
+import { LoadingState } from '../components/ui/Spinner';
 import CurriculumTreeNode from '../components/CurriculumTreeNode';
 import type { CurriculumTree, Subtopic } from '../types/models';
 
@@ -28,8 +29,19 @@ export default function UnitswiseName() {
 
   const [addingType, setAddingType] = useState<NodeType | null>(null);
   const [addingParentId, setAddingParentId] = useState<string | null>(null);
+  const [addingParentName, setAddingParentName] = useState<string | null>(null);
   const [newName, setNewName] = useState('');
   const [newOrder, setNewOrder] = useState<number | string>(0);
+
+  const stats = useMemo(() => {
+    const unitCount = curriculum.length;
+    const topicCount = curriculum.reduce((sum, unit) => sum + (unit.topics?.length || 0), 0);
+    const subtopicCount = curriculum.reduce(
+      (sum, unit) => sum + (unit.topics?.reduce((tSum, topic) => tSum + (topic.subtopics?.length || 0), 0) || 0),
+      0
+    );
+    return { unitCount, topicCount, subtopicCount };
+  }, [curriculum]);
 
   useEffect(() => {
     fetchCurriculum();
@@ -65,6 +77,7 @@ export default function UnitswiseName() {
   const resetForm = () => {
     setAddingType(null);
     setAddingParentId(null);
+    setAddingParentName(null);
     setNewName('');
     setNewOrder(0);
   };
@@ -212,9 +225,14 @@ export default function UnitswiseName() {
   return (
     <div className="mx-auto w-full max-w-4xl 2xl:max-w-5xl">
       <div className="mb-6 flex flex-wrap items-center justify-between gap-4">
-        <div>
-          <h1 className="text-2xl font-bold text-slate-900">Unitswise Name</h1>
-          <p className="mt-1 text-sm text-slate-500">Add, edit, and delete units, topics, and subtopics</p>
+        <div className="flex items-center gap-3.5">
+          <span className="flex size-11 shrink-0 items-center justify-center rounded-2xl bg-brand-100 text-brand-600">
+            <BookOpen className="size-5" />
+          </span>
+          <div>
+            <h1 className="font-heading text-2xl font-bold text-slate-900">Unitswise Name</h1>
+            <p className="mt-0.5 text-sm text-slate-500">Add, edit, and delete units, topics, and subtopics</p>
+          </div>
         </div>
         <Button
           icon={<Plus className="size-4" />}
@@ -227,19 +245,35 @@ export default function UnitswiseName() {
         </Button>
       </div>
 
+      {!loading && curriculum.length > 0 && (
+        <div className="mb-6 grid grid-cols-3 gap-3">
+          <StatChip icon={<BookOpen className="size-4" />} label="Units" value={stats.unitCount} />
+          <StatChip icon={<ListTree className="size-4" />} label="Topics" value={stats.topicCount} />
+          <StatChip icon={<Tag className="size-4" />} label="Subtopics" value={stats.subtopicCount} />
+        </div>
+      )}
+
       {successMessage && <Banner variant="success" message={successMessage} />}
       {error && <Banner variant="error" message={error} onDismiss={() => setError('')} />}
 
       {addingType && (
-        <div className="mb-6 rounded-2xl border border-slate-200 bg-slate-50 p-5">
-          <h3 className="mb-3 text-sm font-semibold text-slate-900">
-            {addingType === 'unit' && 'Add New Unit'}
-            {addingType === 'topic' && 'Add New Topic'}
-            {addingType === 'subtopic' && 'Add New Subtopic'}
-          </h3>
+        <div className="mb-6 rounded-2xl border border-brand-200 bg-brand-50/40 p-5">
+          <div className="mb-3.5 flex items-center gap-2.5">
+            <span className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-brand-100 text-brand-600">
+              <Plus className="size-4" />
+            </span>
+            <div>
+              <h3 className="text-sm font-semibold text-slate-900">
+                {addingType === 'unit' && 'Add New Unit'}
+                {addingType === 'topic' && 'Add New Topic'}
+                {addingType === 'subtopic' && 'Add New Subtopic'}
+              </h3>
+              {addingParentName && <p className="text-xs text-slate-500">Inside {addingParentName}</p>}
+            </div>
+          </div>
           <form onSubmit={addingType === 'unit' ? handleAddUnit : addingType === 'topic' ? handleAddTopic : handleAddSubtopic}>
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-[1fr_140px]">
-              <Input label="Name" placeholder={`Enter ${addingType} name`} value={newName} onChange={(e) => setNewName(e.target.value)} required />
+              <Input label="Name" placeholder={`Enter ${addingType} name`} value={newName} onChange={(e) => setNewName(e.target.value)} autoFocus required />
               <Input label="Sort Order" type="number" value={newOrder} onChange={(e) => setNewOrder(e.target.value)} />
             </div>
             <div className="mt-4 flex justify-end gap-2.5">
@@ -252,7 +286,7 @@ export default function UnitswiseName() {
         </div>
       )}
 
-      {loading && <p className="py-10 text-center text-sm text-slate-500">Loading curriculum structure...</p>}
+      {loading && <LoadingState message="Loading curriculum structure..." />}
 
       {!loading && curriculum.length === 0 && <EmptyState title="No units found." description="Add your first unit to get started!" />}
 
@@ -276,16 +310,20 @@ export default function UnitswiseName() {
               onSaveEdit={() => handleEditUnit(unit._id)}
               onCancelEdit={() => setEditingId(null)}
               onDelete={() => handleDeleteUnit(unit._id, unit.name)}
+              order={unit.order}
               addChildLabel="+ Add Topic"
               onAddChild={() => {
                 setAddingType('topic');
                 setAddingParentId(unit._id);
+                setAddingParentName(unit.name);
                 setNewOrder((unit.topics?.length || 0) + 1);
               }}
             >
               <div className="flex flex-col gap-3 bg-[#fafbfc] p-4">
                 {(!unit.topics || unit.topics.length === 0) && (
-                  <p className="py-4 text-center text-sm italic text-slate-400">No topics in this unit yet.</p>
+                  <p className="rounded-lg border border-dashed border-slate-200 py-4 text-center text-sm italic text-slate-400">
+                    No topics in this unit yet.
+                  </p>
                 )}
 
                 {unit.topics?.map((topic) => {
@@ -307,16 +345,20 @@ export default function UnitswiseName() {
                       onSaveEdit={() => handleEditTopic(topic._id, unit._id)}
                       onCancelEdit={() => setEditingId(null)}
                       onDelete={() => handleDeleteTopic(topic._id, topic.name)}
+                      order={topic.order}
                       addChildLabel="+ Add Subtopic"
                       onAddChild={() => {
                         setAddingType('subtopic');
                         setAddingParentId(topic._id);
+                        setAddingParentName(topic.name);
                         setNewOrder((topic.subtopics?.length || 0) + 1);
                       }}
                     >
                       <div className="flex flex-col gap-2 border-t border-slate-100 bg-[#fcfdfe] py-3 pl-[42px] pr-4">
                         {(!topic.subtopics || topic.subtopics.length === 0) && (
-                          <p className="py-1.5 text-xs italic text-slate-400">No subtopics in this topic yet.</p>
+                          <p className="rounded-lg border border-dashed border-slate-200 py-3 text-center text-xs italic text-slate-400">
+                            No subtopics in this topic yet.
+                          </p>
                         )}
                         {topic.subtopics?.map((subtopic) => (
                           <SubtopicRow
@@ -357,10 +399,10 @@ interface SubtopicRowProps {
 
 function SubtopicRow({ subtopic, isEditing, editName, onEditNameChange, onStartEdit, onSaveEdit, onCancelEdit, onDelete }: SubtopicRowProps) {
   return (
-    <div className="flex items-center justify-between gap-3 rounded-lg border border-slate-100 bg-white px-3 py-2">
+    <div className="group flex items-center justify-between gap-3 rounded-lg border border-slate-100 bg-white px-3 py-2 transition-colors hover:border-slate-200 hover:bg-slate-50/60">
       {isEditing ? (
         <div className="flex flex-1 items-center gap-2">
-          <Input value={editName} onChange={(e) => onEditNameChange(e.target.value)} wrapperClassName="flex-1" />
+          <Input value={editName} onChange={(e) => onEditNameChange(e.target.value)} wrapperClassName="flex-1" autoFocus />
           <Button size="sm" onClick={onSaveEdit}>
             Save
           </Button>
@@ -370,11 +412,12 @@ function SubtopicRow({ subtopic, isEditing, editName, onEditNameChange, onStartE
         </div>
       ) : (
         <>
-          <div className="flex items-center gap-2">
-            <span className="text-sm font-medium text-slate-800">&bull; {subtopic.name}</span>
-            <span className="rounded-full bg-brand-100 px-1.5 py-0.5 text-[10px] font-medium text-brand-700">Order: {subtopic.order || 0}</span>
+          <div className="flex min-w-0 items-center gap-2">
+            <Tag className="size-3 shrink-0 text-slate-300" />
+            <span className="truncate text-sm font-medium text-slate-800">{subtopic.name}</span>
+            <span className="shrink-0 rounded-full bg-brand-100 px-1.5 py-0.5 text-[10px] font-medium text-brand-700">Order: {subtopic.order || 0}</span>
           </div>
-          <div className="flex gap-1.5">
+          <div className="flex shrink-0 gap-1.5 opacity-80 transition-opacity group-hover:opacity-100">
             <Button size="sm" variant="secondary" onClick={onStartEdit} aria-label={`Edit ${subtopic.name}`}>
               <Pencil className="size-3" />
             </Button>
@@ -384,6 +427,24 @@ function SubtopicRow({ subtopic, isEditing, editName, onEditNameChange, onStartE
           </div>
         </>
       )}
+    </div>
+  );
+}
+
+interface StatChipProps {
+  icon: ReactNode;
+  label: string;
+  value: number;
+}
+
+function StatChip({ icon, label, value }: StatChipProps) {
+  return (
+    <div className="flex items-center gap-3 rounded-xl border border-slate-200 bg-white px-4 py-3 shadow-soft-sm">
+      <span className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-slate-100 text-slate-500">{icon}</span>
+      <div className="min-w-0">
+        <p className="font-heading text-lg font-bold leading-tight text-slate-900">{value}</p>
+        <p className="truncate text-xs text-slate-500">{label}</p>
+      </div>
     </div>
   );
 }
