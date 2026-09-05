@@ -5,5 +5,5 @@ export const BACKEND_URL: string =
   window.location.hostname.startsWith('192.168.') ||
   window.location.hostname.startsWith('10.') ||
   window.location.hostname.startsWith('172.')
-    ? `http://${window.location.hostname}:5000`
+    ? `http://${window.location.hostname}:5001`
     : 'https://c3-website-backend-1-ktc5.onrender.com';

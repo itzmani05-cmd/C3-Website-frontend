@@ -23,7 +23,6 @@ interface PromptOptions extends ConfirmOptions {
 }
 
 interface ModalContextValue {
-  showAlert: (message: string, options?: AlertOptions) => Promise<void>;
   showConfirm: (message: string, options?: ConfirmOptions) => Promise<boolean>;
   showPrompt: (message: string, options?: PromptOptions) => Promise<string | null>;
 }
@@ -52,7 +51,6 @@ const VARIANT_ICON_WRAP: Record<ModalVariant, string> = {
 };
 
 type ModalState =
-  | { type: 'alert'; message: string; title: string; variant: ModalVariant; confirmText: string; resolve: (v: void) => void }
   | {
       type: 'confirm';
       message: string;
@@ -81,20 +79,6 @@ export function ModalProvider({ children }: { children: ReactNode }) {
     setModalState((prev) => {
       if (prev) (prev.resolve as (v: unknown) => void)(result);
       return null;
-    });
-  }, []);
-
-  const showAlert = useCallback((message: string, options: AlertOptions = {}) => {
-    return new Promise<void>((resolve) => {
-      const variant = options.variant || 'info';
-      setModalState({
-        type: 'alert',
-        message,
-        title: options.title || DEFAULT_TITLES[variant],
-        variant,
-        confirmText: options.confirmText || 'OK',
-        resolve,
-      });
     });
   }, []);
 
@@ -130,9 +114,9 @@ export function ModalProvider({ children }: { children: ReactNode }) {
     });
   }, []);
 
-  const contextValue = useMemo(() => ({ showAlert, showConfirm, showPrompt }), [showAlert, showConfirm, showPrompt]);
+  const contextValue = useMemo(() => ({ showConfirm, showPrompt }), [showConfirm, showPrompt]);
 
-  const closeValue = modalState?.type === 'confirm' ? false : modalState?.type === 'prompt' ? null : undefined;
+  const closeValue = modalState?.type === 'confirm' ? false : null;
 
   return (
     <ModalContext.Provider value={contextValue}>
@@ -160,11 +144,6 @@ export function ModalProvider({ children }: { children: ReactNode }) {
             )}
 
             <div className="mt-6 flex w-full items-center justify-center gap-3">
-              {modalState.type === 'alert' && (
-                <Button variant="primary" className="w-full" autoFocus onClick={() => close(undefined)}>
-                  {modalState.confirmText}
-                </Button>
-              )}
               {modalState.type === 'confirm' && (
                 <>
                   <Button variant="secondary" className="w-full" onClick={() => close(false)}>

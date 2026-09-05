@@ -1,7 +1,8 @@
 import { useCallback, useEffect, useState } from 'react';
 import { ChevronDown, ChevronUp, Plus, Wrench } from 'lucide-react';
+import { toast } from 'react-toastify';
 import api from '../api';
-import { detectQuestionType, normalizeCorrectAnswer } from '../lib/helpers';
+import { detectQuestionType, formatCorrectAnswerLabel } from '../lib/helpers';
 import QuestionForm from '../components/QuestionForm';
 import type { QuestionFormValue } from '../components/QuestionForm';
 import { useModal } from '../components/ui';
@@ -12,7 +13,7 @@ import Badge from '../components/ui/Badge';
 import Banner from '../components/ui/Banner';
 import { LoadingState } from '../components/ui/Spinner';
 import EmptyState from '../components/ui/EmptyState';
-import type { CurriculumTree, Test } from '../types/models';
+import type { CurriculumTree, Exam, Test } from '../types/models';
 
 interface FixableQuestion extends QuestionFormValue {
   _id: string;
@@ -25,6 +26,7 @@ const initialFormState: QuestionFormValue = {
   options: { a: '', b: '', c: '', d: '' },
   optionImages: { a: null, b: null, c: null, d: null },
   correct_answer: 'a',
+  answerType: 'single',
   explanation: '',
   explanationImage: null,
 };
@@ -32,9 +34,11 @@ const initialFormState: QuestionFormValue = {
 type DestinationMode = 'curriculum' | 'test';
 
 export default function QuestionFix() {
-  const { showAlert, showConfirm, showPrompt } = useModal();
+  const { showConfirm, showPrompt } = useModal();
   const [destinationMode, setDestinationMode] = useState<DestinationMode>('curriculum');
 
+  const [exams, setExams] = useState<Exam[]>([]);
+  const [examId, setExamId] = useState('');
   const [curriculum, setCurriculum] = useState<CurriculumTree>([]);
   const [unitId, setUnitId] = useState('');
   const [topicId, setTopicId] = useState('');
@@ -48,7 +52,7 @@ export default function QuestionFix() {
 
   const [questions, setQuestions] = useState<FixableQuestion[]>([]);
   const [loading, setLoading] = useState(false);
-  const [message, setMessage] = useState('');
+  const [hasSearched, setHasSearched] = useState(false);
   const [expandedId, setExpandedId] = useState<string | null>(null);
 
   const [isAdding, setIsAdding] = useState(false);
@@ -57,18 +61,41 @@ export default function QuestionFix() {
   useEffect(() => {
     const loadData = async () => {
       try {
-        const [curriculumResponse, testsResponse] = await Promise.all([
-          api.get<CurriculumTree>('/api/questions/curriculum'),
-          api.get<Test[]>('/api/questions/tests'),
-        ]);
+        const examsResponse = await api.get<Exam[]>('/api/questions/exams');
+        const examsData = examsResponse.data || [];
+        setExams(examsData);
+        if (examsData.length > 0) {
+          setExamId(examsData[0]._id);
+        } else {
+          setCurriculumLoading(false);
+        }
+      } catch (error) {
+        setCurriculumError('Failed to load exams from server.');
+        console.error('Data load error:', error);
+        setCurriculumLoading(false);
+      }
+    };
+    loadData();
+  }, []);
 
+  useEffect(() => {
+    if (!examId) return;
+    const loadExamScopedData = async () => {
+      setCurriculumLoading(true);
+      try {
+        const [curriculumResponse, testsResponse] = await Promise.all([
+          api.get<CurriculumTree>('/api/questions/curriculum', { params: { examId } }),
+          api.get<Test[]>('/api/questions/tests', { params: { examId } }),
+        ]);
         const data = curriculumResponse.data || [];
         setCurriculum(data);
-        if (data.length > 0) setUnitId(data[0]._id);
+        setUnitId(data[0]?._id || '');
+        setTopicId(data[0]?.topics?.[0]?._id || '');
+        setSubtopicId('');
 
         const testsData = testsResponse.data || [];
         setTests(testsData);
-        if (testsData.length > 0) setSelectedTestId(testsData[0]._id);
+        setSelectedTestId(testsData[0]?._id || '');
       } catch (error) {
         setCurriculumError('Failed to load curriculum or tests from server.');
         console.error('Curriculum load error:', error);
@@ -76,8 +103,8 @@ export default function QuestionFix() {
         setCurriculumLoading(false);
       }
     };
-    loadData();
-  }, []);
+    loadExamScopedData();
+  }, [examId]);
 
   const fetchQuestions = useCallback(async () => {
     if (destinationMode === 'test') {
@@ -91,7 +118,7 @@ export default function QuestionFix() {
         setQuestions(response.data || []);
       } catch (error) {
         console.error('Error fetching exam questions:', error);
-        setMessage('Failed to load questions.');
+        toast.error('Failed to load questions.');
       } finally {
         setLoading(false);
       }
@@ -109,26 +136,34 @@ export default function QuestionFix() {
       setQuestions(response.data || []);
     } catch (error) {
       console.error('Error fetching questions:', error);
-      setMessage('Failed to load questions.');
+      toast.error('Failed to load questions.');
     } finally {
       setLoading(false);
     }
   }, [destinationMode, unitId, topicId, subtopicId, selectedTestId]);
 
+  // Filters changed since the last search — hide the stale results until Submit is clicked again.
   useEffect(() => {
+    setHasSearched(false);
+    setQuestions([]);
+  }, [destinationMode, examId, unitId, topicId, subtopicId, selectedTestId]);
+
+  const handleSubmitSearch = () => {
+    setHasSearched(true);
     fetchQuestions();
-  }, [fetchQuestions]);
+  };
 
   const handleModeChange = (mode: DestinationMode) => {
     setDestinationMode(mode);
     setExpandedId(null);
     setIsAdding(false);
-    setMessage('');
   };
 
   const handleUnitChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
-    setUnitId(e.target.value);
-    setTopicId('');
+    const newUnitId = e.target.value;
+    setUnitId(newUnitId);
+    const unit = curriculum.find((u) => u._id === newUnitId);
+    setTopicId(unit?.topics?.[0]?._id || '');
     setSubtopicId('');
     setExpandedId(null);
     setIsAdding(false);
@@ -160,12 +195,11 @@ export default function QuestionFix() {
       setLoading(true);
       const endpoint = destinationMode === 'test' ? `/api/questions/exam/${id}` : `/api/questions/${id}`;
       await api.put(endpoint, { ...updatedData, type: detectQuestionType(updatedData.question || '') });
-      setMessage('Question updated successfully!');
+      toast.success('Question updated successfully!');
       setExpandedId(null);
       fetchQuestions();
-      setTimeout(() => setMessage(''), 3000);
     } catch (error: any) {
-      setMessage('Error updating question: ' + (error.response?.data?.message || error.message));
+      toast.error('Error updating question: ' + (error.response?.data?.message || error.message));
     } finally {
       setLoading(false);
     }
@@ -182,11 +216,10 @@ export default function QuestionFix() {
       setLoading(true);
       const endpoint = destinationMode === 'test' ? `/api/questions/exam/${id}` : `/api/questions/${id}`;
       await api.delete(endpoint);
-      setMessage('Question deleted successfully!');
+      toast.success('Question deleted successfully!');
       fetchQuestions();
-      setTimeout(() => setMessage(''), 3000);
     } catch (error: any) {
-      setMessage('Error deleting question: ' + (error.response?.data?.message || error.message));
+      toast.error('Error deleting question: ' + (error.response?.data?.message || error.message));
     } finally {
       setLoading(false);
     }
@@ -198,7 +231,7 @@ export default function QuestionFix() {
     if (destinationMode === 'test') {
       const selectedTest = tests.find((t) => t._id === selectedTestId);
       if (!selectedTest) {
-        await showAlert('Please select a test first to perform a bulk delete.', { variant: 'warning' });
+        toast.warning('Please select a test first to perform a bulk delete.');
         return;
       }
       targetName = `Test: "${selectedTest.name}"`;
@@ -215,7 +248,7 @@ export default function QuestionFix() {
         const t = topicsList.find((tp) => tp._id === topicId);
         targetName = `Topic: "${t?.name}"`;
       } else {
-        await showAlert('Please select a topic or subtopic first to perform a bulk delete.', { variant: 'warning' });
+        toast.warning('Please select a topic or subtopic first to perform a bulk delete.');
         return;
       }
     }
@@ -230,7 +263,7 @@ export default function QuestionFix() {
       placeholder: 'DELETE',
     });
     if (responseText !== 'DELETE') {
-      await showAlert('Deletion cancelled. Confirmation text did not match.', { variant: 'error' });
+      toast.error('Deletion cancelled. Confirmation text did not match.');
       return;
     }
 
@@ -245,11 +278,10 @@ export default function QuestionFix() {
         if (subtopicId && subtopicId !== 'all') params.subtopicId = subtopicId;
         response = await api.delete('/api/questions/delete/bulk', { params });
       }
-      setMessage(response.data?.message || 'Bulk deletion completed successfully.');
+      toast.success(response.data?.message || 'Bulk deletion completed successfully.');
       fetchQuestions();
-      setTimeout(() => setMessage(''), 4000);
     } catch (error: any) {
-      setMessage('Error in bulk delete: ' + (error.response?.data?.message || error.message));
+      toast.error('Error in bulk delete: ' + (error.response?.data?.message || error.message));
     } finally {
       setLoading(false);
     }
@@ -257,17 +289,22 @@ export default function QuestionFix() {
 
   const handleCreateQuestion = async () => {
     if (!newQuestionForm.question?.trim()) {
-      await showAlert('Question text is required.', { variant: 'warning' });
+      toast.warning('Question text is required.');
       return;
     }
-    const opts = newQuestionForm.options;
-    if (!opts?.a?.trim() || !opts?.b?.trim() || !opts?.c?.trim() || !opts?.d?.trim()) {
-      await showAlert('All options (A, B, C, D) are required.', { variant: 'warning' });
+    if (newQuestionForm.answerType !== 'numerical') {
+      const opts = newQuestionForm.options;
+      if (!opts?.a?.trim() || !opts?.b?.trim() || !opts?.c?.trim() || !opts?.d?.trim()) {
+        toast.warning('All options (A, B, C, D) are required.');
+        return;
+      }
+    } else if (!newQuestionForm.correct_answer) {
+      toast.warning('A numerical correct answer is required.');
       return;
     }
 
     if (destinationMode === 'test' && !selectedTestId) {
-      await showAlert('Please select a test first.', { variant: 'warning' });
+      toast.warning('Please select a test first.');
       return;
     }
 
@@ -285,6 +322,7 @@ export default function QuestionFix() {
           options: newQuestionForm.options,
           optionImages: newQuestionForm.optionImages,
           correct_answer: newQuestionForm.correct_answer,
+          answerType: newQuestionForm.answerType || 'single',
           explanation: newQuestionForm.explanation,
           explanationImage: newQuestionForm.explanationImage,
         };
@@ -301,6 +339,7 @@ export default function QuestionFix() {
           options: newQuestionForm.options,
           optionImages: newQuestionForm.optionImages,
           correct_answer: newQuestionForm.correct_answer,
+          answerType: newQuestionForm.answerType || 'single',
           explanation: newQuestionForm.explanation,
           explanationImage: newQuestionForm.explanationImage,
           status: 'accepted',
@@ -317,13 +356,12 @@ export default function QuestionFix() {
         await api.post('/api/questions', payload);
       }
 
-      setMessage('Question created successfully!');
+      toast.success('Question created successfully!');
       setNewQuestionForm(initialFormState);
       setIsAdding(false);
       fetchQuestions();
-      setTimeout(() => setMessage(''), 3000);
     } catch (error: any) {
-      setMessage('Error creating question: ' + (error.response?.data?.message || error.message));
+      toast.error('Error creating question: ' + (error.response?.data?.message || error.message));
     } finally {
       setLoading(false);
     }
@@ -334,7 +372,7 @@ export default function QuestionFix() {
   const selectedTopicObj = topicsList.find((t) => t._id === topicId);
   const subtopicsList = selectedTopicObj ? selectedTopicObj.subtopics : [];
 
-  const getAnswerDisplay = (q: FixableQuestion) => normalizeCorrectAnswer(q.correct_answer || q.correctAnswer).toUpperCase();
+  const getAnswerDisplay = (q: FixableQuestion) => formatCorrectAnswerLabel(q.correct_answer ?? q.correctAnswer);
 
   const pageHeader = (
     <div className="mb-6 flex items-center gap-3.5">
@@ -350,7 +388,7 @@ export default function QuestionFix() {
 
   if (curriculumLoading) {
     return (
-      <div className="mx-auto w-full max-w-4xl 2xl:max-w-5xl">
+      <div className="mx-auto w-full max-w-5xl xl:max-w-6xl 2xl:max-w-7xl">
         {pageHeader}
         <LoadingState message="Loading curriculum..." />
       </div>
@@ -359,7 +397,7 @@ export default function QuestionFix() {
 
   if (curriculumError) {
     return (
-      <div className="mx-auto w-full max-w-4xl 2xl:max-w-5xl">
+      <div className="mx-auto w-full max-w-5xl xl:max-w-6xl 2xl:max-w-7xl">
         {pageHeader}
         <Banner variant="error" message={curriculumError} />
       </div>
@@ -367,7 +405,7 @@ export default function QuestionFix() {
   }
 
   return (
-    <div className="mx-auto w-full max-w-4xl 2xl:max-w-5xl">
+    <div className="mx-auto w-full max-w-5xl xl:max-w-6xl 2xl:max-w-7xl">
       {pageHeader}
 
       <Card className="mb-6 p-6">
@@ -397,7 +435,19 @@ export default function QuestionFix() {
         </div>
 
         {destinationMode === 'curriculum' ? (
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+          <div className="flex flex-col gap-4">
+            {exams.length > 0 ? (
+              <Select label="Exam" value={examId} onChange={(e) => setExamId(e.target.value)} wrapperClassName="max-w-sm">
+                {exams.map((ex) => (
+                  <option key={ex._id} value={ex._id}>
+                    {ex.name}
+                  </option>
+                ))}
+              </Select>
+            ) : (
+              <p className="py-2 font-medium text-danger-600">No exams available. Please add one under Manage Exams first.</p>
+            )}
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
             <Select label="Unit" value={unitId} onChange={handleUnitChange}>
               {curriculum.map((u) => (
                 <option key={u._id} value={u._id}>
@@ -406,7 +456,6 @@ export default function QuestionFix() {
               ))}
             </Select>
             <Select label="Topic" value={topicId} onChange={handleTopicChange}>
-              <option value="">All Topics</option>
               {topicsList.map((t) => (
                 <option key={t._id} value={t._id}>
                   {t.name}
@@ -423,9 +472,21 @@ export default function QuestionFix() {
                 ))}
               </Select>
             )}
+            </div>
           </div>
         ) : (
-          <div>
+          <div className="flex flex-col gap-4">
+            {exams.length > 0 ? (
+              <Select label="Exam" value={examId} onChange={(e) => setExamId(e.target.value)} wrapperClassName="max-w-sm">
+                {exams.map((ex) => (
+                  <option key={ex._id} value={ex._id}>
+                    {ex.name}
+                  </option>
+                ))}
+              </Select>
+            ) : (
+              <p className="py-2 font-medium text-danger-600">No exams available. Please add one under Manage Exams first.</p>
+            )}
             {tests.length > 0 ? (
               <Select label="Select Test" value={selectedTestId} onChange={handleTestChange} wrapperClassName="max-w-sm">
                 {tests.map((t) => (
@@ -435,30 +496,42 @@ export default function QuestionFix() {
                 ))}
               </Select>
             ) : (
-              <p className="py-2 font-medium text-danger-600">No tests available. Please configure tests first.</p>
+              <p className="py-2 font-medium text-danger-600">No tests available for this exam. Please configure one first.</p>
             )}
           </div>
         )}
+
+        <div className="mt-5 flex justify-end">
+          <Button
+            onClick={handleSubmitSearch}
+            loading={loading}
+            disabled={destinationMode === 'test' ? !selectedTestId : !unitId}
+          >
+            Submit
+          </Button>
+        </div>
       </Card>
 
       <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
         <div className="flex items-center gap-2">
-          <p className="font-semibold text-slate-800">Questions in this selection</p>
-          <Badge variant="brand">{questions.length}</Badge>
-        </div>
-        <div className="flex gap-3">
           <Button variant="secondary" size="sm" icon={<Plus className="size-3.5" />} onClick={() => setIsAdding(!isAdding)}>
             {isAdding ? 'Cancel Add' : 'Add Question'}
           </Button>
-          {((destinationMode === 'test' && selectedTestId) || (destinationMode === 'curriculum' && topicId)) && questions.length > 0 && (
-            <Button variant="danger" size="sm" onClick={handleDeleteAllQuestions}>
-              Delete all
-            </Button>
-          )}
         </div>
+        {hasSearched && (
+          <div className="flex items-center gap-3">
+            <div className="flex items-center gap-2">
+              <p className="font-semibold text-slate-800">Questions in this selection</p>
+              <Badge variant="brand">{questions.length}</Badge>
+            </div>
+            {((destinationMode === 'test' && selectedTestId) || (destinationMode === 'curriculum' && topicId)) && questions.length > 0 && (
+              <Button variant="danger" size="sm" onClick={handleDeleteAllQuestions}>
+                Delete all
+              </Button>
+            )}
+          </div>
+        )}
       </div>
-
-      {message && <Banner variant={message.includes('Error') ? 'error' : 'success'} message={message} />}
 
       {isAdding && (
         <Card className="mb-5 border-brand-200 bg-brand-50/40 p-6">
@@ -480,7 +553,7 @@ export default function QuestionFix() {
         </Card>
       )}
 
-      {loading && questions.length === 0 ? (
+      {hasSearched && (loading && questions.length === 0 ? (
         <LoadingState message="Loading questions..." />
       ) : !loading && questions.length === 0 ? (
         <EmptyState title="No questions found." description="Try a different unit, topic, or test — or add a new question above." />
@@ -535,7 +608,7 @@ export default function QuestionFix() {
             </Card>
           ))}
         </div>
-      )}
+      ))}
     </div>
   );
 }

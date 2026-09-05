@@ -1,17 +1,17 @@
 import { useCallback, useEffect, useState } from 'react';
 import { Lightbulb } from 'lucide-react';
+import { toast } from 'react-toastify';
 import api from '../api';
 import { detectQuestionType } from '../lib/helpers';
-import { parseQuestionBlock, parseLineByLine, splitQuestionBlocks } from '../lib/questionParser';
+import { parseQuestionBlock, parseLineByLine, parseOneQuestionPerLine, splitQuestionBlocks } from '../lib/questionParser';
 import type { DraftQuestion } from '../lib/questionParser';
 import QuestionForm from '../components/QuestionForm';
-import { useModal } from '../components/ui';
 import Button from '../components/ui/Button';
 import Card from '../components/ui/Card';
 import { Select, Textarea } from '../components/ui/Field';
 import Banner from '../components/ui/Banner';
 import { LoadingState } from '../components/ui/Spinner';
-import type { CurriculumTree, Test } from '../types/models';
+import type { CurriculumTree, Exam, Test } from '../types/models';
 
 type DestinationMode = 'curriculum' | 'test';
 
@@ -22,7 +22,8 @@ const statusBadgeClasses: Record<DraftQuestion['status'], string> = {
 };
 
 export default function AIGenerator() {
-  const { showAlert } = useModal();
+  const [exams, setExams] = useState<Exam[]>([]);
+  const [examId, setExamId] = useState('');
   const [curriculum, setCurriculum] = useState<CurriculumTree>([]);
   const [unitId, setUnitId] = useState('');
   const [topicId, setTopicId] = useState('');
@@ -38,39 +39,63 @@ export default function AIGenerator() {
   const [batch, setBatch] = useState<DraftQuestion[]>([]);
   const [loading, setLoading] = useState(false);
   const [questionCount, setQuestionCount] = useState(0);
-  const [message, setMessage] = useState('');
+  const [countLoading, setCountLoading] = useState(false);
+  const [hasSearched, setHasSearched] = useState(false);
 
   useEffect(() => {
     const loadData = async () => {
       try {
-        const currResponse = await api.get<CurriculumTree>('/api/questions/curriculum');
-        const currData = currResponse.data || [];
-        setCurriculum(currData);
-
-        if (currData.length > 0) {
-          const firstUnit = currData[0];
-          const firstTopic = firstUnit.topics?.[0];
-          const firstSubtopic = firstTopic?.subtopics?.[0];
-
-          setUnitId(firstUnit._id);
-          if (firstTopic) setTopicId(firstTopic._id);
-          if (firstSubtopic) setSubtopicId(firstSubtopic._id);
+        const examsResponse = await api.get<Exam[]>('/api/questions/exams');
+        const examsData = examsResponse.data || [];
+        setExams(examsData);
+        if (examsData.length > 0) {
+          setExamId(examsData[0]._id);
+        } else {
+          setCurriculumLoading(false);
         }
-
-        const testsResponse = await api.get<Test[]>('/api/questions/tests');
-        const testsData = testsResponse.data || [];
-        setTests(testsData);
-        if (testsData.length > 0) setSelectedTestId(testsData[0]._id);
       } catch (error) {
-        setCurriculumError('Failed to load curriculum or tests from server.');
+        setCurriculumError('Failed to load exams from server.');
         console.error('Data load error:', error);
-      } finally {
         setCurriculumLoading(false);
       }
     };
 
     loadData();
   }, []);
+
+  useEffect(() => {
+    if (!examId) return;
+    const loadCurriculum = async () => {
+      setCurriculumLoading(true);
+      try {
+        const [currResponse, testsResponse] = await Promise.all([
+          api.get<CurriculumTree>('/api/questions/curriculum', { params: { examId } }),
+          api.get<Test[]>('/api/questions/tests', { params: { examId } }),
+        ]);
+        const currData = currResponse.data || [];
+        setCurriculum(currData);
+
+        const firstUnit = currData[0];
+        const firstTopic = firstUnit?.topics?.[0];
+        const firstSubtopic = firstTopic?.subtopics?.[0];
+
+        setUnitId(firstUnit?._id || '');
+        setTopicId(firstTopic?._id || '');
+        setSubtopicId(firstSubtopic?._id || '');
+
+        const testsData = testsResponse.data || [];
+        setTests(testsData);
+        setSelectedTestId(testsData[0]?._id || '');
+      } catch (error) {
+        setCurriculumError('Failed to load curriculum or tests from server.');
+        console.error('Curriculum load error:', error);
+      } finally {
+        setCurriculumLoading(false);
+      }
+    };
+
+    loadCurriculum();
+  }, [examId]);
 
   useEffect(() => {
     if (!unitId || curriculum.length === 0) return;
@@ -106,11 +131,14 @@ export default function AIGenerator() {
         setQuestionCount(0);
         return;
       }
+      setCountLoading(true);
       try {
         const response = await api.get(`/api/questions/exam/count?testName=${encodeURIComponent(selectedTest.name)}`);
         setQuestionCount(response.data.count || 0);
       } catch (error) {
         console.error('Error fetching exam count:', error);
+      } finally {
+        setCountLoading(false);
       }
       return;
     }
@@ -120,6 +148,7 @@ export default function AIGenerator() {
       return;
     }
 
+    setCountLoading(true);
     try {
       let url = `/api/questions/stats/count?topicId=${encodeURIComponent(topicId)}`;
       if (subtopicId) url += `&subtopicId=${encodeURIComponent(subtopicId)}`;
@@ -127,16 +156,25 @@ export default function AIGenerator() {
       setQuestionCount(response.data.count);
     } catch (error) {
       console.error('Error fetching count:', error);
+    } finally {
+      setCountLoading(false);
     }
   }, [destinationMode, selectedTestId, tests, topicId, subtopicId]);
 
+  // Filters changed since the last search — hide the stale progress until Submit is clicked again.
   useEffect(() => {
+    setHasSearched(false);
+    setQuestionCount(0);
+  }, [destinationMode, examId, unitId, topicId, subtopicId, selectedTestId]);
+
+  const handleSubmitFilters = () => {
+    setHasSearched(true);
     fetchQuestionCount();
-  }, [fetchQuestionCount]);
+  };
 
   const handleQuickExtract = () => {
     if (!pastedContent.trim()) {
-      showAlert('Please paste some content first!', { variant: 'warning' });
+      toast.warning('Please paste some content first!');
       return;
     }
 
@@ -149,23 +187,31 @@ export default function AIGenerator() {
     if (blockQuestions.length > 0) {
       setBatch([...batch, ...blockQuestions]);
       setPastedContent('');
-      setMessage(`Extracted ${blockQuestions.length} questions!`);
+      toast.success(`Extracted ${blockQuestions.length} questions!`);
       return;
     }
 
     const questions = parseLineByLine(pastedContent, subcategory);
 
-    if (questions.length === 0) {
-      showAlert(
-        'Could not find any questions in the pasted content. Please ensure questions are numbered (e.g., 1. What is...) and options are labeled (a, b, c, d).',
-        { variant: 'error', title: 'No Questions Found' }
+    if (questions.length > 0) {
+      setBatch([...batch, ...questions]);
+      setPastedContent('');
+      toast.success(`Extracted ${questions.length} questions!`);
+      return;
+    }
+
+    const perLineQuestions = parseOneQuestionPerLine(pastedContent, subcategory);
+
+    if (perLineQuestions.length === 0) {
+      toast.error(
+        'Could not find any questions in the pasted content. Please ensure questions are numbered (e.g., 1. What is...) and options are labeled (a, b, c, d).'
       );
       return;
     }
 
-    setBatch([...batch, ...questions]);
+    setBatch([...batch, ...perLineQuestions]);
     setPastedContent('');
-    setMessage(`Extracted ${questions.length} questions!`);
+    toast.success(`Extracted ${perLineQuestions.length} questions!`);
   };
 
   const addManualQuestion = () => {
@@ -174,6 +220,7 @@ export default function AIGenerator() {
       question: '',
       options: { a: '', b: '', c: '', d: '' },
       correct_answer: 'a',
+      answerType: 'single',
       explanation: '',
       status: 'PENDING',
       optionImages: { a: null, b: null, c: null, d: null },
@@ -199,30 +246,36 @@ export default function AIGenerator() {
   const clearBatch = () => setBatch([]);
 
   const buildPayload = (q: DraftQuestion, selectedTest?: Test) => {
+    const answerType = q.answerType || 'single';
+    const correctAnswer = answerType === 'single' && !q.correct_answer ? 'a' : q.correct_answer;
+
     if (destinationMode === 'test' && selectedTest) {
       return {
         testId: selectedTest._id,
         testName: selectedTest.name,
         type: detectQuestionType(q.question),
+        answerType,
         question: q.question,
         questionImage: q.questionImage,
         options: q.options,
         optionImages: q.optionImages,
-        correct_answer: q.correct_answer || 'a',
+        correct_answer: correctAnswer,
         explanation: q.explanation,
         explanationImage: q.explanationImage,
       };
     }
+
     return {
       unitId,
       topicId,
       subtopicId,
       type: detectQuestionType(q.question),
+      answerType,
       question: q.question,
       questionImage: q.questionImage,
       options: q.options,
       optionImages: q.optionImages,
-      correct_answer: q.correct_answer || 'a',
+      correct_answer: correctAnswer,
       explanation: q.explanation,
       explanationImage: q.explanationImage,
       status: 'accepted',
@@ -244,10 +297,11 @@ export default function AIGenerator() {
         await api.post('/api/questions', buildPayload(q));
       }
       setBatch(batch.filter((item) => item.id !== id));
-      setMessage('Question saved successfully!');
+      toast.success('Question saved successfully!');
+      setHasSearched(true);
       fetchQuestionCount();
     } catch (error: any) {
-      setMessage('Error saving question: ' + (error.response?.data?.message || error.message));
+      toast.error('Error saving question: ' + (error.response?.data?.message || error.message));
     } finally {
       setLoading(false);
     }
@@ -256,7 +310,7 @@ export default function AIGenerator() {
   const saveAll = async () => {
     const toSave = batch.filter((q) => q.status !== 'REJECTED');
     if (toSave.length === 0) {
-      showAlert('No questions to save!', { variant: 'warning' });
+      toast.warning('No questions to save!');
       return;
     }
 
@@ -273,11 +327,12 @@ export default function AIGenerator() {
           await api.post('/api/questions', buildPayload(q));
         }
       }
-      setMessage(`Successfully saved ${toSave.length} questions!`);
+      toast.success(`Successfully saved ${toSave.length} questions!`);
       setBatch([]);
+      setHasSearched(true);
       fetchQuestionCount();
     } catch (error: any) {
-      setMessage('Error saving: ' + (error.response?.data?.message || error.message));
+      toast.error('Error saving: ' + (error.response?.data?.message || error.message));
     } finally {
       setLoading(false);
     }
@@ -297,7 +352,7 @@ export default function AIGenerator() {
 
   if (curriculumLoading) {
     return (
-      <div className="mx-auto w-full max-w-4xl 2xl:max-w-5xl">
+      <div className="mx-auto w-full max-w-5xl xl:max-w-6xl 2xl:max-w-7xl">
         {pageHeader}
         <LoadingState message="Loading curriculum..." />
       </div>
@@ -306,7 +361,7 @@ export default function AIGenerator() {
 
   if (curriculumError) {
     return (
-      <div className="mx-auto w-full max-w-4xl 2xl:max-w-5xl">
+      <div className="mx-auto w-full max-w-5xl xl:max-w-6xl 2xl:max-w-7xl">
         {pageHeader}
         <Banner variant="error" message={curriculumError} />
       </div>
@@ -322,7 +377,7 @@ export default function AIGenerator() {
   const progressPct = Math.min(100, (questionCount / 25) * 100);
 
   return (
-    <div className="mx-auto w-full max-w-4xl 2xl:max-w-5xl">
+    <div className="mx-auto w-full max-w-5xl xl:max-w-6xl 2xl:max-w-7xl">
       {pageHeader}
 
       <Card className="mb-6 p-6">
@@ -351,34 +406,60 @@ export default function AIGenerator() {
           </button>
         </div>
 
-        {destinationMode === 'curriculum' ? (
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
-            <Select label="Unit" value={unitId} onChange={(e) => setUnitId(e.target.value)}>
-              {units.map((u) => (
-                <option key={u._id} value={u._id}>
-                  {u.name}
-                </option>
-              ))}
-            </Select>
-            <Select label="Topic" value={topicId} onChange={(e) => setTopicId(e.target.value)}>
-              {topics.map((t) => (
-                <option key={t._id} value={t._id}>
-                  {t.name}
-                </option>
-              ))}
-            </Select>
-            {subtopics.length > 0 && (
-              <Select label="Subtopic" value={subtopicId} onChange={(e) => setSubtopicId(e.target.value)}>
-                {subtopics.map((st) => (
-                  <option key={st._id} value={st._id}>
-                    {st.name}
+        {destinationMode === 'curriculum' && (
+          <div className="flex flex-col gap-4">
+            {exams.length > 0 ? (
+              <Select label="Exam" value={examId} onChange={(e) => setExamId(e.target.value)} wrapperClassName="max-w-sm">
+                {exams.map((ex) => (
+                  <option key={ex._id} value={ex._id}>
+                    {ex.name}
                   </option>
                 ))}
               </Select>
+            ) : (
+              <p className="py-2 font-medium text-danger-600">No exams available. Please add one under Manage Exams first.</p>
             )}
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+              <Select label="Unit" value={unitId} onChange={(e) => setUnitId(e.target.value)}>
+                {units.map((u) => (
+                  <option key={u._id} value={u._id}>
+                    {u.name}
+                  </option>
+                ))}
+              </Select>
+              <Select label="Topic" value={topicId} onChange={(e) => setTopicId(e.target.value)}>
+                {topics.map((t) => (
+                  <option key={t._id} value={t._id}>
+                    {t.name}
+                  </option>
+                ))}
+              </Select>
+              {subtopics.length > 0 && (
+                <Select label="Subtopic" value={subtopicId} onChange={(e) => setSubtopicId(e.target.value)}>
+                  {subtopics.map((st) => (
+                    <option key={st._id} value={st._id}>
+                      {st.name}
+                    </option>
+                  ))}
+                </Select>
+              )}
+            </div>
           </div>
-        ) : (
-          <div>
+        )}
+
+        {destinationMode === 'test' && (
+          <div className="flex flex-col gap-4">
+            {exams.length > 0 ? (
+              <Select label="Exam" value={examId} onChange={(e) => setExamId(e.target.value)} wrapperClassName="max-w-sm">
+                {exams.map((ex) => (
+                  <option key={ex._id} value={ex._id}>
+                    {ex.name}
+                  </option>
+                ))}
+              </Select>
+            ) : (
+              <p className="py-2 font-medium text-danger-600">No exams available. Please add one under Manage Exams first.</p>
+            )}
             {tests.length > 0 ? (
               <Select label="Select Test Name" value={selectedTestId} onChange={(e) => setSelectedTestId(e.target.value)} wrapperClassName="max-w-sm">
                 {tests.map((t) => (
@@ -388,42 +469,54 @@ export default function AIGenerator() {
                 ))}
               </Select>
             ) : (
-              <p className="py-2 font-medium text-danger-600">No tests available. Please configure tests first.</p>
+              <p className="py-2 font-medium text-danger-600">No tests available for this exam. Please configure one first.</p>
             )}
           </div>
         )}
+
+        <div className="mt-5 flex justify-end">
+          <Button
+            onClick={handleSubmitFilters}
+            loading={countLoading}
+            disabled={destinationMode === 'test' ? !selectedTestId : !topicId}
+          >
+            Submit
+          </Button>
+        </div>
       </Card>
 
-      <Card className="mb-6 p-6">
-        <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
-          <span className="text-sm font-semibold text-slate-700">
-            Progress for{' '}
-            {destinationMode === 'test'
-              ? tests.find((t) => t._id === selectedTestId)?.name || 'Selected Test'
-              : subtopicId
-                ? subtopics.find((st) => st._id === subtopicId)?.name
-                : selectedTopic?.name || ''}
-          </span>
-          <span className={['text-sm font-bold', destinationMode !== 'test' && questionCount >= 25 ? 'text-success-600' : 'text-slate-500'].join(' ')}>
-            {questionCount} {destinationMode === 'test' ? 'questions' : 'of 25 questions'} ready
-          </span>
-        </div>
-        {destinationMode !== 'test' ? (
-          <>
-            <div className="h-2 w-full overflow-hidden rounded-full bg-slate-100">
-              <div
-                className={['h-full rounded-full transition-all', questionCount >= 25 ? 'bg-success-500' : 'bg-brand-600'].join(' ')}
-                style={{ width: `${progressPct}%` }}
-              />
-            </div>
-            <p className={['mt-2 text-xs', questionCount >= 25 ? 'font-semibold text-success-600' : 'text-slate-400'].join(' ')}>
-              {questionCount >= 25 ? 'This subtopic is ready to go.' : `${25 - questionCount} more ${25 - questionCount === 1 ? 'question' : 'questions'} to complete this set.`}
-            </p>
-          </>
-        ) : (
-          <p className="mt-1 text-xs font-semibold text-success-600">Questions will be saved into the ExamQuestions collection.</p>
-        )}
-      </Card>
+      {hasSearched && (
+        <Card className="mb-6 p-6">
+          <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
+            <span className="text-sm font-semibold text-slate-700">
+              Progress for{' '}
+              {destinationMode === 'test'
+                ? tests.find((t) => t._id === selectedTestId)?.name || 'Selected Test'
+                : subtopicId
+                  ? subtopics.find((st) => st._id === subtopicId)?.name
+                  : selectedTopic?.name || ''}
+            </span>
+            <span className={['text-sm font-bold', destinationMode === 'curriculum' && questionCount >= 25 ? 'text-success-600' : 'text-slate-500'].join(' ')}>
+              {questionCount} {destinationMode === 'curriculum' ? 'of 25 questions' : 'questions'} ready
+            </span>
+          </div>
+          {destinationMode === 'curriculum' ? (
+            <>
+              <div className="h-2 w-full overflow-hidden rounded-full bg-slate-100">
+                <div
+                  className={['h-full rounded-full transition-all', questionCount >= 25 ? 'bg-success-500' : 'bg-brand-600'].join(' ')}
+                  style={{ width: `${progressPct}%` }}
+                />
+              </div>
+              <p className={['mt-2 text-xs', questionCount >= 25 ? 'font-semibold text-success-600' : 'text-slate-400'].join(' ')}>
+                {questionCount >= 25 ? 'This subtopic is ready to go.' : `${25 - questionCount} more ${25 - questionCount === 1 ? 'question' : 'questions'} to complete this set.`}
+              </p>
+            </>
+          ) : (
+            <p className="mt-1 text-xs font-semibold text-success-600">Questions will be saved into the ExamQuestions collection.</p>
+          )}
+        </Card>
+      )}
 
       <Card className="mb-6 p-6">
         <h3 className="mb-4 text-sm font-semibold uppercase tracking-wide text-slate-500">02 &middot; Paste source content</h3>
@@ -434,8 +527,6 @@ export default function AIGenerator() {
           </Button>
         </div>
       </Card>
-
-      {message && <Banner variant={message.includes('Error') ? 'error' : 'success'} message={message} />}
 
       {batch.length > 0 && (
         <>

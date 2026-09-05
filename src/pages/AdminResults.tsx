@@ -12,10 +12,12 @@ import {
   XCircle,
   ChevronRight,
 } from 'lucide-react';
+import { toast } from 'react-toastify';
 import api from '../api';
 import { useModal } from '../components/ui';
 import Button from '../components/ui/Button';
 import Card from '../components/ui/Card';
+import StatCard from '../components/ui/StatCard';
 import { Input, Select } from '../components/ui/Field';
 import Badge from '../components/ui/Badge';
 import type { BadgeVariant } from '../components/ui/Badge';
@@ -54,7 +56,7 @@ interface AttemptDetail {
 }
 
 export default function AdminResults() {
-  const { showConfirm, showAlert } = useModal();
+  const { showConfirm } = useModal();
   const [testsSummary, setTestsSummary] = useState<TestSummary[]>([]);
   const [summaryLoading, setSummaryLoading] = useState(true);
   const [summaryError, setSummaryError] = useState('');
@@ -130,10 +132,10 @@ export default function AdminResults() {
         setSelectedResult(null);
         setDetailData(null);
       }
-      await showAlert('Student attempt cleared successfully.', { variant: 'success' });
+      toast.success('Student attempt cleared successfully.');
     } catch (err) {
       console.error(err);
-      await showAlert('Failed to clear attempt. Please try again.', { variant: 'error' });
+      toast.error('Failed to clear attempt. Please try again.');
     }
   };
 
@@ -176,7 +178,7 @@ export default function AdminResults() {
   // ─── Master View: list of conducted tests ────────────────────────────────
   if (!selectedTest) {
     return (
-      <div className="mx-auto w-full max-w-6xl 2xl:max-w-7xl">
+      <div className="mx-auto w-full max-w-5xl xl:max-w-6xl 2xl:max-w-7xl">
         <div className="mb-6 flex flex-wrap items-center justify-between gap-4">
           <div className="flex items-center gap-3.5">
             <span className="flex size-11 shrink-0 items-center justify-center rounded-2xl bg-brand-100 text-brand-600">
@@ -194,22 +196,18 @@ export default function AdminResults() {
 
         {!summaryLoading && testsSummary.length > 0 && (
           <div className="mb-6 grid grid-cols-2 gap-3 sm:grid-cols-3">
-            <Card className="px-4 py-3">
-              <p className="font-heading text-lg font-bold leading-tight text-slate-900">{testsSummary.length}</p>
-              <p className="text-xs text-slate-500">Tests conducted</p>
-            </Card>
-            <Card className="px-4 py-3">
-              <p className="font-heading text-lg font-bold leading-tight text-slate-900">
-                {testsSummary.reduce((sum, t) => sum + (t.studentsAttempted || 0), 0)}
-              </p>
-              <p className="text-xs text-slate-500">Total attempts</p>
-            </Card>
-            <Card className="col-span-2 px-4 py-3 sm:col-span-1">
-              <p className="font-heading text-lg font-bold leading-tight text-brand-600">
-                {Math.round(testsSummary.reduce((sum, t) => sum + (t.averagePercentage || 0), 0) / testsSummary.length)}%
-              </p>
-              <p className="text-xs text-slate-500">Average score</p>
-            </Card>
+            <StatCard icon={<FileCheck2 className="size-4" />} value={testsSummary.length} label="Tests conducted" />
+            <StatCard
+              icon={<Users className="size-4" />}
+              value={testsSummary.reduce((sum, t) => sum + (t.studentsAttempted || 0), 0)}
+              label="Total attempts"
+            />
+            <StatCard
+              icon={<CheckCircle2 className="size-4" />}
+              value={`${Math.round(testsSummary.reduce((sum, t) => sum + (t.averagePercentage || 0), 0) / testsSummary.length)}%`}
+              label="Average score"
+              className="col-span-2 sm:col-span-1"
+            />
           </div>
         )}
 
@@ -272,7 +270,7 @@ export default function AdminResults() {
 
   // ─── Detail View: students who attempted the selected test ───────────────
   return (
-    <div className="mx-auto w-full max-w-6xl 2xl:max-w-7xl">
+    <div className="mx-auto w-full max-w-5xl xl:max-w-6xl 2xl:max-w-7xl">
       <div className="mb-4 flex items-center gap-2 text-sm">
         <button onClick={handleBackToList} className="flex items-center gap-1.5 font-medium text-brand-600 hover:text-brand-700">
           <ArrowLeft className="size-3.5" /> Back to Tests

@@ -2,8 +2,9 @@ import { useEffect, useState } from 'react';
 import type { FormEvent } from 'react';
 import { motion } from 'framer-motion';
 import { Eye, EyeOff, Lock, Mail } from 'lucide-react';
+import { toast } from 'react-toastify';
 import api from '../api';
-import { Spinner, ToastStack, useToast } from '../components/ui';
+import { Spinner } from '../components/ui';
 import type { Role } from '../types/models';
 
 interface LoginProps {
@@ -18,7 +19,6 @@ export default function Login({ onLogin }: LoginProps) {
   const [role, setRole] = useState<Role>('student');
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
-  const { toasts, showToast } = useToast();
 
   useEffect(() => {
     const saved = localStorage.getItem(REMEMBER_EMAIL_KEY);
@@ -28,29 +28,27 @@ export default function Login({ onLogin }: LoginProps) {
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
     if (!email || !/\S+@\S+\.\S+/.test(email)) {
-      showToast('Please enter a valid email address.', 'error');
+      toast.error('Please enter a valid email address.');
       return;
     }
     if (!password || password.length < 4) {
-      showToast('Password must be at least 4 characters.', 'error');
+      toast.error('Password must be at least 4 characters.');
       return;
     }
     setLoading(true);
     try {
       const res = await api.post('/api/auth/login', { email, password, role });
-      showToast('Login successful! Redirecting...', 'success');
+      toast.success('Login successful! Redirecting...');
       localStorage.setItem(REMEMBER_EMAIL_KEY, email);
       setTimeout(() => onLogin(res.data.token, res.data.role), 900);
     } catch (err: any) {
-      showToast(err.response?.data?.message || 'Login failed. Please check your credentials.', 'error');
+      toast.error(err.response?.data?.message || 'Login failed. Please check your credentials.');
       setLoading(false);
     }
   };
 
   return (
     <div className="flex min-h-screen items-center justify-center bg-[radial-gradient(circle_at_top_left,rgba(79,70,229,0.08),transparent_32%),radial-gradient(circle_at_bottom_right,rgba(124,58,237,0.08),transparent_32%)] bg-slate-50 px-6 py-10">
-      <ToastStack toasts={toasts} />
-
       <motion.div
         initial={{ opacity: 0, y: 24 }}
         animate={{ opacity: 1, y: 0 }}
@@ -60,7 +58,7 @@ export default function Login({ onLogin }: LoginProps) {
         <div className="mb-7 flex justify-center">
           <div className="inline-flex items-center gap-2.5 rounded-xl border border-slate-200 bg-slate-50 px-4.5 py-2.5">
             <img src="/C3AppLogo.png" alt="C³" className="h-[30px] object-contain" />
-            <span className="text-[1.1rem] font-bold text-slate-900">C³ Assessment</span>
+            <span className="text-[1.1rem] font-bold text-slate-900">C³EP</span>
           </div>
         </div>
 

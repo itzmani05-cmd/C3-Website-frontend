@@ -1,7 +1,7 @@
 import type { ReactNode } from 'react';
-import { BookOpen, ChevronDown, ChevronRight, ListTree, Pencil, Trash2 } from 'lucide-react';
+import { BookOpen, ChevronDown, ChevronRight, ListTree, Pencil, Plus, Trash2 } from 'lucide-react';
 import Button from './ui/Button';
-import { Input } from './ui/Field';
+import { Input, Select } from './ui/Field';
 
 type Variant = 'unit' | 'topic';
 
@@ -22,6 +22,10 @@ interface CurriculumTreeNodeProps {
   addChildLabel: string;
   onAddChild: () => void;
   children?: ReactNode;
+  // Unit-only: lets the edit row also reassign which exam the unit belongs to.
+  examOptions?: { _id: string; name: string }[];
+  selectedExamId?: string;
+  onExamChange?: (examId: string) => void;
 }
 
 const VARIANT_STYLES: Record<
@@ -61,6 +65,9 @@ export default function CurriculumTreeNode({
   addChildLabel,
   onAddChild,
   children,
+  examOptions,
+  selectedExamId,
+  onExamChange,
 }: CurriculumTreeNodeProps) {
   const styles = VARIANT_STYLES[variant];
   const isUnit = variant === 'unit';
@@ -87,8 +94,17 @@ export default function CurriculumTreeNode({
           <span className={['flex size-8 shrink-0 items-center justify-center rounded-lg', styles.iconWrap].join(' ')}>{styles.icon}</span>
 
           {isEditing ? (
-            <div className="flex flex-1 items-center gap-2">
-              <Input value={editName} onChange={(e) => onEditNameChange(e.target.value)} wrapperClassName="flex-1" autoFocus />
+            <div className="flex flex-1 flex-wrap items-center gap-2">
+              <Input value={editName} onChange={(e) => onEditNameChange(e.target.value)} wrapperClassName="min-w-[160px] flex-1" autoFocus />
+              {examOptions && onExamChange && (
+                <Select value={selectedExamId} onChange={(e) => onExamChange(e.target.value)} wrapperClassName="w-48">
+                  {examOptions.map((ex) => (
+                    <option key={ex._id} value={ex._id}>
+                      {ex.name}
+                    </option>
+                  ))}
+                </Select>
+              )}
               <Button size="sm" onClick={onSaveEdit}>
                 Save
               </Button>
@@ -112,11 +128,11 @@ export default function CurriculumTreeNode({
             <Button size="sm" variant="secondary" onClick={onStartEdit} aria-label={`Edit ${name}`}>
               <Pencil className="size-3.5" />
             </Button>
-            <Button size="sm" onClick={onAddChild}>
-              {addChildLabel}
+            <Button size="sm" onClick={onAddChild} aria-label={addChildLabel}>
+              <Plus className="size-3.5" />
             </Button>
             <Button size="sm" variant="danger" onClick={onDelete} aria-label={`Delete ${name}`}>
-              {isUnit ? 'Delete' : <Trash2 className="size-3.5" />}
+              <Trash2 className="size-3.5" />
             </Button>
           </div>
         )}

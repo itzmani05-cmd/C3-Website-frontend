@@ -1,13 +1,13 @@
 import { useEffect, useState } from 'react';
 import { BookOpen, ClipboardList, Download, FileText } from 'lucide-react';
 import api from '../api';
-import { getImagePreview } from '../lib/helpers';
+import { getImagePreview, formatCorrectAnswerLabel } from '../lib/helpers';
 import QuestionRenderer from '../components/QuestionRenderer';
 import Button from '../components/ui/Button';
 import Card from '../components/ui/Card';
 import { Input, Select, Textarea } from '../components/ui/Field';
 import { LoadingState, Spinner } from '../components/ui/Spinner';
-import type { CurriculumTree, ExamQuestion, OptionKey, Test } from '../types/models';
+import type { CurriculumTree, Exam, ExamQuestion, OptionKey, Test } from '../types/models';
 
 type SourceMode = null | 'units' | 'test';
 type AnswerDisplay = 'none' | 'each' | 'end-key' | 'end-explanations';
@@ -38,7 +38,7 @@ const renderAnswerKeyTable = (questionsList: ExamQuestion[]) => {
             <tr>
               {chunk.map((q) => (
                 <td key={q._id} className="border border-black p-2 text-center text-sm font-bold">
-                  {q.correct_answer.toUpperCase()}
+                  {formatCorrectAnswerLabel(q.correct_answer)}
                 </td>
               ))}
             </tr>
@@ -52,6 +52,8 @@ const renderAnswerKeyTable = (questionsList: ExamQuestion[]) => {
 export default function PdfDownload() {
   const [sourceMode, setSourceMode] = useState<SourceMode>(null);
 
+  const [exams, setExams] = useState<Exam[]>([]);
+  const [examId, setExamId] = useState('');
   const [curriculum, setCurriculum] = useState<CurriculumTree>([]);
   const [unitId, setUnitId] = useState('');
   const [topicId, setTopicId] = useState('');
@@ -67,6 +69,7 @@ export default function PdfDownload() {
   const [selectedQuestionIds, setSelectedQuestionIds] = useState<Set<string>>(new Set());
   const [loadingQuestions, setLoadingQuestions] = useState(false);
   const [questionsError, setQuestionsError] = useState('');
+  const [hasSearched, setHasSearched] = useState(false);
 
   const [examTitle, setExamTitle] = useState('C³ - Assessment Test');
   const [examSubtitle, setExamSubtitle] = useState('Duration: 1.5 Hours | Max Marks: 50');
@@ -79,16 +82,17 @@ export default function PdfDownload() {
   useEffect(() => {
     const loadData = async () => {
       try {
-        const [curriculumResponse, testsResponse] = await Promise.all([
-          api.get<CurriculumTree>('/api/questions/curriculum'),
-          api.get<Test[]>('/api/questions/tests'),
-        ]);
-        setCurriculum(curriculumResponse.data || []);
-        setTests(testsResponse.data || []);
+        const examsResponse = await api.get<Exam[]>('/api/questions/exams');
+        const examsData = examsResponse.data || [];
+        setExams(examsData);
+        if (examsData.length > 0) {
+          setExamId(examsData[0]._id);
+        } else {
+          setCurriculumLoading(false);
+        }
       } catch (error) {
-        setCurriculumError('Failed to load curriculum or tests from server.');
+        setCurriculumError('Failed to load exams from server.');
         console.error('Data load error:', error);
-      } finally {
         setCurriculumLoading(false);
       }
     };
@@ -97,41 +101,71 @@ export default function PdfDownload() {
   }, []);
 
   useEffect(() => {
-    if (!sourceMode || curriculumLoading) return;
-
-    const fetchQuestions = async () => {
-      setLoadingQuestions(true);
-      setQuestionsError('');
+    if (!examId) return;
+    const loadExamScopedData = async () => {
+      setCurriculumLoading(true);
       try {
-        let fetchedQuestions: ExamQuestion[] = [];
+        const [curriculumResponse, testsResponse] = await Promise.all([
+          api.get<CurriculumTree>('/api/questions/curriculum', { params: { examId } }),
+          api.get<Test[]>('/api/questions/tests', { params: { examId } }),
+        ]);
+        setCurriculum(curriculumResponse.data || []);
+        setUnitId('all');
+        setTopicId('all');
+        setSubtopicId('all');
 
-        if (sourceMode === 'test') {
-          if (selectedTestId) {
-            const response = await api.get<ExamQuestion[]>('/api/questions/exam', { params: { testId: selectedTestId } });
-            fetchedQuestions = response.data || [];
-          }
-        } else {
-          const params: Record<string, string> = {};
-          if (unitId && unitId !== 'all') params.unitId = unitId;
-          if (topicId && topicId !== 'all') params.topicId = topicId;
-          if (subtopicId && subtopicId !== 'all') params.subtopicId = subtopicId;
-
-          const response = await api.get<ExamQuestion[]>('/api/questions', { params });
-          fetchedQuestions = response.data || [];
-        }
-
-        setQuestions(fetchedQuestions);
-        setSelectedQuestionIds(new Set(fetchedQuestions.map((q) => q._id)));
+        const testsData = testsResponse.data || [];
+        setTests(testsData);
+        setSelectedTestId(testsData[0]?._id || '');
       } catch (error) {
-        console.error('Error fetching questions:', error);
-        setQuestionsError('Failed to fetch questions matching the criteria.');
+        setCurriculumError('Failed to load curriculum or tests from server.');
+        console.error('Curriculum load error:', error);
       } finally {
-        setLoadingQuestions(false);
+        setCurriculumLoading(false);
       }
     };
+    loadExamScopedData();
+  }, [examId]);
 
-    fetchQuestions();
-  }, [sourceMode, unitId, topicId, subtopicId, selectedTestId, curriculumLoading]);
+  // Filters changed since the last search — hide the stale results until Submit is clicked again.
+  useEffect(() => {
+    setHasSearched(false);
+    setQuestions([]);
+    setSelectedQuestionIds(new Set());
+  }, [sourceMode, examId, unitId, topicId, subtopicId, selectedTestId]);
+
+  const handleSubmitFilters = async () => {
+    if (!sourceMode) return;
+    setHasSearched(true);
+    setLoadingQuestions(true);
+    setQuestionsError('');
+    try {
+      let fetchedQuestions: ExamQuestion[] = [];
+
+      if (sourceMode === 'test') {
+        if (selectedTestId) {
+          const response = await api.get<ExamQuestion[]>('/api/questions/exam', { params: { testId: selectedTestId } });
+          fetchedQuestions = response.data || [];
+        }
+      } else {
+        const params: Record<string, string> = {};
+        if (unitId && unitId !== 'all') params.unitId = unitId;
+        if (topicId && topicId !== 'all') params.topicId = topicId;
+        if (subtopicId && subtopicId !== 'all') params.subtopicId = subtopicId;
+
+        const response = await api.get<ExamQuestion[]>('/api/questions', { params });
+        fetchedQuestions = response.data || [];
+      }
+
+      setQuestions(fetchedQuestions);
+      setSelectedQuestionIds(new Set(fetchedQuestions.map((q) => q._id)));
+    } catch (error) {
+      console.error('Error fetching questions:', error);
+      setQuestionsError('Failed to fetch questions matching the criteria.');
+    } finally {
+      setLoadingQuestions(false);
+    }
+  };
 
   const handleUnitChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
     setUnitId(e.target.value);
@@ -363,7 +397,7 @@ export default function PdfDownload() {
 
   if (curriculumLoading) {
     return (
-      <div className="mx-auto max-w-4xl">
+      <div className="mx-auto w-full max-w-5xl xl:max-w-6xl 2xl:max-w-7xl">
         {pageHeader}
         <LoadingState message="Loading curriculum..." />
       </div>
@@ -372,7 +406,7 @@ export default function PdfDownload() {
 
   if (curriculumError) {
     return (
-      <div className="mx-auto max-w-4xl">
+      <div className="mx-auto w-full max-w-5xl xl:max-w-6xl 2xl:max-w-7xl">
         {pageHeader}
         <p className="font-medium text-danger-600">{curriculumError}</p>
       </div>
@@ -381,7 +415,7 @@ export default function PdfDownload() {
 
   if (!sourceMode) {
     return (
-      <div className="mx-auto max-w-4xl">
+      <div className="mx-auto w-full max-w-5xl xl:max-w-6xl 2xl:max-w-7xl">
         {pageHeader}
         <div className="flex flex-col items-center py-16">
           <h3 className="font-heading mb-1 text-lg font-bold text-slate-900">What would you like to generate a question paper from?</h3>
@@ -449,7 +483,18 @@ export default function PdfDownload() {
             </div>
 
             {sourceMode === 'test' ? (
-              <div>
+              <div className="flex flex-col gap-4">
+                {exams.length > 0 ? (
+                  <Select label="Exam" value={examId} onChange={(e) => setExamId(e.target.value)}>
+                    {exams.map((ex) => (
+                      <option key={ex._id} value={ex._id}>
+                        {ex.name}
+                      </option>
+                    ))}
+                  </Select>
+                ) : (
+                  <p className="py-2 font-medium text-danger-600">No exams available. Please add one under Manage Exams first.</p>
+                )}
                 {tests.length > 0 ? (
                   <Select label="Select Test" value={selectedTestId} onChange={(e) => setSelectedTestId(e.target.value)}>
                     <option value="">Select a test...</option>
@@ -460,11 +505,22 @@ export default function PdfDownload() {
                     ))}
                   </Select>
                 ) : (
-                  <p className="py-2 font-medium text-danger-600">No tests available. Please create a test first.</p>
+                  <p className="py-2 font-medium text-danger-600">No tests available for this exam. Please create one first.</p>
                 )}
               </div>
             ) : (
               <div className="flex flex-col gap-4">
+                {exams.length > 0 ? (
+                  <Select label="Exam" value={examId} onChange={(e) => setExamId(e.target.value)}>
+                    {exams.map((ex) => (
+                      <option key={ex._id} value={ex._id}>
+                        {ex.name}
+                      </option>
+                    ))}
+                  </Select>
+                ) : (
+                  <p className="py-2 font-medium text-danger-600">No exams available. Please add one under Manage Exams first.</p>
+                )}
                 <Select label="Unit" value={unitId} onChange={handleUnitChange}>
                   <option value="all">All Units</option>
                   {curriculum.map((u) => (
@@ -493,6 +549,16 @@ export default function PdfDownload() {
                 </div>
               </div>
             )}
+
+            <div className="mt-5 flex justify-end">
+              <Button
+                onClick={handleSubmitFilters}
+                loading={loadingQuestions}
+                disabled={sourceMode === 'test' ? !selectedTestId : !unitId}
+              >
+                Submit
+              </Button>
+            </div>
           </Card>
 
           <Card className="p-5">
@@ -563,6 +629,8 @@ export default function PdfDownload() {
               </div>
             ) : questionsError ? (
               <p className="text-sm font-medium text-danger-600">{questionsError}</p>
+            ) : !hasSearched ? (
+              <p className="text-sm text-slate-400">Choose your filters above and click Submit to load questions.</p>
             ) : questions.length === 0 ? (
               <p className="text-sm text-slate-400">No questions found matching your filter criteria.</p>
             ) : (
@@ -669,7 +737,7 @@ export default function PdfDownload() {
 
                     {answerDisplay === 'each' && (
                       <div className="doc-inline-answer ml-6 mt-2 border-l-2 border-success-600 pl-2.5 text-success-600">
-                        <span className="answer-badge font-bold">Correct Answer: {q.correct_answer.toUpperCase()}</span>
+                        <span className="answer-badge font-bold">Correct Answer: {formatCorrectAnswerLabel(q.correct_answer)}</span>
                         {q.explanation && (
                           <div className="explanation-text-box mt-1 text-xs text-slate-500">
                             <strong>Explanation:</strong> {q.explanation}
@@ -700,7 +768,7 @@ export default function PdfDownload() {
                     {printableQuestions.map((q, index) => (
                       <div key={q._id} className="explanation-detail-item border-b border-dashed border-slate-300 pb-3">
                         <h4 className="mb-1 text-sm font-bold">
-                          Q{index + 1}. Correct Answer: <span className="ans-highlight text-success-600">{q.correct_answer.toUpperCase()}</span>
+                          Q{index + 1}. Correct Answer: <span className="ans-highlight text-success-600">{formatCorrectAnswerLabel(q.correct_answer)}</span>
                         </h4>
                         <div className="original-q-text mb-2 whitespace-pre-wrap text-sm text-slate-600">
                           <em>Question:</em> <QuestionRenderer question={q} />

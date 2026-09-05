@@ -93,3 +93,14 @@ export const normalizeCorrectAnswer = (val: string | number | null | undefined):
 
   return 'a';
 };
+
+export const normalizeCorrectAnswers = (value: unknown): OptionKey[] => {
+  if (!Array.isArray(value)) return [];
+  const keys = value.map((v) => normalizeOptionKey(typeof v === 'string' ? v : String(v))).filter((k): k is OptionKey => !!k);
+  return Array.from(new Set(keys));
+};
+
+export const formatCorrectAnswerLabel = (value: string | string[] | null | undefined): string => {
+  if (Array.isArray(value)) return value.filter(Boolean).map((v) => v.toString().toUpperCase()).join(', ');
+  return (value ?? '').toString().toUpperCase();
+};

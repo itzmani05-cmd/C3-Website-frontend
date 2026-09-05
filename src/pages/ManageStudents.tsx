@@ -1,16 +1,17 @@
 import { useEffect, useState } from 'react';
 import type { FormEvent } from 'react';
-import { Pencil, Plus, Trash2, Users } from 'lucide-react';
+import { Pencil, Plus, Trash2, UserCheck, UserX, Users } from 'lucide-react';
+import { toast } from 'react-toastify';
 import api from '../api';
 import { useModal } from '../components/ui';
 import Button from '../components/ui/Button';
 import Card from '../components/ui/Card';
+import StatCard from '../components/ui/StatCard';
 import { Input, Select } from '../components/ui/Field';
 import Badge from '../components/ui/Badge';
-import Banner from '../components/ui/Banner';
 import { LoadingState } from '../components/ui/Spinner';
 import EmptyState from '../components/ui/EmptyState';
-import type { StudentUser, UserStatus } from '../types/models';
+import type { Exam, StudentUser, UserStatus } from '../types/models';
 
 const getApiConfig = () => ({
   headers: { Authorization: `Bearer ${localStorage.getItem('token')}` },
@@ -19,48 +20,58 @@ const getApiConfig = () => ({
 export default function ManageStudents() {
   const { showConfirm } = useModal();
   const [students, setStudents] = useState<StudentUser[]>([]);
+  const [exams, setExams] = useState<Exam[]>([]);
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState('');
-  const [successMessage, setSuccessMessage] = useState('');
 
   const [isAdding, setIsAdding] = useState(false);
   const [newName, setNewName] = useState('');
   const [newEmail, setNewEmail] = useState('');
   const [newPassword, setNewPassword] = useState('');
+  const [newExamIds, setNewExamIds] = useState<string[]>([]);
 
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editName, setEditName] = useState('');
   const [editEmail, setEditEmail] = useState('');
   const [editStatus, setEditStatus] = useState<UserStatus>('active');
+  const [editExamIds, setEditExamIds] = useState<string[]>([]);
 
   useEffect(() => {
     fetchStudents();
+    fetchExams();
   }, []);
 
   const fetchStudents = async () => {
     setLoading(true);
-    setError('');
     try {
       const response = await api.get<StudentUser[]>('/api/auth/admin/students', getApiConfig());
       setStudents(response.data || []);
     } catch (err) {
       console.error(err);
-      setError('Failed to fetch students.');
+      toast.error('Failed to fetch students.');
     } finally {
       setLoading(false);
     }
   };
 
-  const showSuccess = (msg: string) => {
-    setSuccessMessage(msg);
-    setTimeout(() => setSuccessMessage(''), 4000);
+  const fetchExams = async () => {
+    try {
+      const response = await api.get<Exam[]>('/api/questions/exams');
+      setExams(response.data || []);
+    } catch (err) {
+      console.error(err);
+      toast.error('Failed to fetch exams.');
+    }
   };
+
+  const toggleExamId = (ids: string[], examId: string) =>
+    ids.includes(examId) ? ids.filter((id) => id !== examId) : [...ids, examId];
 
   const resetAddForm = () => {
     setIsAdding(false);
     setNewName('');
     setNewEmail('');
     setNewPassword('');
+    setNewExamIds([]);
   };
 
   const handleAddStudent = async (e: FormEvent) => {
@@ -70,14 +81,14 @@ export default function ManageStudents() {
     try {
       await api.post(
         '/api/auth/admin/students',
-        { name: newName.trim(), email: newEmail.trim(), password: newPassword },
+        { name: newName.trim(), email: newEmail.trim(), password: newPassword, examIds: newExamIds },
         getApiConfig()
       );
-      showSuccess('Student added successfully.');
+      toast.success('Student added successfully.');
       resetAddForm();
       fetchStudents();
     } catch (err: any) {
-      setError(err.response?.data?.message || 'Error adding student.');
+      toast.error(err.response?.data?.message || 'Error adding student.');
     }
   };
 
@@ -86,6 +97,7 @@ export default function ManageStudents() {
     setEditName(student.name || '');
     setEditEmail(student.email);
     setEditStatus(student.status || 'active');
+    setEditExamIds((student.examIds || []).map((exam) => exam._id));
   };
 
   const handleEditStudent = async (studentId: string) => {
@@ -93,14 +105,14 @@ export default function ManageStudents() {
     try {
       await api.put(
         `/api/auth/admin/students/${studentId}`,
-        { name: editName.trim(), email: editEmail.trim(), status: editStatus },
+        { name: editName.trim(), email: editEmail.trim(), status: editStatus, examIds: editExamIds },
         getApiConfig()
       );
-      showSuccess('Student updated successfully.');
+      toast.success('Student updated successfully.');
       setEditingId(null);
       fetchStudents();
     } catch (err: any) {
-      setError(err.response?.data?.message || 'Error updating student.');
+      toast.error(err.response?.data?.message || 'Error updating student.');
     }
   };
 
@@ -113,15 +125,15 @@ export default function ManageStudents() {
 
     try {
       await api.delete(`/api/auth/admin/students/${studentId}`, getApiConfig());
-      showSuccess('Student deleted successfully.');
+      toast.success('Student deleted successfully.');
       fetchStudents();
     } catch (err: any) {
-      setError(err.response?.data?.message || 'Error deleting student.');
+      toast.error(err.response?.data?.message || 'Error deleting student.');
     }
   };
 
   return (
-    <div className="mx-auto w-full max-w-4xl xl:max-w-5xl 2xl:max-w-6xl">
+    <div className="mx-auto w-full max-w-5xl xl:max-w-6xl 2xl:max-w-7xl">
       <div className="mb-6 flex flex-wrap items-center justify-between gap-4">
         <div className="flex items-center gap-3.5">
           <span className="flex size-11 shrink-0 items-center justify-center rounded-2xl bg-brand-100 text-brand-600">
@@ -139,27 +151,22 @@ export default function ManageStudents() {
 
       {!loading && students.length > 0 && (
         <div className="mb-6 grid grid-cols-2 gap-3 sm:grid-cols-3">
-          <Card className="px-4 py-3">
-            <p className="font-heading text-lg font-bold leading-tight text-slate-900">{students.length}</p>
-            <p className="text-xs text-slate-500">Total students</p>
-          </Card>
-          <Card className="px-4 py-3">
-            <p className="font-heading text-lg font-bold leading-tight text-success-600">
-              {students.filter((s) => s.status === 'active' || !s.status).length}
-            </p>
-            <p className="text-xs text-slate-500">Active</p>
-          </Card>
-          <Card className="col-span-2 px-4 py-3 sm:col-span-1">
-            <p className="font-heading text-lg font-bold leading-tight text-danger-600">
-              {students.filter((s) => s.status && s.status !== 'active').length}
-            </p>
-            <p className="text-xs text-slate-500">Inactive / Blocked</p>
-          </Card>
+          <StatCard icon={<Users className="size-4" />} value={students.length} label="Total students" />
+          <StatCard
+            icon={<UserCheck className="size-4" />}
+            value={students.filter((s) => s.status === 'active' || !s.status).length}
+            label="Active"
+            tone="success"
+          />
+          <StatCard
+            icon={<UserX className="size-4" />}
+            value={students.filter((s) => s.status && s.status !== 'active').length}
+            label="Inactive / Blocked"
+            tone="danger"
+            className="col-span-2 sm:col-span-1"
+          />
         </div>
       )}
-
-      {successMessage && <Banner variant="success" message={successMessage} />}
-      {error && <Banner variant="error" message={error} onDismiss={() => setError('')} />}
 
       {isAdding && (
         <Card className="mb-6 p-5">
@@ -189,6 +196,9 @@ export default function ManageStudents() {
               required
               minLength={6}
             />
+            <div className="col-span-full">
+              <ExamCheckboxes exams={exams} selectedIds={newExamIds} onToggle={(id) => setNewExamIds(toggleExamId(newExamIds, id))} />
+            </div>
             <div className="col-span-full flex justify-end gap-2">
               <Button type="button" variant="secondary" onClick={resetAddForm}>
                 Cancel
@@ -208,58 +218,116 @@ export default function ManageStudents() {
       <div className="flex flex-col gap-3">
         {students.map((student) => {
           const isEditing = editingId === student._id;
+          const isActive = student.status === 'active' || !student.status;
+          const initial = (student.name || student.email || '?').trim().charAt(0).toUpperCase();
 
           return (
-            <Card key={student._id} className="flex flex-wrap items-center justify-between gap-4 px-5 py-4 transition-shadow hover:shadow-soft-md">
+            <Card
+              key={student._id}
+              className={[
+                'flex flex-col gap-3 border-l-4 px-5 py-4 transition-shadow hover:shadow-soft-md',
+                isActive ? 'border-l-success-500' : 'border-l-danger-500',
+              ].join(' ')}
+            >
               {isEditing ? (
-                <div className="flex flex-1 flex-wrap items-center gap-3">
-                  <Input value={editName} onChange={(e) => setEditName(e.target.value)} placeholder="Name" wrapperClassName="min-w-[160px] flex-1" />
-                  <Input
-                    type="email"
-                    value={editEmail}
-                    onChange={(e) => setEditEmail(e.target.value)}
-                    placeholder="Email"
-                    wrapperClassName="min-w-[200px] flex-1"
-                  />
-                  <Select value={editStatus} onChange={(e) => setEditStatus(e.target.value as UserStatus)} wrapperClassName="w-36">
-                    <option value="active">Active</option>
-                    <option value="inactive">Inactive</option>
-                    <option value="blocked">Blocked</option>
-                  </Select>
-                  <Button size="sm" onClick={() => handleEditStudent(student._id)}>
-                    Save
-                  </Button>
-                  <Button size="sm" variant="secondary" onClick={() => setEditingId(null)}>
-                    Cancel
-                  </Button>
+                <div className="flex flex-col gap-3">
+                  <div className="flex flex-wrap items-center gap-3">
+                    <Input value={editName} onChange={(e) => setEditName(e.target.value)} placeholder="Name" wrapperClassName="min-w-[160px] flex-1" />
+                    <Input
+                      type="email"
+                      value={editEmail}
+                      onChange={(e) => setEditEmail(e.target.value)}
+                      placeholder="Email"
+                      wrapperClassName="min-w-[200px] flex-1"
+                    />
+                    <Select value={editStatus} onChange={(e) => setEditStatus(e.target.value as UserStatus)} wrapperClassName="w-36">
+                      <option value="active">Active</option>
+                      <option value="inactive">Inactive</option>
+                      <option value="blocked">Blocked</option>
+                    </Select>
+                    <Button size="sm" onClick={() => handleEditStudent(student._id)}>
+                      Save
+                    </Button>
+                    <Button size="sm" variant="secondary" onClick={() => setEditingId(null)}>
+                      Cancel
+                    </Button>
+                  </div>
+                  <ExamCheckboxes exams={exams} selectedIds={editExamIds} onToggle={(id) => setEditExamIds(toggleExamId(editExamIds, id))} />
                 </div>
               ) : (
-                <>
-                  <div className="flex flex-wrap items-center gap-3">
-                    <span className="text-base font-semibold text-slate-900">{student.name || 'Unnamed Student'}</span>
-                    <span className="text-sm text-slate-500">{student.email}</span>
-                    <Badge variant={student.status === 'active' ? 'success' : 'danger'} className="capitalize">
-                      {student.status || 'active'}
-                    </Badge>
+                <div className="flex flex-wrap items-center gap-4">
+                  <div className="flex size-11 shrink-0 items-center justify-center rounded-full bg-brand-100 text-base font-bold text-brand-700">
+                    {initial}
                   </div>
-                  <div className="flex gap-2">
+
+                  <div className="min-w-0 flex-1">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <span className="text-base font-semibold text-slate-900">{student.name || 'Unnamed Student'}</span>
+                      <Badge variant={isActive ? 'success' : 'danger'} className="capitalize">
+                        {student.status || 'active'}
+                      </Badge>
+                    </div>
+                    <p className="mt-0.5 truncate text-sm text-slate-500">{student.email}</p>
+                    {(student.examIds || []).length > 0 && (
+                      <div className="mt-2 flex flex-wrap gap-1.5">
+                        {(student.examIds || []).map((exam) => (
+                          <Badge key={exam._id} variant="brand">
+                            {exam.name}
+                          </Badge>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+
+                  <div className="flex shrink-0 gap-2">
                     <Button size="sm" variant="secondary" onClick={() => startEdit(student)} aria-label={`Edit ${student.name}`}>
                       <Pencil className="size-3.5" />
                     </Button>
                     <Button
                       size="sm"
-                      variant="danger"
+                      variant="ghost"
                       onClick={() => handleDeleteStudent(student._id, student.name || student.email)}
                       aria-label={`Delete ${student.name}`}
+                      className="text-danger-600 hover:bg-danger-50"
                     >
                       <Trash2 className="size-3.5" />
                     </Button>
                   </div>
-                </>
+                </div>
               )}
             </Card>
           );
         })}
+      </div>
+    </div>
+  );
+}
+
+interface ExamCheckboxesProps {
+  exams: Exam[];
+  selectedIds: string[];
+  onToggle: (examId: string) => void;
+}
+
+function ExamCheckboxes({ exams, selectedIds, onToggle }: ExamCheckboxesProps) {
+  if (exams.length === 0) {
+    return <p className="text-xs text-slate-400">No exams configured yet — add one under Manage Exams.</p>;
+  }
+  return (
+    <div className="flex flex-col gap-2">
+      <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Exams</p>
+      <div className="flex flex-wrap gap-3">
+        {exams.map((exam) => (
+          <label key={exam._id} className="flex items-center gap-2 text-sm font-medium text-slate-700">
+            <input
+              type="checkbox"
+              checked={selectedIds.includes(exam._id)}
+              onChange={() => onToggle(exam._id)}
+              className="size-4 rounded border-slate-300 accent-brand-600"
+            />
+            {exam.name}
+          </label>
+        ))}
       </div>
     </div>
   );

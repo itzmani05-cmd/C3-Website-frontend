@@ -1,11 +1,12 @@
 import { normalizeOptionKey } from './helpers';
-import type { OptionKey, QuestionOptionImages, QuestionOptions } from '../types/models';
+import type { AnswerType, OptionKey, QuestionOptionImages, QuestionOptions } from '../types/models';
 
 export interface DraftQuestion {
   id: number;
   question: string;
   options: QuestionOptions;
-  correct_answer: OptionKey;
+  correct_answer: OptionKey | OptionKey[] | string;
+  answerType: AnswerType;
   explanation: string;
   status: 'PENDING' | 'APPROVED' | 'REJECTED';
   optionImages: QuestionOptionImages;
@@ -117,6 +118,52 @@ export const extractOptionKeyFromText = (value: string | null | undefined): Opti
   return null;
 };
 
+const splitAnswerTokens = (text: string): string[] =>
+  text
+    .split(/\s*(?:,|\band\b|&|\/)\s*/iu)
+    .map((token) => token.trim())
+    .filter(Boolean);
+
+/** Detects answers like "a, c" / "a and c" / "b & d" / "ac". Returns [] when the text isn't a multi-answer. */
+export const extractOptionKeysFromText = (value: string | null | undefined): OptionKey[] => {
+  const text = normalizeLine(value).replace(
+    /^(?:answer|ans|correct answer|correct option|options?|பதில்|சரியான பதில்|விடை)\s*[:–—-]?\s*/iu,
+    ''
+  );
+  if (!text) return [];
+
+  if (/^[a-d]{2,4}$/i.test(text)) {
+    const keys = text
+      .toLowerCase()
+      .split('')
+      .map((ch) => normalizeOptionKey(ch))
+      .filter((k): k is OptionKey => !!k);
+    return Array.from(new Set(keys));
+  }
+
+  const tokens = splitAnswerTokens(text);
+  if (tokens.length < 2) return [];
+
+  const keys = tokens
+    .map((token) => {
+      const match = token.match(/\(?([a-d])\)?|\(?([1-4])\)?|([அஆஇஈ])/iu);
+      if (!match) return null;
+      return normalizeOptionKey(match[1] || match[2] || match[3]);
+    })
+    .filter((k): k is OptionKey => !!k);
+
+  const uniqueKeys = Array.from(new Set(keys));
+  return uniqueKeys.length >= 2 ? uniqueKeys : [];
+};
+
+/** Pulls a plain numeric answer (e.g. "42", "-3.5") out of free text, ignoring surrounding units/words. */
+export const extractNumericalAnswer = (value: string | null | undefined): string | null => {
+  const text = normalizeLine(value);
+  if (!text) return null;
+  const match = text.match(/-?\d+(?:\.\d+)?/);
+  return match ? match[0] : null;
+};
+
 export const QUESTION_START_REGEX = /^(?:(?:question|q|கேள்வி)\s*\d+\s*[:.)–—-]\s*|\d+\s*[:.)–—-]\s*)/iu;
 export const ANSWER_LABEL_REGEX = /^(?:answer|ans|correct answer|correct option|பதில்|சரியான பதில்|விடை)\s*[:–—-]\s*/iu;
 export const EXPLANATION_LABEL_REGEX = /^(?:explanation|reason|detailed explanation|விளக்கம்|காரணம்)\s*[:–—-]\s*/iu;
@@ -173,7 +220,39 @@ export const parseQuestionBlock = (block: string, idx: number, subcategory: stri
   const answerMatch = compactBlock.match(/\b(?:correct answer|answer|ans|correct option|பதில்|சரியான பதில்|விடை)\s*[:–—-]\s*/iu);
   const explanationMatch = compactBlock.match(/\b(?:detailed explanation|explanation|reason|விளக்கம்|காரணம்)\s*[:–—-]\s*/iu);
 
-  if (!optionsMatch || optionsMatch.index === undefined) return null;
+  const explanationOf = (afterIndex: number) =>
+    explanationMatch && explanationMatch.index !== undefined && explanationMatch.index >= afterIndex
+      ? compactBlock.slice(explanationMatch.index + explanationMatch[0].length).trim()
+      : '';
+
+  // No "Options:" label at all — this is only a valid extraction when it's a numerical answer question.
+  if (!optionsMatch || optionsMatch.index === undefined) {
+    if (!answerMatch || answerMatch.index === undefined) return null;
+
+    const questionText = formatSpecialQuestion(compactBlock.slice(0, answerMatch.index));
+    const answerStart = answerMatch.index + answerMatch[0].length;
+    const answerEnd =
+      explanationMatch && explanationMatch.index !== undefined && explanationMatch.index > answerStart
+        ? explanationMatch.index
+        : compactBlock.length;
+    const numericAnswer = extractNumericalAnswer(compactBlock.slice(answerStart, answerEnd));
+
+    if (!questionText || !numericAnswer) return null;
+
+    return {
+      id: Date.now() + idx,
+      question: questionText,
+      options: { a: '', b: '', c: '', d: '' },
+      correct_answer: numericAnswer,
+      answerType: 'numerical',
+      explanation: explanationOf(answerStart),
+      status: 'PENDING',
+      optionImages: { a: null, b: null, c: null, d: null },
+      questionImage: null,
+      explanationImage: null,
+      subcategory,
+    };
+  }
 
   const questionText = formatSpecialQuestion(compactBlock.slice(0, optionsMatch.index));
   const optionsStart = optionsMatch.index + optionsMatch[0].length;
@@ -187,14 +266,22 @@ export const parseQuestionBlock = (block: string, idx: number, subcategory: stri
     options[token.key] = appendText(options[token.key], token.text);
   });
 
-  let correctAnswer: OptionKey = 'a';
+  let correctAnswer: OptionKey | OptionKey[] = 'a';
+  let answerType: AnswerType = 'single';
   if (answerMatch && answerMatch.index !== undefined) {
     const answerStart = answerMatch.index + answerMatch[0].length;
     const answerEnd =
       explanationMatch && explanationMatch.index !== undefined && explanationMatch.index > answerStart
         ? explanationMatch.index
         : compactBlock.length;
-    correctAnswer = extractOptionKeyFromText(compactBlock.slice(answerStart, answerEnd)) || 'a';
+    const answerText = compactBlock.slice(answerStart, answerEnd);
+    const multiKeys = extractOptionKeysFromText(answerText);
+    if (multiKeys.length >= 2) {
+      correctAnswer = multiKeys;
+      answerType = 'multiple';
+    } else {
+      correctAnswer = extractOptionKeyFromText(answerText) || 'a';
+    }
   }
 
   const explanation =
@@ -209,6 +296,7 @@ export const parseQuestionBlock = (block: string, idx: number, subcategory: stri
     question: questionText,
     options,
     correct_answer: correctAnswer,
+    answerType,
     explanation,
     status: 'PENDING',
     optionImages: { a: null, b: null, c: null, d: null },
@@ -216,6 +304,29 @@ export const parseQuestionBlock = (block: string, idx: number, subcategory: stri
     explanationImage: null,
     subcategory,
   };
+};
+
+// Matches an "Options:" (or localized equivalent) label anywhere in a line, not just at its start —
+// used to detect a self-contained one-question-per-line block, as opposed to OPTIONS_LABEL_REGEX
+// (anchored) which is for stripping the label once a block's boundaries are already known.
+const OPTIONS_LABEL_ANYWHERE_REGEX = /\b(?:options?|choices?|answer choices?|விருப்பங்கள்|தேர்வுகள்)\s*[:–—-]?\s*/iu;
+
+// Handles pasted content where each question is a single, self-contained line with no numbering
+// and no interrogative opening word (e.g. "The axial movement ... Options: a) ... Answer: c
+// Explanation: ..."), which neither splitQuestionBlocks (needs "Question N:"/"N:" numbering) nor
+// parseLineByLine (needs a numbered or interrogative-looking first line) can split correctly.
+// parseQuestionBlock itself already finds "Options:"/"Answer:"/"Explanation:" anywhere in a block,
+// so the only missing piece is treating each such line as its own block.
+export const parseOneQuestionPerLine = (pastedContent: string, subcategory: string): DraftQuestion[] => {
+  const lines = pastedContent.replace(/\r\n?/g, '\n').split('\n');
+
+  return lines
+    .map((line, idx) => {
+      const trimmed = normalizeLine(line);
+      if (!trimmed || !OPTIONS_LABEL_ANYWHERE_REGEX.test(trimmed)) return null;
+      return parseQuestionBlock(trimmed, idx, subcategory);
+    })
+    .filter((v): v is DraftQuestion => v !== null);
 };
 
 const FALLBACK_QUESTION_LIKE_REGEX =
@@ -252,6 +363,7 @@ export const parseLineByLine = (pastedContent: string, subcategory: string): Dra
       question: normalizeLine(questionText),
       options: { a: '', b: '', c: '', d: '' },
       correct_answer: 'a',
+      answerType: 'single',
       explanation: '',
       status: 'PENDING',
       optionImages: { a: null, b: null, c: null, d: null },
@@ -293,9 +405,22 @@ export const parseLineByLine = (pastedContent: string, subcategory: string): Dra
     const answerLabelMatch = trimmed.match(ANSWER_LABEL_REGEX);
     if (answerLabelMatch) {
       const answerValue = trimmed.slice(answerLabelMatch[0].length);
-      const parsedAnswer = extractOptionKeyFromText(answerValue);
-      if (parsedAnswer) {
-        q.correct_answer = parsedAnswer;
+      const multiKeys = extractOptionKeysFromText(answerValue);
+      if (multiKeys.length >= 2) {
+        q.correct_answer = multiKeys;
+        q.answerType = 'multiple';
+      } else {
+        const parsedAnswer = extractOptionKeyFromText(answerValue);
+        if (parsedAnswer) {
+          q.correct_answer = parsedAnswer;
+          q.answerType = 'single';
+        } else if (!q.options.a && !q.options.b && !q.options.c && !q.options.d) {
+          const numericAnswer = extractNumericalAnswer(answerValue);
+          if (numericAnswer) {
+            q.correct_answer = numericAnswer;
+            q.answerType = 'numerical';
+          }
+        }
       }
       currentSection = 'answer';
       currentOptionKey = null;
@@ -328,14 +453,14 @@ export const parseLineByLine = (pastedContent: string, subcategory: string): Dra
     if (trimmed) {
       if (
         currentSection === 'question' ||
-        (!q.options.a && !q.options.b && !q.options.c && !q.options.d && currentSection !== 'explanation')
+        (!q.options.a && !q.options.b && !q.options.c && !q.options.d && currentSection !== 'explanation' && currentSection !== 'answer')
       ) {
         q.question = appendText(q.question, trimmed);
       } else if (currentSection === 'explanation') {
         q.explanation = appendText(q.explanation, trimmed);
       } else if (currentSection === 'options' && currentOptionKey) {
         q.options[currentOptionKey] = appendText(q.options[currentOptionKey], trimmed);
-      } else if (!q.explanation && q.options.d) {
+      } else if (!q.explanation && (q.options.d || currentSection === 'answer')) {
         q.explanation = appendText(q.explanation, trimmed);
       }
     }

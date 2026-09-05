@@ -2,6 +2,10 @@ import { ArrowLeft, Calendar, CheckCircle2, Info, Trophy, TriangleAlert, XCircle
 import QuestionRenderer from '../QuestionRenderer';
 import type { ExamQuestion, OptionKey } from '../../types/models';
 
+// Multi-select/numerical questions aren't answerable through the current single-choice exam UI yet;
+// this keeps the string comparisons below from crashing on their non-string correct_answer.
+const correctAnswerAsString = (value: unknown): string => (typeof value === 'string' ? value : '');
+
 interface ExamResultPageProps {
   selectedTestName: string;
   studentEmail: string;
@@ -25,7 +29,7 @@ export default function ExamResultPage({ selectedTestName, studentEmail, questio
     const studentAns = answers[qId];
     if (!studentAns) {
       unansweredCount++;
-    } else if (studentAns.trim().toLowerCase() === q.correct_answer?.trim().toLowerCase()) {
+    } else if (studentAns.trim().toLowerCase() === correctAnswerAsString(q.correct_answer).trim().toLowerCase()) {
       correctCount++;
     } else {
       wrongCount++;
@@ -121,7 +125,7 @@ export default function ExamResultPage({ selectedTestName, studentEmail, questio
                   {questions.map((q, idx) => {
                     const qId = q._id.toString();
                     const studentAns = answers[qId];
-                    const isCorrect = !!studentAns && studentAns.trim().toLowerCase() === q.correct_answer?.trim().toLowerCase();
+                    const isCorrect = !!studentAns && studentAns.trim().toLowerCase() === correctAnswerAsString(q.correct_answer).trim().toLowerCase();
                     const navTone = !studentAns
                       ? 'bg-white text-slate-500 border-slate-200 hover:border-slate-300'
                       : isCorrect
@@ -153,7 +157,7 @@ export default function ExamResultPage({ selectedTestName, studentEmail, questio
                   {questions.map((q, idx) => {
                     const qId = q._id.toString();
                     const studentAns = answers[qId];
-                    const isCorrect = !!studentAns && studentAns.trim().toLowerCase() === q.correct_answer?.trim().toLowerCase();
+                    const isCorrect = !!studentAns && studentAns.trim().toLowerCase() === correctAnswerAsString(q.correct_answer).trim().toLowerCase();
                     const status: 'unanswered' | 'correct' | 'incorrect' = !studentAns ? 'unanswered' : isCorrect ? 'correct' : 'incorrect';
 
                     const cardBorder = status === 'correct' ? 'border-success-500/30' : status === 'incorrect' ? 'border-danger-500/30' : 'border-slate-200';
@@ -186,7 +190,7 @@ export default function ExamResultPage({ selectedTestName, studentEmail, questio
                             const optImg = q.optionImages?.[key];
                             if (!optText && !optImg) return null;
 
-                            const isThisCorrect = !!q.correct_answer && key === q.correct_answer.toLowerCase().trim();
+                            const isThisCorrect = key === correctAnswerAsString(q.correct_answer).toLowerCase().trim();
                             const isThisStudentChoice = !!studentAns && key === studentAns.toLowerCase().trim();
 
                             let rowClass = 'border-slate-200';

@@ -1,8 +1,10 @@
 import type { ChangeEvent } from 'react';
 import { X } from 'lucide-react';
+import { toast } from 'react-toastify';
 import api from '../../api';
 import { fileToBase64, getImagePreview } from '../../lib/helpers';
-import { useModal } from './ModalProvider';
+
+const MAX_IMAGE_BYTES = 150 * 1024; // 150KB — keep in sync with backend/routes/questions.js
 
 interface ImageUploadFieldProps {
   label: string;
@@ -12,18 +14,22 @@ interface ImageUploadFieldProps {
 }
 
 export default function ImageUploadField({ label, value, onChange, compact = false }: ImageUploadFieldProps) {
-  const { showAlert } = useModal();
-
   const handleUpload = async (e: ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
+
+    if (file.size > MAX_IMAGE_BYTES) {
+      toast.error(`Image is too large (${Math.round(file.size / 1024)}KB). Maximum allowed size is 150KB.`);
+      e.target.value = '';
+      return;
+    }
 
     try {
       const base64Image = await fileToBase64(file);
       const response = await api.post('/api/questions/upload', { image: base64Image });
       onChange(response.data.imageUrl);
     } catch (error: any) {
-      showAlert('Image upload failed: ' + error.message, { variant: 'error', title: 'Upload Failed' });
+      toast.error('Image upload failed: ' + error.message);
     } finally {
       e.target.value = '';
     }

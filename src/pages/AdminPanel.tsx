@@ -6,10 +6,11 @@ import {
   Crown,
   Download,
   FileCheck2,
+  GraduationCap,
   Lightbulb,
   LogOut,
   Menu,
-  Tags,
+  Trophy,
   Users,
   Wrench,
   X,
@@ -17,8 +18,9 @@ import {
 import AIGenerator from './AIGenerator';
 import PdfDownload from './PdfDownload';
 import QuestionFix from './QuestionFix';
-import UnitswiseName from './UnitswiseName';
+import ManageExams from './ManageExams';
 import ManageTests from './ManageTests';
+import DailyChallengeAdmin from './DailyChallenge';
 import ManageStudents from './ManageStudents';
 import AdminResults from './AdminResults';
 
@@ -26,15 +28,16 @@ interface AdminPanelProps {
   onLogout: () => void;
 }
 
-type TabKey = 'ai' | 'pdf' | 'fix' | 'unitswise' | 'tests' | 'students' | 'results';
+type TabKey = 'ai' | 'pdf' | 'fix' | 'exams' | 'tests' | 'dailyChallenge' | 'students' | 'results';
 type Section = 'Content' | 'Management';
 
 const TABS: { key: TabKey; label: string; icon: ComponentType<{ className?: string }>; Component: ComponentType; section: Section }[] = [
   { key: 'ai', label: 'Extractor', icon: Lightbulb, Component: AIGenerator, section: 'Content' },
   { key: 'pdf', label: 'PDF Download', icon: Download, Component: PdfDownload, section: 'Content' },
   { key: 'fix', label: 'Question Fix', icon: Wrench, Component: QuestionFix, section: 'Content' },
-  { key: 'unitswise', label: 'Unitswise Name', icon: Tags, Component: UnitswiseName, section: 'Content' },
+  { key: 'exams', label: 'Manage Exams', icon: GraduationCap, Component: ManageExams, section: 'Management' },
   { key: 'tests', label: 'Manage Tests', icon: ClipboardList, Component: ManageTests, section: 'Management' },
+  { key: 'dailyChallenge', label: 'Daily Challenge', icon: Trophy, Component: DailyChallengeAdmin, section: 'Management' },
   { key: 'students', label: 'Manage Students', icon: Users, Component: ManageStudents, section: 'Management' },
   { key: 'results', label: 'Results', icon: FileCheck2, Component: AdminResults, section: 'Management' },
 ];
@@ -116,8 +119,8 @@ export default function AdminPanel({ onLogout }: AdminPanelProps) {
   );
 
   return (
-    <div className="flex min-h-screen bg-slate-50">
-      <aside className="hidden w-64 shrink-0 flex-col bg-gradient-to-b from-slate-900 to-slate-950 shadow-[4px_0_24px_-8px_rgba(0,0,0,0.25)] md:flex">
+    <div className="flex h-screen overflow-hidden bg-slate-50">
+      <aside className="hidden w-64 shrink-0 flex-col overflow-y-auto bg-gradient-to-b from-slate-900 to-slate-950 shadow-[4px_0_24px_-8px_rgba(0,0,0,0.25)] md:flex">
         {sidebarContent}
       </aside>
 
@@ -151,7 +154,7 @@ export default function AdminPanel({ onLogout }: AdminPanelProps) {
               animate={{ x: 0 }}
               exit={{ x: '-100%' }}
               transition={{ duration: 0.25, ease: [0.16, 1, 0.3, 1] }}
-              className="fixed inset-y-0 left-0 z-50 flex w-64 flex-col bg-gradient-to-b from-slate-900 to-slate-950 shadow-2xl md:hidden"
+              className="fixed inset-y-0 left-0 z-50 flex w-64 flex-col overflow-y-auto bg-gradient-to-b from-slate-900 to-slate-950 shadow-2xl md:hidden"
             >
               <button
                 type="button"
@@ -167,7 +170,7 @@ export default function AdminPanel({ onLogout }: AdminPanelProps) {
         )}
       </AnimatePresence>
 
-      <main className="flex-1 overflow-x-hidden px-4 pb-10 pt-20 sm:px-6 md:pt-8 lg:px-10 xl:px-12 2xl:px-16">
+      <main className="flex-1 overflow-y-auto overflow-x-hidden px-4 pb-10 pt-20 sm:px-6 md:pt-8 lg:px-10 xl:px-12 2xl:px-16">
         <ActiveComponent />
       </main>
     </div>

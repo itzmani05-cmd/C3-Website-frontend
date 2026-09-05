@@ -14,7 +14,7 @@ export default function TestSelectionPage({ availableTests, studentEmail, onStar
       <header className="flex items-center justify-between border-b border-slate-200 bg-white px-4 py-4 sm:px-6 lg:px-8">
         <div className="flex items-center gap-2.5">
           <img src="/C3AppLogo.png" alt="C³" className="h-[30px] object-contain" />
-          <h2 className="text-base font-bold text-slate-900">C³ Assessment</h2>
+          <h2 className="text-base font-bold text-slate-900">C³EP</h2>
         </div>
         <button
           onClick={onLogout}
