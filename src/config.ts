@@ -6,4 +6,4 @@ export const BACKEND_URL: string =
   window.location.hostname.startsWith('10.') ||
   window.location.hostname.startsWith('172.')
     ? `http://${window.location.hostname}:5001`
-    : 'https://c3-website-backend-1-ktc5.onrender.com';
+    : 'https://c3-website-backend-o42h.onrender.com';
