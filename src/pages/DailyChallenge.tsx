@@ -775,24 +775,7 @@ export default function DailyChallengeAdmin() {
               <StatTile label="Completion Rate" value={`${analytics.participation.completionRate}%`} />
               <StatTile label="Average Score %" value={`${analytics.participation.averagePercentage}%`} />
               <StatTile label="Average Attempts" value={analytics.participation.averageAttempts} />
-              <StatTile label="Highest Score" value={`${analytics.participation.highestScore} / ${analytics.perQuestion.length}`} />
             </div>
-
-            <Card className="mb-6 p-5">
-              <h3 className="mb-3 text-sm font-semibold uppercase tracking-wide text-slate-500">Question Analytics</h3>
-              <div className="flex flex-col gap-2">
-                {analytics.perQuestion.map((q, idx) => (
-                  <div key={q.questionId} className="flex items-center justify-between gap-3 rounded-lg border border-slate-100 px-3 py-2.5">
-                    <span className="min-w-0 flex-1 truncate text-sm text-slate-700">
-                      Q{idx + 1}. {q.questionText}
-                    </span>
-                    <span className={['shrink-0 text-sm font-bold', q.accuracyPercent < 50 ? 'text-danger-600' : 'text-success-600'].join(' ')}>
-                      {q.accuracyPercent}% {q.accuracyPercent < 50 && <TriangleAlert className="ml-1 inline size-3.5" />}
-                    </span>
-                  </div>
-                ))}
-              </div>
-            </Card>
 
             <Card className="p-5">
               <h3 className="mb-3 text-sm font-semibold uppercase tracking-wide text-slate-500">Student Attempts</h3>

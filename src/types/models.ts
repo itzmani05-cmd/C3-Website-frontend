@@ -219,15 +219,6 @@ export interface DailyChallengeAttempt {
   submittedAt?: string;
 }
 
-export interface DailyChallengeQuestionStat {
-  questionId: string;
-  questionText: string;
-  correctCount: number;
-  incorrectCount: number;
-  unansweredCount: number;
-  accuracyPercent: number;
-}
-
 export interface DailyChallengeStudentStat {
   studentEmail: string;
   studentName: string;
@@ -249,12 +240,10 @@ export interface DailyChallengeParticipation {
   submittedAttempts: number;
   averagePercentage: number;
   averageAttempts: number;
-  highestScore: number;
 }
 
 export interface DailyChallengeAnalytics {
   challenge: Pick<DailyChallenge, '_id' | 'title' | 'startAt' | 'expiresAt' | 'status'>;
   participation: DailyChallengeParticipation;
-  perQuestion: DailyChallengeQuestionStat[];
   perStudent: DailyChallengeStudentStat[];
 }
