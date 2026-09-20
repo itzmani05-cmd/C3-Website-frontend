@@ -20,11 +20,27 @@ export interface Exam {
   updatedAt?: string;
 }
 
+export interface TestPatternSection {
+  key?: string;
+  name: string;
+  numQuestions: number;
+  marksPerQuestion: number;
+  negativeMarkFraction: number;
+}
+
+export interface TestPatternPart {
+  key?: string;
+  name: string;
+  sections: TestPatternSection[];
+}
+
 export interface Test {
   _id: string;
   examId: Pick<Exam, '_id' | 'name'>;
   name: string;
   publishToStudent: boolean;
+  pattern?: TestPatternPart[];
+  durationMinutes?: number;
   createdAt?: string;
   updatedAt?: string;
 }
@@ -70,6 +86,10 @@ export interface ExamQuestion {
   _id: string;
   testId: string | null;
   testName: string;
+  part?: string;
+  section?: string;
+  marks?: number;
+  negativeMarks?: number;
   type: string;
   answerType: AnswerType;
   question: string;
@@ -110,6 +130,7 @@ export interface StudentExam {
   submitted: boolean;
   submittedAt?: string;
   score: number;
+  maxScore?: number;
   totalQuestions: number;
   correctCount: number;
   wrongCount: number;
@@ -123,6 +144,7 @@ export interface AvailableTest {
   createdAt: string;
   submitted: boolean;
   score: number | null;
+  maxScore: number | null;
   percentage: number | null;
   totalQuestions: number | null;
 }

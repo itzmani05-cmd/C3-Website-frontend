@@ -246,6 +246,22 @@ export default function PdfDownload() {
             font-weight: bold;
             margin-bottom: 12px;
           }
+          .part-header {
+            font-size: 13pt;
+            font-weight: bold;
+            text-transform: uppercase;
+            border-bottom: 2px solid #000000;
+            padding-bottom: 4px;
+            margin-top: 16px;
+            margin-bottom: 8px;
+          }
+          .section-header {
+            font-size: 11pt;
+            font-weight: bold;
+            text-transform: uppercase;
+            color: #4b5563;
+            margin-bottom: 10px;
+          }
           .doc-instructions {
             text-align: left;
             border: 1px solid #000000;
@@ -701,8 +717,23 @@ export default function PdfDownload() {
               </div>
 
               <div className={`questions-grid cols-${layoutColumns} ${layoutColumns === '2' ? 'grid grid-cols-2 gap-x-8' : 'flex flex-col'}`}>
-                {printableQuestions.map((q, index) => (
-                  <div key={q._id} className="doc-question-card mb-5">
+                {printableQuestions.map((q, index) => {
+                  const prev = printableQuestions[index - 1];
+                  // Part/Section headers only make sense in the single-column layout — in the
+                  // 2-column grid each question is its own grid item, so a header can't span both
+                  // columns cleanly and would land in whichever column that question falls into.
+                  const isNewPart = layoutColumns === '1' && !!q.part && q.part !== prev?.part;
+                  const isNewSection = layoutColumns === '1' && !!q.section && (q.part !== prev?.part || q.section !== prev?.section);
+                  return (
+                  <div key={q._id}>
+                    {isNewPart && <h2 className="part-header mb-2 mt-4 border-b-2 border-slate-800 pb-1 text-base font-bold uppercase tracking-tight first:mt-0">{q.part}</h2>}
+                    {isNewSection && (
+                      <h3 className="section-header mb-3 text-sm font-bold uppercase tracking-wide text-slate-600">
+                        {q.section}
+                        {typeof q.marks === 'number' && ` (${q.marks} mark${q.marks === 1 ? '' : 's'} each)`}
+                      </h3>
+                    )}
+                    <div className="doc-question-card mb-5">
                     <div className="doc-question-header mb-1.5">
                       <span className="question-number font-bold">Q{index + 1}.</span>
                       <span className="question-body">
@@ -750,8 +781,10 @@ export default function PdfDownload() {
                         )}
                       </div>
                     )}
+                    </div>
                   </div>
-                ))}
+                  );
+                })}
               </div>
 
               {answerDisplay === 'end-key' && (

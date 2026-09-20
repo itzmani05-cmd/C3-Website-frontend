@@ -11,7 +11,17 @@ import { Input } from '../components/ui/Field';
 import Badge from '../components/ui/Badge';
 import { LoadingState } from '../components/ui/Spinner';
 import EmptyState from '../components/ui/EmptyState';
-import type { Exam, Test } from '../types/models';
+import TestPatternEditor, { genKey } from '../components/TestPatternEditor';
+import type { Exam, Test, TestPatternPart } from '../types/models';
+
+// Old tests saved before parts/sections carried a stable `key` won't have one — backfill locally
+// so the very next save starts cascading renames correctly instead of orphaning tagged questions.
+const backfillPatternKeys = (pattern: TestPatternPart[]): TestPatternPart[] =>
+  pattern.map((part) => ({
+    ...part,
+    key: part.key || genKey(),
+    sections: part.sections.map((section) => ({ ...section, key: section.key || genKey() })),
+  }));
 
 interface ExamTestStats {
   total: number;
@@ -153,10 +163,16 @@ function ExamTests({ examId, onChanged }: ExamTestsProps) {
   const [isAdding, setIsAdding] = useState(false);
   const [newName, setNewName] = useState('');
   const [newPublish, setNewPublish] = useState(false);
+  const [newUsePattern, setNewUsePattern] = useState(false);
+  const [newPattern, setNewPattern] = useState<TestPatternPart[]>([]);
+  const [newDuration, setNewDuration] = useState('180');
 
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editName, setEditName] = useState('');
   const [editPublish, setEditPublish] = useState(false);
+  const [editUsePattern, setEditUsePattern] = useState(false);
+  const [editPattern, setEditPattern] = useState<TestPatternPart[]>([]);
+  const [editDuration, setEditDuration] = useState('180');
 
   useEffect(() => {
     fetchTests();
@@ -180,6 +196,9 @@ function ExamTests({ examId, onChanged }: ExamTestsProps) {
     setIsAdding(false);
     setNewName('');
     setNewPublish(false);
+    setNewUsePattern(false);
+    setNewPattern([]);
+    setNewDuration('180');
   };
 
   const handleAddTest = async (e: FormEvent) => {
@@ -187,7 +206,13 @@ function ExamTests({ examId, onChanged }: ExamTestsProps) {
     if (!newName.trim()) return;
 
     try {
-      await api.post('/api/questions/tests', { name: newName.trim(), publishToStudent: newPublish, examId });
+      await api.post('/api/questions/tests', {
+        name: newName.trim(),
+        publishToStudent: newPublish,
+        examId,
+        pattern: newUsePattern ? newPattern : undefined,
+        durationMinutes: Number(newDuration) || 180,
+      });
       toast.success('Test added successfully.');
       resetAddForm();
       fetchTests();
@@ -201,12 +226,20 @@ function ExamTests({ examId, onChanged }: ExamTestsProps) {
     setEditingId(test._id);
     setEditName(test.name);
     setEditPublish(!!test.publishToStudent);
+    setEditUsePattern(!!test.pattern && test.pattern.length > 0);
+    setEditPattern(test.pattern ? backfillPatternKeys(test.pattern) : []);
+    setEditDuration(String(test.durationMinutes || 180));
   };
 
   const handleEditTest = async (testId: string) => {
     if (!editName.trim()) return;
     try {
-      await api.put(`/api/questions/tests/${testId}`, { name: editName.trim(), publishToStudent: editPublish });
+      await api.put(`/api/questions/tests/${testId}`, {
+        name: editName.trim(),
+        publishToStudent: editPublish,
+        pattern: editUsePattern ? editPattern : [],
+        durationMinutes: Number(editDuration) || 180,
+      });
       toast.success('Test updated successfully.');
       setEditingId(null);
       fetchTests();
@@ -256,26 +289,48 @@ function ExamTests({ examId, onChanged }: ExamTestsProps) {
             </span>
             <h3 className="text-sm font-semibold text-slate-900">Add New Test</h3>
           </div>
-          <form onSubmit={handleAddTest} className="flex flex-col gap-4 sm:flex-row sm:items-end">
-            <Input
-              label="Test Name"
-              placeholder="Enter test name"
-              value={newName}
-              onChange={(e) => setNewName(e.target.value)}
-              autoFocus
-              required
-              wrapperClassName="flex-1"
-            />
-            <label className="flex items-center gap-2 pb-2.5 text-sm font-medium text-slate-700">
+          <form onSubmit={handleAddTest} className="flex flex-col gap-4">
+            <div className="flex flex-col gap-4 sm:flex-row sm:items-end">
+              <Input
+                label="Test Name"
+                placeholder="Enter test name"
+                value={newName}
+                onChange={(e) => setNewName(e.target.value)}
+                autoFocus
+                required
+                wrapperClassName="flex-1"
+              />
+              <Input
+                label="Duration (minutes)"
+                type="number"
+                min={1}
+                value={newDuration}
+                onChange={(e) => setNewDuration(e.target.value)}
+                wrapperClassName="w-40"
+              />
+              <label className="flex items-center gap-2 pb-2.5 text-sm font-medium text-slate-700">
+                <input
+                  type="checkbox"
+                  checked={newPublish}
+                  onChange={(e) => setNewPublish(e.target.checked)}
+                  className="size-4 rounded border-slate-300 accent-brand-600"
+                />
+                Publish to students
+              </label>
+            </div>
+
+            <label className="flex items-center gap-2 text-sm font-medium text-slate-700">
               <input
                 type="checkbox"
-                checked={newPublish}
-                onChange={(e) => setNewPublish(e.target.checked)}
+                checked={newUsePattern}
+                onChange={(e) => setNewUsePattern(e.target.checked)}
                 className="size-4 rounded border-slate-300 accent-brand-600"
               />
-              Publish to students
+              Structured pattern (parts, sections &amp; marks — e.g. GATE)
             </label>
-            <div className="flex gap-2">
+            {newUsePattern && <TestPatternEditor pattern={newPattern} onChange={setNewPattern} />}
+
+            <div className="flex justify-end gap-2">
               <Button type="button" variant="secondary" onClick={resetAddForm}>
                 Cancel
               </Button>
@@ -295,39 +350,74 @@ function ExamTests({ examId, onChanged }: ExamTestsProps) {
         {tests.map((test) => {
           const isEditing = editingId === test._id;
 
+          const questionCount = test.pattern?.reduce((sum, p) => sum + p.sections.reduce((s, sec) => s + sec.numQuestions, 0), 0);
+          const markTotal = test.pattern?.reduce(
+            (sum, p) => sum + p.sections.reduce((s, sec) => s + sec.numQuestions * sec.marksPerQuestion, 0),
+            0
+          );
+
           return (
-            <Card key={test._id} className="flex flex-wrap items-center justify-between gap-4 px-4 py-3 transition-shadow hover:shadow-soft-md">
+            <Card key={test._id} className="px-4 py-3 transition-shadow hover:shadow-soft-md">
               {isEditing ? (
-                <div className="flex flex-1 flex-wrap items-center gap-3">
-                  <Input
-                    value={editName}
-                    onChange={(e) => setEditName(e.target.value)}
-                    wrapperClassName="min-w-[180px] flex-1"
-                    autoFocus
-                  />
+                <div className="flex w-full flex-col gap-4">
+                  <div className="flex flex-wrap items-center gap-3">
+                    <Input
+                      value={editName}
+                      onChange={(e) => setEditName(e.target.value)}
+                      wrapperClassName="min-w-[180px] flex-1"
+                      autoFocus
+                    />
+                    <Input
+                      label="Duration (min)"
+                      type="number"
+                      min={1}
+                      value={editDuration}
+                      onChange={(e) => setEditDuration(e.target.value)}
+                      wrapperClassName="w-32"
+                    />
+                    <label className="flex items-center gap-2 text-xs font-semibold text-slate-700">
+                      <input
+                        type="checkbox"
+                        checked={editPublish}
+                        onChange={(e) => setEditPublish(e.target.checked)}
+                        className="size-4 rounded border-slate-300 accent-brand-600"
+                      />
+                      Publish
+                    </label>
+                  </div>
+
                   <label className="flex items-center gap-2 text-xs font-semibold text-slate-700">
                     <input
                       type="checkbox"
-                      checked={editPublish}
-                      onChange={(e) => setEditPublish(e.target.checked)}
+                      checked={editUsePattern}
+                      onChange={(e) => setEditUsePattern(e.target.checked)}
                       className="size-4 rounded border-slate-300 accent-brand-600"
                     />
-                    Publish
+                    Structured pattern (parts, sections &amp; marks — e.g. GATE)
                   </label>
-                  <Button size="sm" onClick={() => handleEditTest(test._id)}>
-                    Save
-                  </Button>
-                  <Button size="sm" variant="secondary" onClick={() => setEditingId(null)}>
-                    Cancel
-                  </Button>
+                  {editUsePattern && <TestPatternEditor pattern={editPattern} onChange={setEditPattern} />}
+
+                  <div className="flex justify-end gap-2">
+                    <Button size="sm" onClick={() => handleEditTest(test._id)}>
+                      Save
+                    </Button>
+                    <Button size="sm" variant="secondary" onClick={() => setEditingId(null)}>
+                      Cancel
+                    </Button>
+                  </div>
                 </div>
               ) : (
-                <>
+                <div className="flex flex-wrap items-center justify-between gap-4">
                   <div className="flex flex-wrap items-center gap-3">
                     <span className="text-sm font-semibold text-slate-900">{test.name}</span>
                     <Badge variant={test.publishToStudent ? 'success' : 'neutral'}>
                       {test.publishToStudent ? 'Published' : 'Draft'}
                     </Badge>
+                    {questionCount !== undefined && (
+                      <Badge variant="brand">
+                        {questionCount} Q &middot; {markTotal} marks
+                      </Badge>
+                    )}
                   </div>
                   <div className="flex gap-2">
                     <Button size="sm" variant="secondary" onClick={() => startEdit(test)} aria-label={`Edit ${test.name}`}>
@@ -342,7 +432,7 @@ function ExamTests({ examId, onChanged }: ExamTestsProps) {
                       <Trash2 className="size-3.5" />
                     </Button>
                   </div>
-                </>
+                </div>
               )}
             </Card>
           );

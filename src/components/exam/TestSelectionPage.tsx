@@ -47,8 +47,9 @@ export default function TestSelectionPage({ availableTests, studentEmail, onStar
                   <h3 className="mt-3 text-lg font-bold text-slate-900">{test.name}</h3>
                   {test.submitted && (
                     <p className="mt-2 text-sm text-slate-500">
-                      You scored <strong className="text-slate-700">{test.percentage}%</strong> ({test.score}/{test.totalQuestions} correct). You can review your
-                      detailed scorecard and explanation keys.
+                      You scored <strong className="text-slate-700">{test.percentage}%</strong> (
+                      {test.score}/{test.maxScore && test.maxScore > 0 ? test.maxScore : test.totalQuestions} marks). You can review your detailed scorecard and
+                      explanation keys.
                     </p>
                   )}
                 </div>

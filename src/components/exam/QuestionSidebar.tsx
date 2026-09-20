@@ -93,6 +93,19 @@ export default function QuestionSidebar({
     EMPTY_STATUS_COUNTS
   );
 
+  // Questions arrive pre-sorted by Part/Section (backend), so consecutive same-part questions form
+  // one contiguous run — group them under a label. Plain tests (no `part`) render as one flat grid.
+  const questionGroups: { label: string | null; items: number[] }[] = [];
+  questions.forEach((q, idx) => {
+    const label = q.part || null;
+    const lastGroup = questionGroups[questionGroups.length - 1];
+    if (lastGroup && lastGroup.label === label) {
+      lastGroup.items.push(idx);
+    } else {
+      questionGroups.push({ label, items: [idx] });
+    }
+  });
+
   return (
     <aside className="scrollbar-thin flex w-full flex-col gap-4 overflow-y-auto border-b border-slate-200 bg-white p-4 lg:w-72 lg:shrink-0 lg:border-b-0 lg:border-l xl:w-80 2xl:w-96">
       <div className="grid grid-cols-2 gap-x-2 gap-y-1.5 rounded-xl border border-slate-200 bg-slate-50 p-3">
@@ -113,33 +126,39 @@ export default function QuestionSidebar({
         <ArrowLeft className="size-3.5" /> Exit to Exams List
       </button>
 
-      <div className="scrollbar-thin max-h-64 overflow-y-auto lg:max-h-[420px]">
-        <div className="grid grid-cols-6 gap-2.5 lg:grid-cols-5 2xl:grid-cols-6">
-          {questions.map((q, idx) => {
-            const isActive = idx === activeQuestionIndex;
-            const isAnswered = !!answers[q._id];
-            const isUnsynced = isAnswered && unsyncedAnswers[q._id] !== undefined;
-            const status = questionStatuses[idx];
+      <div className="scrollbar-thin flex max-h-64 flex-col gap-3 overflow-y-auto lg:max-h-[420px]">
+        {questionGroups.map((group, groupIdx) => (
+          <div key={groupIdx}>
+            {group.label && <p className="mb-1.5 text-[11px] font-bold uppercase tracking-wide text-slate-400">{group.label}</p>}
+            <div className="grid grid-cols-6 gap-2.5 lg:grid-cols-5 2xl:grid-cols-6">
+              {group.items.map((idx) => {
+                const q = questions[idx];
+                const isActive = idx === activeQuestionIndex;
+                const isAnswered = !!answers[q._id];
+                const isUnsynced = isAnswered && unsyncedAnswers[q._id] !== undefined;
+                const status = questionStatuses[idx];
 
-            return (
-              <button
-                key={q._id}
-                onClick={() => onNavigate(idx)}
-                aria-current={isActive}
-                aria-label={`Question ${idx + 1}, ${status.replace('-', ' ')}`}
-                className={[
-                  'transition-transform hover:scale-105',
-                  isActive ? 'scale-105' : '',
-                  isUnsynced ? 'animate-pulse' : '',
-                ].join(' ')}
-              >
-                <StatusSwatch status={status} size="md">
-                  {idx + 1}
-                </StatusSwatch>
-              </button>
-            );
-          })}
-        </div>
+                return (
+                  <button
+                    key={q._id}
+                    onClick={() => onNavigate(idx)}
+                    aria-current={isActive}
+                    aria-label={`Question ${idx + 1}, ${status.replace('-', ' ')}`}
+                    className={[
+                      'transition-transform hover:scale-105',
+                      isActive ? 'scale-105' : '',
+                      isUnsynced ? 'animate-pulse' : '',
+                    ].join(' ')}
+                  >
+                    <StatusSwatch status={status} size="md">
+                      {idx + 1}
+                    </StatusSwatch>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        ))}
       </div>
 
       <button

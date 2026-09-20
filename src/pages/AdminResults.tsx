@@ -30,12 +30,15 @@ const getApiConfig = () => ({
   headers: { Authorization: `Bearer ${localStorage.getItem('token')}` },
 });
 
-const MARKS_PER_QUESTION = 1.5;
-
 const formatMarks = (value: number) => {
   const rounded = Math.round(value * 100) / 100;
   return Number.isInteger(rounded) ? String(rounded) : rounded.toFixed(2).replace(/0+$/, '').replace(/\.$/, '');
 };
+
+// Weighted marks were introduced with per-question marks/negative-marking; older attempts predate
+// the maxScore field, so fall back to treating every question as worth 1 mark (the old behavior).
+const maxScoreOf = (result: Pick<StudentExam, 'maxScore' | 'totalQuestions'>) =>
+  result.maxScore && result.maxScore > 0 ? result.maxScore : result.totalQuestions || 0;
 
 const pctBadgeVariant = (pct: number): BadgeVariant => {
   if (pct >= 80) return 'success';
@@ -331,9 +334,9 @@ export default function AdminResults() {
             <thead>
               <tr className="border-b border-slate-100 bg-slate-50">
                 <th className="px-5 py-3.5 text-xs font-semibold uppercase tracking-wide text-slate-500">Student Name</th>
-                <th className="px-5 py-3.5 text-xs font-semibold uppercase tracking-wide text-slate-500">Raw Score(200)</th>
-                <th className="px-5 py-3.5 text-xs font-semibold uppercase tracking-wide text-slate-500">Marks(300)</th>
-                <th className="px-5 py-3.5 text-xs font-semibold uppercase tracking-wide text-slate-500">Percentage(100)</th>
+                <th className="px-5 py-3.5 text-xs font-semibold uppercase tracking-wide text-slate-500">Correct</th>
+                <th className="px-5 py-3.5 text-xs font-semibold uppercase tracking-wide text-slate-500">Marks</th>
+                <th className="px-5 py-3.5 text-xs font-semibold uppercase tracking-wide text-slate-500">Percentage</th>
                 <th className="px-5 py-3.5 text-xs font-semibold uppercase tracking-wide text-slate-500">Submitted Date</th>
                 <th className="px-5 py-3.5 text-xs font-semibold uppercase tracking-wide text-slate-500">Actions</th>
               </tr>
@@ -344,8 +347,10 @@ export default function AdminResults() {
                 return (
                   <tr key={result._id} className="border-b border-slate-100 transition-colors last:border-0 hover:bg-slate-50">
                     <td className="px-5 py-4 font-semibold text-slate-900">{result.studentName || '—'}</td>
-                    <td className="px-5 py-4 font-semibold text-slate-700">{result.score}</td>
-                    <td className="px-5 py-4 font-semibold text-slate-700">{formatMarks((result.score || 0) * MARKS_PER_QUESTION)}</td>
+                    <td className="px-5 py-4 font-semibold text-slate-700">{result.correctCount}</td>
+                    <td className="px-5 py-4 font-semibold text-slate-700">
+                      {formatMarks(result.score || 0)} / {formatMarks(maxScoreOf(result))}
+                    </td>
                     <td className="px-5 py-4">
                       <Badge variant={pctBadgeVariant(pct)}>{pct}%</Badge>
                     </td>
@@ -406,15 +411,15 @@ export default function AdminResults() {
         ) : (
           <div>
             <div className="mb-5 grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
-              <StatBox label="Overall Score" value={`${detailData.studentExam.score} / ${detailData.studentExam.totalQuestions}`} />
               <StatBox
                 label="Marks"
-                value={`${formatMarks((detailData.studentExam.score || 0) * MARKS_PER_QUESTION)} / ${formatMarks((detailData.studentExam.totalQuestions || 0) * MARKS_PER_QUESTION)}`}
+                value={`${formatMarks(detailData.studentExam.score || 0)} / ${formatMarks(maxScoreOf(detailData.studentExam))}`}
               />
               <StatBox label="Percentage" value={`${detailData.studentExam.percentage}%`} tone="brand" />
               <StatBox label="Correct" value={detailData.studentExam.correctCount} tone="success" />
               <StatBox label="Incorrect" value={detailData.studentExam.wrongCount} tone="danger" />
               <StatBox label="Unanswered" value={detailData.studentExam.unansweredCount} tone="neutral" />
+              <StatBox label="Questions" value={detailData.studentExam.totalQuestions} tone="default" />
             </div>
 
             <p className="mb-5 text-xs text-slate-500">

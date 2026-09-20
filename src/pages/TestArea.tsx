@@ -35,6 +35,8 @@ export default function TestArea({ onLogout }: TestAreaProps) {
   const [remainingTime, setRemainingTime] = useState(0);
   const [submitted, setSubmitted] = useState(false);
   const [submittedAt, setSubmittedAt] = useState<string | null>(null);
+  const [resultScore, setResultScore] = useState<number | null>(null);
+  const [resultMaxScore, setResultMaxScore] = useState<number | null>(null);
   const [activeQuestionIndex, setActiveQuestionIndex] = useState(0);
   const [syncing, setSyncing] = useState(false);
   const [online, setOnline] = useState(navigator.onLine);
@@ -196,6 +198,8 @@ export default function TestArea({ onLogout }: TestAreaProps) {
       setRemainingTime(data.remainingTime);
       setSelectedTestId(tId);
       setSelectedTestName(data.testName);
+      setResultScore(typeof data.score === 'number' ? data.score : null);
+      setResultMaxScore(typeof data.maxScore === 'number' && data.maxScore > 0 ? data.maxScore : null);
 
       if (data.submitted && !isResultMode) {
         navigate(`/${emailRef.current}/${tId}/result`, { replace: true });
@@ -450,6 +454,8 @@ export default function TestArea({ onLogout }: TestAreaProps) {
         questions={questions}
         answers={answers}
         submittedAt={submittedAt}
+        score={resultScore}
+        maxScore={resultMaxScore}
         onBackToExams={handleBackToExams}
       />
     );

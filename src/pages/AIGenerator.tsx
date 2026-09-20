@@ -34,6 +34,9 @@ export default function AIGenerator() {
   const [destinationMode, setDestinationMode] = useState<DestinationMode>('curriculum');
   const [tests, setTests] = useState<Test[]>([]);
   const [selectedTestId, setSelectedTestId] = useState('');
+  const [partName, setPartName] = useState('');
+  const [sectionName, setSectionName] = useState('');
+  const [sectionCounts, setSectionCounts] = useState<{ part: string; section: string; count: number }[]>([]);
 
   const [pastedContent, setPastedContent] = useState('');
   const [batch, setBatch] = useState<DraftQuestion[]>([]);
@@ -41,6 +44,41 @@ export default function AIGenerator() {
   const [questionCount, setQuestionCount] = useState(0);
   const [countLoading, setCountLoading] = useState(false);
   const [hasSearched, setHasSearched] = useState(false);
+
+  const selectedTest = tests.find((t) => t._id === selectedTestId);
+  const pattern = selectedTest?.pattern;
+  const selectedPart = pattern?.find((p) => p.name === partName);
+  const selectedSection = selectedPart?.sections.find((s) => s.name === sectionName);
+  const currentMarks = selectedSection?.marksPerQuestion ?? 1;
+
+  // How many more questions the current Part/Section can take: target minus what's already saved
+  // (sectionCounts, from the server) minus what's sitting in the review queue but not yet saved.
+  const getSectionCapacity = (part: string, section: string, target: number) => {
+    const saved = sectionCounts.find((c) => c.part === part && c.section === section)?.count || 0;
+    const queued = batch.filter((q) => q.part === part && q.section === section && q.status !== 'REJECTED').length;
+    return { saved, queued, remaining: Math.max(0, target - saved - queued) };
+  };
+  const currentSectionCapacity = selectedSection ? getSectionCapacity(partName, sectionName, selectedSection.numQuestions) : null;
+
+  useEffect(() => {
+    if (!pattern || pattern.length === 0) {
+      setPartName('');
+      setSectionName('');
+      return;
+    }
+    if (!pattern.some((p) => p.name === partName)) {
+      setPartName(pattern[0].name);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedTestId, pattern]);
+
+  useEffect(() => {
+    if (!selectedPart) return;
+    if (!selectedPart.sections.some((s) => s.name === sectionName)) {
+      setSectionName(selectedPart.sections[0]?.name || '');
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [partName, selectedPart]);
 
   useEffect(() => {
     const loadData = async () => {
@@ -122,19 +160,24 @@ export default function AIGenerator() {
 
   const fetchQuestionCount = useCallback(async () => {
     if (destinationMode === 'test') {
-      if (!selectedTestId) {
+      if (!selectedTestId || !selectedTest) {
         setQuestionCount(0);
-        return;
-      }
-      const selectedTest = tests.find((t) => t._id === selectedTestId);
-      if (!selectedTest) {
-        setQuestionCount(0);
+        setSectionCounts([]);
         return;
       }
       setCountLoading(true);
       try {
         const response = await api.get(`/api/questions/exam/count?testName=${encodeURIComponent(selectedTest.name)}`);
         setQuestionCount(response.data.count || 0);
+
+        if (pattern && pattern.length > 0) {
+          const sectionResponse = await api.get('/api/questions/exam/section-counts', {
+            params: { testName: selectedTest.name },
+          });
+          setSectionCounts(sectionResponse.data || []);
+        } else {
+          setSectionCounts([]);
+        }
       } catch (error) {
         console.error('Error fetching exam count:', error);
       } finally {
@@ -159,7 +202,7 @@ export default function AIGenerator() {
     } finally {
       setCountLoading(false);
     }
-  }, [destinationMode, selectedTestId, tests, topicId, subtopicId]);
+  }, [destinationMode, selectedTestId, selectedTest, pattern, topicId, subtopicId]);
 
   // Filters changed since the last search — hide the stale progress until Submit is clicked again.
   useEffect(() => {
@@ -172,49 +215,68 @@ export default function AIGenerator() {
     fetchQuestionCount();
   };
 
+  // Tags a freshly-extracted batch with the currently selected Part/Section (and its marks) so
+  // each paste keeps its origin even if the admin switches sections before saving, then clamps it
+  // to the section's remaining capacity so a paste can never push a section past its target count.
+  const tagAndClampForDestination = (questions: DraftQuestion[]): { accepted: DraftQuestion[]; skipped: number } => {
+    if (destinationMode !== 'test' || !pattern || pattern.length === 0) return { accepted: questions, skipped: 0 };
+
+    const tagged = questions.map((q) => ({ ...q, part: partName, section: sectionName, marksValue: currentMarks }));
+    if (!selectedSection) return { accepted: tagged, skipped: 0 };
+
+    const remaining = currentSectionCapacity?.remaining ?? selectedSection.numQuestions;
+    return { accepted: tagged.slice(0, remaining), skipped: Math.max(0, tagged.length - remaining) };
+  };
+
   const handleQuickExtract = () => {
     if (!pastedContent.trim()) {
       toast.warning('Please paste some content first!');
       return;
     }
 
-    const subcategory = subtopicId || topicId;
+    if (destinationMode === 'test' && selectedSection && (currentSectionCapacity?.remaining ?? 0) <= 0) {
+      toast.error(`"${sectionName}" in "${partName}" is already full (${selectedSection.numQuestions}/${selectedSection.numQuestions}). Pick a different section.`);
+      return;
+    }
 
-    const blockQuestions = splitQuestionBlocks(pastedContent)
+    const subcategory = subtopicId || topicId;
+    let raw: DraftQuestion[] = splitQuestionBlocks(pastedContent)
       .map((block, idx) => parseQuestionBlock(block, idx, subcategory))
       .filter((v): v is DraftQuestion => v !== null);
 
-    if (blockQuestions.length > 0) {
-      setBatch([...batch, ...blockQuestions]);
-      setPastedContent('');
-      toast.success(`Extracted ${blockQuestions.length} questions!`);
-      return;
+    if (raw.length === 0) {
+      raw = parseLineByLine(pastedContent, subcategory);
+    }
+    if (raw.length === 0) {
+      raw = parseOneQuestionPerLine(pastedContent, subcategory);
     }
 
-    const questions = parseLineByLine(pastedContent, subcategory);
-
-    if (questions.length > 0) {
-      setBatch([...batch, ...questions]);
-      setPastedContent('');
-      toast.success(`Extracted ${questions.length} questions!`);
-      return;
-    }
-
-    const perLineQuestions = parseOneQuestionPerLine(pastedContent, subcategory);
-
-    if (perLineQuestions.length === 0) {
+    if (raw.length === 0) {
       toast.error(
         'Could not find any questions in the pasted content. Please ensure questions are numbered (e.g., 1. What is...) and options are labeled (a, b, c, d).'
       );
       return;
     }
 
-    setBatch([...batch, ...perLineQuestions]);
+    const { accepted, skipped } = tagAndClampForDestination(raw);
+    setBatch([...batch, ...accepted]);
     setPastedContent('');
-    toast.success(`Extracted ${perLineQuestions.length} questions!`);
+
+    if (skipped > 0) {
+      toast.warning(
+        `Extracted ${accepted.length} of ${raw.length} questions — "${sectionName}" only had room for ${accepted.length} more. The rest were left out; paste them into a different section.`
+      );
+    } else {
+      toast.success(`Extracted ${accepted.length} question${accepted.length === 1 ? '' : 's'}!`);
+    }
   };
 
   const addManualQuestion = () => {
+    if (destinationMode === 'test' && selectedSection && (currentSectionCapacity?.remaining ?? 0) <= 0) {
+      toast.error(`"${sectionName}" in "${partName}" is already full (${selectedSection.numQuestions}/${selectedSection.numQuestions}). Pick a different section.`);
+      return;
+    }
+
     const newQ: DraftQuestion = {
       id: Date.now(),
       question: '',
@@ -227,6 +289,7 @@ export default function AIGenerator() {
       questionImage: null,
       explanationImage: null,
       subcategory: subtopicId || topicId,
+      ...(destinationMode === 'test' && pattern && pattern.length > 0 ? { part: partName, section: sectionName, marksValue: currentMarks } : {}),
     };
     setBatch([newQ, ...batch]);
   };
@@ -253,6 +316,9 @@ export default function AIGenerator() {
       return {
         testId: selectedTest._id,
         testName: selectedTest.name,
+        part: q.part || '',
+        section: q.section || '',
+        marks: q.marksValue ?? 1,
         type: detectQuestionType(q.question),
         answerType,
         question: q.question,
@@ -471,6 +537,30 @@ export default function AIGenerator() {
             ) : (
               <p className="py-2 font-medium text-danger-600">No tests available for this exam. Please configure one first.</p>
             )}
+
+            {pattern && pattern.length > 0 && (
+              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                <Select label="Part" value={partName} onChange={(e) => setPartName(e.target.value)}>
+                  {pattern.map((p) => (
+                    <option key={p.name} value={p.name}>
+                      {p.name}
+                    </option>
+                  ))}
+                </Select>
+                <Select label="Section" value={sectionName} onChange={(e) => setSectionName(e.target.value)}>
+                  {selectedPart?.sections.map((s) => {
+                    const cap = getSectionCapacity(partName, s.name, s.numQuestions);
+                    const full = cap.remaining <= 0;
+                    return (
+                      <option key={s.name} value={s.name}>
+                        {s.name} ({s.marksPerQuestion} mark{s.marksPerQuestion === 1 ? '' : 's'} each) — {cap.saved + cap.queued}/{s.numQuestions}
+                        {full ? ' (Full)' : ''}
+                      </option>
+                    );
+                  })}
+                </Select>
+              </div>
+            )}
           </div>
         )}
 
@@ -515,14 +605,55 @@ export default function AIGenerator() {
           ) : (
             <p className="mt-1 text-xs font-semibold text-success-600">Questions will be saved into the ExamQuestions collection.</p>
           )}
+
+          {destinationMode === 'test' && pattern && pattern.length > 0 && (
+            <div className="mt-4 flex flex-col gap-3 border-t border-slate-100 pt-4">
+              {pattern.map((p) => (
+                <div key={p.name}>
+                  <p className="mb-1.5 text-xs font-semibold text-slate-600">{p.name}</p>
+                  <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+                    {p.sections.map((s) => {
+                      const count = sectionCounts.find((c) => c.part === p.name && c.section === s.name)?.count || 0;
+                      const done = count >= s.numQuestions;
+                      return (
+                        <div key={s.name} className="rounded-lg bg-slate-50 px-3 py-2">
+                          <div className="flex items-center justify-between text-xs">
+                            <span className="font-medium text-slate-600">{s.name}</span>
+                            <span className={['font-bold', done ? 'text-success-600' : 'text-slate-500'].join(' ')}>
+                              {count} / {s.numQuestions}
+                            </span>
+                          </div>
+                          <div className="mt-1.5 h-1.5 w-full overflow-hidden rounded-full bg-slate-200">
+                            <div
+                              className={['h-full rounded-full transition-all', done ? 'bg-success-500' : 'bg-brand-600'].join(' ')}
+                              style={{ width: `${Math.min(100, (count / s.numQuestions) * 100)}%` }}
+                            />
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
         </Card>
       )}
 
       <Card className="mb-6 p-6">
         <h3 className="mb-4 text-sm font-semibold uppercase tracking-wide text-slate-500">02 &middot; Paste source content</h3>
         <Textarea value={pastedContent} onChange={(e) => setPastedContent(e.target.value)} rows={5} placeholder="Enter the questions here" />
+        {destinationMode === 'test' && selectedSection && (currentSectionCapacity?.remaining ?? 0) <= 0 && (
+          <p className="mt-2 text-xs font-semibold text-danger-600">
+            "{sectionName}" is already full ({selectedSection.numQuestions}/{selectedSection.numQuestions}). Pick a different section before extracting.
+          </p>
+        )}
         <div className="mt-4 flex justify-end">
-          <Button onClick={handleQuickExtract} disabled={loading || !pastedContent.trim()} loading={loading}>
+          <Button
+            onClick={handleQuickExtract}
+            disabled={loading || !pastedContent.trim() || (destinationMode === 'test' && !!selectedSection && (currentSectionCapacity?.remaining ?? 0) <= 0)}
+            loading={loading}
+          >
             Extract questions
           </Button>
         </div>
@@ -560,7 +691,10 @@ export default function AIGenerator() {
                     </span>
                     <div>
                       <h3 className="text-sm font-semibold text-slate-900">Question {idx + 1}</h3>
-                      <p className="text-xs text-slate-400">{detectQuestionType(q.question)}</p>
+                      <p className="text-xs text-slate-400">
+                        {detectQuestionType(q.question)}
+                        {q.part && q.section && ` · ${q.part} · ${q.section} · ${q.marksValue ?? 1} mark${(q.marksValue ?? 1) === 1 ? '' : 's'}`}
+                      </p>
                     </div>
                   </div>
                   <span className={['rounded-full px-2.5 py-1 text-xs font-bold capitalize', statusBadgeClasses[q.status]].join(' ')}>{q.status}</span>

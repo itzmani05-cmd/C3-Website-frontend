@@ -12,12 +12,23 @@ interface ExamResultPageProps {
   questions: ExamQuestion[];
   answers: Record<string, string>;
   submittedAt: string | null;
+  score?: number | null;
+  maxScore?: number | null;
   onBackToExams: () => void;
 }
 
 const OPTION_KEYS: OptionKey[] = ['a', 'b', 'c', 'd'];
 
-export default function ExamResultPage({ selectedTestName, studentEmail, questions, answers, submittedAt, onBackToExams }: ExamResultPageProps) {
+export default function ExamResultPage({
+  selectedTestName,
+  studentEmail,
+  questions,
+  answers,
+  submittedAt,
+  score,
+  maxScore,
+  onBackToExams,
+}: ExamResultPageProps) {
   const totalQuestions = questions.length;
 
   let correctCount = 0;
@@ -36,8 +47,12 @@ export default function ExamResultPage({ selectedTestName, studentEmail, questio
     }
   });
 
-  const percentageNum = totalQuestions > 0 ? (correctCount / totalQuestions) * 100 : 0;
+  // Prefer the backend's weighted (marks + negative-marking aware) score when available;
+  // fall back to a plain correct/total tally for legacy attempts that predate marks-per-question.
+  const hasWeightedScore = typeof score === 'number' && typeof maxScore === 'number' && maxScore > 0;
+  const percentageNum = hasWeightedScore ? (score / maxScore) * 100 : totalQuestions > 0 ? (correctCount / totalQuestions) * 100 : 0;
   const percentage = percentageNum.toFixed(2);
+  const scoreLabel = hasWeightedScore ? `${score} / ${maxScore} marks` : `${correctCount} / ${totalQuestions} Correct`;
   const tier =
     percentageNum >= 90
       ? { label: 'Excellent', className: 'bg-success-500/20 text-success-100' }
@@ -81,9 +96,7 @@ export default function ExamResultPage({ selectedTestName, studentEmail, questio
 
                 <div className="mt-6">
                   <div className="font-heading text-5xl font-extrabold">{percentage}%</div>
-                  <div className="mt-1 text-sm text-white/80">
-                    {correctCount} / {totalQuestions} Correct
-                  </div>
+                  <div className="mt-1 text-sm text-white/80">{scoreLabel}</div>
                   <span className={['mt-3 inline-flex items-center rounded-full px-3 py-1 text-xs font-bold', tier.className].join(' ')}>{tier.label}</span>
                 </div>
 

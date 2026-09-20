@@ -50,6 +50,7 @@ export default function ScientificCalculator({ open, onToggle }: ScientificCalcu
   const [angleMode, setAngleMode] = useState<AngleMode>('deg');
   const [pendingOp, setPendingOp] = useState<string | null>(null);
   const [pendingVal, setPendingVal] = useState<number | null>(null);
+  const [parenStack, setParenStack] = useState<{ pendingOp: string | null; pendingVal: number | null }[]>([]);
 
   const toRad = (x: number) => (angleMode === 'deg' ? (x * Math.PI) / 180 : x);
   const fromRad = (x: number) => (angleMode === 'deg' ? (x * 180) / Math.PI : x);
@@ -63,7 +64,49 @@ export default function ScientificCalculator({ open, onToggle }: ScientificCalcu
     setResult('0');
     setPendingOp(null);
     setPendingVal(null);
+    setParenStack([]);
     setJustEvaluated(false);
+  };
+
+  // Opens a group: the outer pending operator/operand are parked on a stack so a fresh
+  // sub-expression can be built inside the parens, then unwound by closeParen.
+  const openParen = () => {
+    setParenStack((st) => [...st, { pendingOp, pendingVal }]);
+    setPendingOp(null);
+    setPendingVal(null);
+    setExpression('(');
+    setCurrent('0');
+    setTypingCurrent(false);
+    setJustEvaluated(false);
+  };
+
+  // Resolves the innermost open group to a single value, then restores whatever operator/operand
+  // was pending before its "(" was pressed — repeat presses unwind nested parens one level at a time.
+  const closeParen = () => {
+    if (parenStack.length === 0) return;
+    const val = parseFloat(current);
+    if (Number.isNaN(val)) return;
+    const innerResult = pendingOp !== null && pendingVal !== null ? performOp(pendingOp, pendingVal, val) : val;
+    const frame = parenStack[parenStack.length - 1];
+    setParenStack((st) => st.slice(0, -1));
+    setPendingOp(frame.pendingOp);
+    setPendingVal(frame.pendingVal);
+    setCurrent(fmt(innerResult));
+    setExpression(`( ${fmt(innerResult)} )`);
+    setTypingCurrent(true);
+    setJustEvaluated(false);
+  };
+
+  // Scientific-notation entry: subsequent digits are appended to the exponent by the existing
+  // appendDigit (it just concatenates onto a non-"0" `current`, so "5" + Exp + "3" -> "5e+3").
+  const enterExp = () => {
+    if (justEvaluated) {
+      setCurrent('0');
+      setExpression('');
+      setJustEvaluated(false);
+    }
+    setCurrent((c) => (c.includes('e') ? c : `${c}e+`));
+    setTypingCurrent(true);
   };
 
   const backspace = () => {
@@ -254,6 +297,10 @@ export default function ScientificCalculator({ open, onToggle }: ScientificCalcu
         out = factorial(val);
         label = `(${current})!`;
         break;
+      case 'percent':
+        out = val / 100;
+        label = `${current}%`;
+        break;
       case 'negate':
         setCurrent(fmt(-val));
         return;
@@ -292,45 +339,31 @@ export default function ScientificCalculator({ open, onToggle }: ScientificCalcu
     }
   };
 
-  const numKey = (label: string, onClick: () => void, key?: string) => (
+  // Plain white keys — every scientific function, digit, and memory slot share this look in the
+  // reference design; only backspace/clear/sign (red) and equals (green) stand apart.
+  const btn = (label: React.ReactNode, onClick: () => void, keyId: string, extraClass = '') => (
     <button
-      key={key ?? label}
+      key={keyId}
       type="button"
       onClick={onClick}
-      className="rounded-lg bg-slate-100 py-2.5 text-sm font-semibold text-slate-800 transition-colors hover:bg-slate-200 active:scale-[0.97]"
+      className={[
+        'rounded-md border border-slate-300 bg-white py-2.5 text-sm font-medium text-slate-800 shadow-sm transition-colors hover:bg-slate-50 active:scale-[0.97]',
+        extraClass,
+      ].join(' ')}
     >
       {label}
     </button>
   );
 
-  const fnKey = (label: React.ReactNode, onClick: () => void, key: string) => (
+  const redBtn = (label: React.ReactNode, onClick: () => void, keyId: string, extraClass = '') => (
     <button
-      key={key}
+      key={keyId}
       type="button"
       onClick={onClick}
-      className="rounded-lg bg-white py-2 text-[11px] font-semibold text-slate-600 ring-1 ring-inset ring-slate-200 transition-colors hover:bg-slate-50 active:scale-[0.97]"
-    >
-      {label}
-    </button>
-  );
-
-  const opKey = (label: React.ReactNode, onClick: () => void, key: string) => (
-    <button
-      key={key}
-      type="button"
-      onClick={onClick}
-      className="rounded-lg bg-brand-50 py-2.5 text-sm font-bold text-brand-700 transition-colors hover:bg-brand-100 active:scale-[0.97]"
-    >
-      {label}
-    </button>
-  );
-
-  const memKey = (label: string, action: string) => (
-    <button
-      key={action}
-      type="button"
-      onClick={() => memAction(action)}
-      className="rounded-md bg-slate-800 py-1.5 text-[10px] font-bold tracking-wide text-slate-200 transition-colors hover:bg-slate-700 active:scale-[0.97]"
+      className={[
+        'rounded-md bg-[#d9534f] py-2.5 text-sm font-bold text-white shadow-sm transition-colors hover:bg-[#c9302c] active:scale-[0.97]',
+        extraClass,
+      ].join(' ')}
     >
       {label}
     </button>
@@ -342,162 +375,207 @@ export default function ScientificCalculator({ open, onToggle }: ScientificCalcu
         <motion.div
           role="dialog"
           aria-label="Scientific calculator"
-          initial={{ opacity: 0, scale: 0.95, y: 16 }}
+          initial={{ opacity: 0, scale: 0.96, y: 16 }}
           animate={{ opacity: 1, scale: 1, y: 0 }}
-          exit={{ opacity: 0, scale: 0.96, y: 12 }}
+          exit={{ opacity: 0, scale: 0.97, y: 12 }}
           transition={{ duration: 0.16, ease: [0.16, 1, 0.3, 1] }}
-          className="fixed right-5 top-16 z-40 w-[300px] max-w-[92vw] overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-soft-lg lg:right-6"
+          className="fixed left-1/2 top-14 z-40 w-[640px] max-w-[95vw] -translate-x-1/2 overflow-hidden rounded-lg border border-slate-400 bg-[#d4d4d4] shadow-2xl"
         >
-          <div className="flex items-center justify-between border-b border-slate-100 bg-slate-50 px-3.5 py-2.5">
-            <span className="text-xs font-bold uppercase tracking-wide text-slate-500">Calculator</span>
-            <div className="flex items-center gap-2">
-              <div className="flex overflow-hidden rounded-md ring-1 ring-inset ring-slate-200">
-                <button
-                  type="button"
-                  onClick={() => setAngleMode('deg')}
-                  className={[
-                    'px-2 py-1 text-[10px] font-bold transition-colors',
-                    angleMode === 'deg' ? 'bg-brand-600 text-white' : 'bg-white text-slate-500 hover:bg-slate-100',
-                  ].join(' ')}
-                >
-                  DEG
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setAngleMode('rad')}
-                  className={[
-                    'px-2 py-1 text-[10px] font-bold transition-colors',
-                    angleMode === 'rad' ? 'bg-brand-600 text-white' : 'bg-white text-slate-500 hover:bg-slate-100',
-                  ].join(' ')}
-                >
-                  RAD
-                </button>
-              </div>
-              <button
-                type="button"
-                onClick={onToggle}
-                aria-label="Close calculator"
-                className="rounded-md p-1 text-slate-400 transition-colors hover:bg-slate-200 hover:text-slate-600"
-              >
-                <X className="size-3.5" />
-              </button>
+          <div className="flex items-center justify-between bg-blue-500 px-4 py-2.5">
+            <span className="text-lg font-medium text-white">Scientific Calculator</span>
+            <button
+              type="button"
+              onClick={onToggle}
+              aria-label="Close calculator"
+              className="flex size-8 items-center justify-center rounded-md bg-blue-400 text-white transition-colors hover:bg-blue-300"
+            >
+              <X className="size-4" />
+            </button>
+          </div>
+
+          <div className="flex flex-col gap-1.5 p-3">
+            <div className="flex h-9 items-center justify-end gap-2 rounded border border-slate-500 bg-white px-2.5">
+              {memory !== 0 && <span className="rounded bg-slate-200 px-1 text-[10px] font-bold text-slate-600">M</span>}
+              <span className="overflow-x-auto whitespace-nowrap font-mono text-sm text-slate-500">{topLine || ' '}</span>
+            </div>
+            <div className="flex h-11 items-center justify-end rounded border border-slate-500 bg-white px-2.5">
+              <span className="overflow-x-auto whitespace-nowrap font-mono text-2xl font-semibold tabular-nums text-slate-900">{result}</span>
             </div>
           </div>
 
-          <div className="flex flex-col gap-1 overflow-hidden border-b border-slate-100 bg-slate-900 px-3.5 py-3">
-              <div className="flex items-center gap-2">
-                <div className="min-h-[14px] flex-1 overflow-x-auto whitespace-nowrap text-right font-mono text-[11px] text-slate-400">{topLine || ' '}</div>
-                {memory !== 0 && <span className="shrink-0 rounded border border-slate-600 px-1 text-[10px] font-bold text-brand-300">M</span>}
-              </div>
-              <div className="overflow-x-auto whitespace-nowrap text-right font-mono text-2xl font-bold tabular-nums text-white">{result}</div>
+          <div className="grid grid-cols-[repeat(11,minmax(0,1fr))] gap-1.5 px-3 pb-3">
+            {/* Row 1 */}
+            {btn('mod', () => startBinary('mod'), 'mod')}
+            <div className="col-span-5 flex items-center gap-6 px-2">
+              <label className="flex cursor-pointer items-center gap-1.5">
+                <input type="radio" name="angleMode" checked={angleMode === 'deg'} onChange={() => setAngleMode('deg')} className="size-4 accent-blue-600" />
+                <span className={angleMode === 'deg' ? 'text-sm font-semibold text-slate-900' : 'text-sm text-slate-500'}>Deg</span>
+              </label>
+              <label className="flex cursor-pointer items-center gap-1.5">
+                <input type="radio" name="angleMode" checked={angleMode === 'rad'} onChange={() => setAngleMode('rad')} className="size-4 accent-blue-600" />
+                <span className={angleMode === 'rad' ? 'text-sm font-semibold text-slate-900' : 'text-sm text-slate-500'}>Rad</span>
+              </label>
             </div>
+            {btn('MC', () => memAction('MC'), 'MC')}
+            {btn('MR', () => memAction('MR'), 'MR')}
+            {btn('MS', () => memAction('MS'), 'MS')}
+            {btn('M+', () => memAction('M+'), 'M+')}
+            {btn('M-', () => memAction('M-'), 'M-')}
 
-            <div className="grid grid-cols-5 gap-1 px-3 pt-2.5">
-              {memKey('MC', 'MC')}
-              {memKey('MR', 'MR')}
-              {memKey('MS', 'MS')}
-              {memKey('M+', 'M+')}
-              {memKey('M-', 'M-')}
-            </div>
+            {/* Row 2 */}
+            {btn('sinh', () => applyUnary('sinh'), 'sinh')}
+            {btn('cosh', () => applyUnary('cosh'), 'cosh')}
+            {btn('tanh', () => applyUnary('tanh'), 'tanh')}
+            {btn('Exp', enterExp, 'Exp')}
+            {btn('(', openParen, 'lparen')}
+            {btn(')', closeParen, 'rparen')}
+            {redBtn('←', backspace, 'back', 'col-span-2')}
+            {redBtn('C', clearAll, 'clear')}
+            {redBtn('+/-', () => applyUnary('negate'), 'negate')}
+            {btn(<>&radic;</>, () => applyUnary('sqrt'), 'sqrt')}
 
-            <div className="grid grid-cols-5 gap-1.5 p-3">
-              {fnKey('sin', () => applyUnary('sin'), 'sin')}
-              {fnKey('cos', () => applyUnary('cos'), 'cos')}
-              {fnKey('tan', () => applyUnary('tan'), 'tan')}
-              {fnKey(
-                <>
-                  x<sup>2</sup>
-                </>,
-                () => applyUnary('square'),
-                'square'
-              )}
-              {fnKey(<>&radic;</>, () => applyUnary('sqrt'), 'sqrt')}
+            {/* Row 3 */}
+            {btn(
+              <>
+                sinh<sup>-1</sup>
+              </>,
+              () => applyUnary('asinh'),
+              'asinh'
+            )}
+            {btn(
+              <>
+                cosh<sup>-1</sup>
+              </>,
+              () => applyUnary('acosh'),
+              'acosh'
+            )}
+            {btn(
+              <>
+                tanh<sup>-1</sup>
+              </>,
+              () => applyUnary('atanh'),
+              'atanh'
+            )}
+            {btn(
+              <>
+                log<sub>2</sub>x
+              </>,
+              () => applyUnary('log2'),
+              'log2'
+            )}
+            {btn('ln', () => applyUnary('ln'), 'ln')}
+            {btn('log', () => applyUnary('log10'), 'log10')}
+            {btn('7', () => appendDigit('7'), '7')}
+            {btn('8', () => appendDigit('8'), '8')}
+            {btn('9', () => appendDigit('9'), '9')}
+            {btn('/', () => startBinary('/'), 'div')}
+            {btn('%', () => applyUnary('percent'), 'percent')}
 
-              {fnKey(
-                <>
-                  sin<sup>-1</sup>
-                </>,
-                () => applyUnary('asin'),
-                'asin'
-              )}
-              {fnKey(
-                <>
-                  cos<sup>-1</sup>
-                </>,
-                () => applyUnary('acos'),
-                'acos'
-              )}
-              {fnKey(
-                <>
-                  tan<sup>-1</sup>
-                </>,
-                () => applyUnary('atan'),
-                'atan'
-              )}
-              {fnKey(
-                <>
-                  x<sup>3</sup>
-                </>,
-                () => applyUnary('cube'),
-                'cube'
-              )}
-              {fnKey(
-                <>
-                  x<sup>y</sup>
-                </>,
-                () => startBinary('^'),
-                'pow'
-              )}
+            {/* Row 4 */}
+            {btn(<>&pi;</>, () => applyConst(Math.PI), 'pi')}
+            {btn('e', () => applyConst(Math.E), 'euler')}
+            {btn('n!', () => applyUnary('fact'), 'fact')}
+            {btn(
+              <>
+                log<sub>x</sub>y
+              </>,
+              () => startBinary('logy'),
+              'logy'
+            )}
+            {btn(
+              <>
+                e<sup>x</sup>
+              </>,
+              () => applyUnary('exp'),
+              'exp'
+            )}
+            {btn(
+              <>
+                10<sup>x</sup>
+              </>,
+              () => applyUnary('pow10'),
+              'pow10'
+            )}
+            {btn('4', () => appendDigit('4'), '4')}
+            {btn('5', () => appendDigit('5'), '5')}
+            {btn('6', () => appendDigit('6'), '6')}
+            {btn('*', () => startBinary('*'), 'mul')}
+            {btn('1/x', () => applyUnary('inv'), 'inv')}
 
-              {fnKey('ln', () => applyUnary('ln'), 'ln')}
-              {fnKey('log', () => applyUnary('log10'), 'log10')}
-              {fnKey('n!', () => applyUnary('fact'), 'fact')}
-              {fnKey(
-                <>
-                  e<sup>x</sup>
-                </>,
-                () => applyUnary('exp'),
-                'exp'
-              )}
-              {fnKey('1/x', () => applyUnary('inv'), 'inv')}
+            {/* Row 5 */}
+            {btn('sin', () => applyUnary('sin'), 'sin')}
+            {btn('cos', () => applyUnary('cos'), 'cos')}
+            {btn('tan', () => applyUnary('tan'), 'tan')}
+            {btn(
+              <>
+                x<sup>y</sup>
+              </>,
+              () => startBinary('^'),
+              'pow'
+            )}
+            {btn(
+              <>
+                x<sup>3</sup>
+              </>,
+              () => applyUnary('cube'),
+              'cube'
+            )}
+            {btn(
+              <>
+                x<sup>2</sup>
+              </>,
+              () => applyUnary('square'),
+              'square'
+            )}
+            {btn('1', () => appendDigit('1'), '1')}
+            {btn('2', () => appendDigit('2'), '2')}
+            {btn('3', () => appendDigit('3'), '3')}
+            {btn('-', () => startBinary('-'), 'sub')}
+            <button
+              type="button"
+              onClick={compute}
+              className="row-span-2 rounded-md bg-[#3fbf7f] text-lg font-bold text-white shadow-sm transition-colors hover:bg-[#35a86e] active:scale-[0.97]"
+            >
+              =
+            </button>
 
-              {fnKey(<>&pi;</>, () => applyConst(Math.PI), 'pi')}
-              {fnKey('e', () => applyConst(Math.E), 'euler')}
-              {fnKey('mod', () => startBinary('mod'), 'mod')}
-              {fnKey(<>&#8731;</>, () => applyUnary('cbrt'), 'cbrt')}
-              {fnKey('|x|', () => applyUnary('abs'), 'abs')}
-
-              {numKey('7', () => appendDigit('7'))}
-              {numKey('8', () => appendDigit('8'))}
-              {numKey('9', () => appendDigit('9'))}
-              {opKey(<>&divide;</>, () => startBinary('/'), 'div')}
-              {opKey('C', clearAll, 'clear')}
-
-              {numKey('4', () => appendDigit('4'))}
-              {numKey('5', () => appendDigit('5'))}
-              {numKey('6', () => appendDigit('6'))}
-              {opKey(<>&times;</>, () => startBinary('*'), 'mul')}
-              {opKey('←', backspace, 'back')}
-
-              {numKey('1', () => appendDigit('1'))}
-              {numKey('2', () => appendDigit('2'))}
-              {numKey('3', () => appendDigit('3'))}
-              {opKey('−', () => startBinary('-'), 'sub')}
-              {fnKey('+/-', () => applyUnary('negate'), 'negate')}
-
-              {numKey('0', () => appendDigit('0'))}
-              {numKey('.', () => appendDigit('.'))}
-              {opKey('+', () => startBinary('+'), 'add')}
-              <button
-                type="button"
-                onClick={() => compute()}
-                className="col-span-2 rounded-lg bg-brand-600 py-2.5 text-sm font-bold text-white transition-colors hover:bg-brand-700 active:scale-[0.97]"
-              >
-                =
-              </button>
-            </div>
-          </motion.div>
-        )}
-      </AnimatePresence>
+            {/* Row 6 */}
+            {btn(
+              <>
+                sin<sup>-1</sup>
+              </>,
+              () => applyUnary('asin'),
+              'asin'
+            )}
+            {btn(
+              <>
+                cos<sup>-1</sup>
+              </>,
+              () => applyUnary('acos'),
+              'acos'
+            )}
+            {btn(
+              <>
+                tan<sup>-1</sup>
+              </>,
+              () => applyUnary('atan'),
+              'atan'
+            )}
+            {btn(
+              <>
+                <sup>y</sup>&radic;x
+              </>,
+              () => startBinary('yroot'),
+              'yroot'
+            )}
+            {btn(<>&#8731;</>, () => applyUnary('cbrt'), 'cbrt')}
+            {btn('|x|', () => applyUnary('abs'), 'abs')}
+            {btn('0', () => appendDigit('0'), '0', 'col-span-2')}
+            {btn('.', () => appendDigit('.'), 'dot')}
+            {btn('+', () => startBinary('+'), 'add')}
+          </div>
+        </motion.div>
+      )}
+    </AnimatePresence>
   );
 }

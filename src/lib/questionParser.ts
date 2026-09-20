@@ -13,6 +13,9 @@ export interface DraftQuestion {
   questionImage: string | null;
   explanationImage: string | null;
   subcategory: string;
+  part?: string;
+  section?: string;
+  marksValue?: number;
 }
 
 export const normalizeLine = (value: string | null | undefined): string => {

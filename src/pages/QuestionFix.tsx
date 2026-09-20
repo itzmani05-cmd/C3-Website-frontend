@@ -18,6 +18,9 @@ import type { CurriculumTree, Exam, Test } from '../types/models';
 interface FixableQuestion extends QuestionFormValue {
   _id: string;
   correctAnswer?: string;
+  part?: string;
+  section?: string;
+  marks?: number;
 }
 
 const initialFormState: QuestionFormValue = {
@@ -46,6 +49,8 @@ export default function QuestionFix() {
 
   const [tests, setTests] = useState<Test[]>([]);
   const [selectedTestId, setSelectedTestId] = useState('');
+  const [filterPart, setFilterPart] = useState('');
+  const [filterSection, setFilterSection] = useState('');
 
   const [curriculumLoading, setCurriculumLoading] = useState(true);
   const [curriculumError, setCurriculumError] = useState('');
@@ -147,6 +152,17 @@ export default function QuestionFix() {
     setHasSearched(false);
     setQuestions([]);
   }, [destinationMode, examId, unitId, topicId, subtopicId, selectedTestId]);
+
+  useEffect(() => {
+    setFilterPart('');
+    setFilterSection('');
+  }, [selectedTestId]);
+
+  const selectedTest = tests.find((t) => t._id === selectedTestId);
+  const pattern = selectedTest?.pattern;
+  const visibleQuestions = questions.filter(
+    (q) => (!filterPart || q.part === filterPart) && (!filterSection || q.section === filterSection)
+  );
 
   const handleSubmitSearch = () => {
     setHasSearched(true);
@@ -498,6 +514,36 @@ export default function QuestionFix() {
             ) : (
               <p className="py-2 font-medium text-danger-600">No tests available for this exam. Please configure one first.</p>
             )}
+
+            {pattern && pattern.length > 0 && (
+              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                <Select
+                  label="Filter by Part"
+                  value={filterPart}
+                  onChange={(e) => {
+                    setFilterPart(e.target.value);
+                    setFilterSection('');
+                  }}
+                >
+                  <option value="">All parts</option>
+                  {pattern.map((p) => (
+                    <option key={p.name} value={p.name}>
+                      {p.name}
+                    </option>
+                  ))}
+                </Select>
+                <Select label="Filter by Section" value={filterSection} onChange={(e) => setFilterSection(e.target.value)} disabled={!filterPart}>
+                  <option value="">All sections</option>
+                  {pattern
+                    .find((p) => p.name === filterPart)
+                    ?.sections.map((s) => (
+                      <option key={s.name} value={s.name}>
+                        {s.name}
+                      </option>
+                    ))}
+                </Select>
+              </div>
+            )}
           </div>
         )}
 
@@ -522,7 +568,10 @@ export default function QuestionFix() {
           <div className="flex items-center gap-3">
             <div className="flex items-center gap-2">
               <p className="font-semibold text-slate-800">Questions in this selection</p>
-              <Badge variant="brand">{questions.length}</Badge>
+              <Badge variant="brand">
+                {visibleQuestions.length}
+                {visibleQuestions.length !== questions.length ? ` of ${questions.length}` : ''}
+              </Badge>
             </div>
             {((destinationMode === 'test' && selectedTestId) || (destinationMode === 'curriculum' && topicId)) && questions.length > 0 && (
               <Button variant="danger" size="sm" onClick={handleDeleteAllQuestions}>
@@ -555,11 +604,11 @@ export default function QuestionFix() {
 
       {hasSearched && (loading && questions.length === 0 ? (
         <LoadingState message="Loading questions..." />
-      ) : !loading && questions.length === 0 ? (
-        <EmptyState title="No questions found." description="Try a different unit, topic, or test — or add a new question above." />
+      ) : !loading && visibleQuestions.length === 0 ? (
+        <EmptyState title="No questions found." description="Try a different unit, topic, test, part, or section — or add a new question above." />
       ) : (
         <div className="flex flex-col gap-4">
-          {questions.map((q, idx) => (
+          {visibleQuestions.map((q, idx) => (
             <Card key={q._id} className="overflow-hidden transition-shadow hover:shadow-soft-md">
               <button
                 type="button"
@@ -573,6 +622,11 @@ export default function QuestionFix() {
                   </span>
                 </div>
                 <div className="flex shrink-0 items-center gap-3.5">
+                  {q.part && q.section && (
+                    <span className="hidden rounded-full bg-slate-100 px-2.5 py-1 text-xs font-semibold text-slate-500 sm:inline-block">
+                      {q.part} &middot; {q.section} &middot; {q.marks ?? 1} mark{(q.marks ?? 1) === 1 ? '' : 's'}
+                    </span>
+                  )}
                   <span className="rounded-full bg-brand-100 px-2.5 py-1 text-xs font-bold text-brand-700">Ans: {getAnswerDisplay(q)}</span>
                   <span className="flex items-center gap-1.5 text-xs text-slate-400">
                     {expandedId === q._id ? (

@@ -1,4 +1,4 @@
-import { Bookmark, ChevronLeft, ChevronRight, Eraser } from 'lucide-react';
+import { Bookmark, ChevronLeft, ChevronRight, Eraser, TriangleAlert } from 'lucide-react';
 import QuestionRenderer from '../QuestionRenderer';
 import type { ExamQuestion } from '../../types/models';
 
@@ -40,10 +40,28 @@ export default function QuestionCard({
 
   return (
     <div className="mx-auto flex max-w-3xl flex-col gap-5 p-5 sm:p-8 2xl:max-w-4xl">
-      <div className="flex items-center justify-between">
-        <span className="text-sm font-bold text-slate-500">
-          Question {questionIndex + 1} of {totalQuestions}
-        </span>
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <div className="flex flex-wrap items-center gap-2">
+          <span className="text-sm font-bold text-slate-500">
+            Question {questionIndex + 1} of {totalQuestions}
+          </span>
+          {question.part && (
+            <span className="rounded-full bg-brand-100 px-2.5 py-1 text-xs font-semibold text-brand-700">
+              {question.part}
+              {question.section ? ` · ${question.section}` : ''}
+            </span>
+          )}
+          {typeof question.marks === 'number' && (
+            <span className="rounded-full bg-slate-100 px-2.5 py-1 text-xs font-semibold text-slate-600">
+              {question.marks} mark{question.marks === 1 ? '' : 's'}
+            </span>
+          )}
+          {!!question.negativeMarks && (
+            <span className="flex items-center gap-1 rounded-full bg-danger-soft px-2.5 py-1 text-xs font-semibold text-danger-600">
+              <TriangleAlert className="size-3" /> −{question.negativeMarks} for a wrong answer
+            </span>
+          )}
+        </div>
         <div className="flex items-center gap-2">
           <span className="rounded-full bg-slate-100 px-2.5 py-1 text-xs font-semibold text-slate-500">{question.type}</span>
           <button
