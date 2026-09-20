@@ -107,7 +107,7 @@ export default function QuestionSidebar({
   });
 
   return (
-    <aside className="scrollbar-thin flex w-full flex-col gap-4 overflow-y-auto border-b border-slate-200 bg-white p-4 lg:w-72 lg:shrink-0 lg:border-b-0 lg:border-l xl:w-80 2xl:w-96">
+    <aside className="scrollbar-thin flex w-full flex-col gap-4 border-b border-slate-200 bg-white p-4 lg:w-72 lg:shrink-0 lg:overflow-y-auto lg:border-b-0 lg:border-l xl:w-80 2xl:w-96">
       <div className="grid grid-cols-2 gap-x-2 gap-y-1.5 rounded-xl border border-slate-200 bg-slate-50 p-3">
         {LEGEND_ITEMS.map((item) => (
           <div key={item.status} className={['flex items-center gap-2', item.status === 'answered-marked' ? 'col-span-2' : ''].join(' ')}>

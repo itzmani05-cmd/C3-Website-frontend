@@ -466,7 +466,7 @@ export default function TestArea({ onLogout }: TestAreaProps) {
   const unansweredCount = questions.length - answeredCount;
 
   return (
-    <div className="flex h-screen flex-col overflow-hidden bg-slate-50">
+    <div className="flex min-h-screen flex-col bg-slate-50 lg:h-screen lg:overflow-hidden">
       <ExamHeader
         selectedTestName={selectedTestName}
         studentEmail={emailRef.current}
@@ -486,8 +486,8 @@ export default function TestArea({ onLogout }: TestAreaProps) {
         </div>
       )}
 
-      <div className="flex min-h-0 flex-1 flex-col lg:flex-row">
-        <main className="min-h-0 flex-1 overflow-y-auto">
+      <div className="flex flex-col lg:min-h-0 lg:flex-1 lg:flex-row">
+        <main className="lg:min-h-0 lg:flex-1 lg:overflow-y-auto">
           <QuestionCard
             question={currentQuestion}
             questionIndex={activeQuestionIndex}
