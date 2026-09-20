@@ -2,9 +2,23 @@ import { ArrowLeft, Calendar, CheckCircle2, Info, Trophy, TriangleAlert, XCircle
 import QuestionRenderer from '../QuestionRenderer';
 import type { ExamQuestion, OptionKey } from '../../types/models';
 
-// Multi-select/numerical questions aren't answerable through the current single-choice exam UI yet;
-// this keeps the string comparisons below from crashing on their non-string correct_answer.
+// Multi-select questions aren't answerable through the current single-choice exam UI yet; this
+// keeps the string comparisons below from crashing on their array correct_answer.
 const correctAnswerAsString = (value: unknown): string => (typeof value === 'string' ? value : '');
+
+// Mirrors the backend's numerical grading (routes/exam.js): compare by value, not exact text, so
+// "7", "7.0" and "07" all match a correct_answer of 7.
+const isNumericalAnswerCorrect = (studentAns: string, correctAnswer: unknown): boolean => {
+  const studentNum = parseFloat(studentAns);
+  const correctNum = parseFloat(String(correctAnswer));
+  if (!Number.isNaN(studentNum) && !Number.isNaN(correctNum)) {
+    return Math.abs(studentNum - correctNum) < 0.01;
+  }
+  return studentAns.trim().toLowerCase() === String(correctAnswer ?? '').trim().toLowerCase();
+};
+
+const isAnswerCorrect = (q: ExamQuestion, studentAns: string): boolean =>
+  q.answerType === 'numerical' ? isNumericalAnswerCorrect(studentAns, q.correct_answer) : studentAns.trim().toLowerCase() === correctAnswerAsString(q.correct_answer).trim().toLowerCase();
 
 interface ExamResultPageProps {
   selectedTestName: string;
@@ -40,7 +54,7 @@ export default function ExamResultPage({
     const studentAns = answers[qId];
     if (!studentAns) {
       unansweredCount++;
-    } else if (studentAns.trim().toLowerCase() === correctAnswerAsString(q.correct_answer).trim().toLowerCase()) {
+    } else if (isAnswerCorrect(q, studentAns)) {
       correctCount++;
     } else {
       wrongCount++;
@@ -138,7 +152,7 @@ export default function ExamResultPage({
                   {questions.map((q, idx) => {
                     const qId = q._id.toString();
                     const studentAns = answers[qId];
-                    const isCorrect = !!studentAns && studentAns.trim().toLowerCase() === correctAnswerAsString(q.correct_answer).trim().toLowerCase();
+                    const isCorrect = !!studentAns && isAnswerCorrect(q, studentAns);
                     const navTone = !studentAns
                       ? 'bg-white text-slate-500 border-slate-200 hover:border-slate-300'
                       : isCorrect
@@ -170,7 +184,7 @@ export default function ExamResultPage({
                   {questions.map((q, idx) => {
                     const qId = q._id.toString();
                     const studentAns = answers[qId];
-                    const isCorrect = !!studentAns && studentAns.trim().toLowerCase() === correctAnswerAsString(q.correct_answer).trim().toLowerCase();
+                    const isCorrect = !!studentAns && isAnswerCorrect(q, studentAns);
                     const status: 'unanswered' | 'correct' | 'incorrect' = !studentAns ? 'unanswered' : isCorrect ? 'correct' : 'incorrect';
 
                     const cardBorder = status === 'correct' ? 'border-success-500/30' : status === 'incorrect' ? 'border-danger-500/30' : 'border-slate-200';
@@ -198,7 +212,18 @@ export default function ExamResultPage({
                         </div>
 
                         <div className="flex flex-col gap-2">
-                          {OPTION_KEYS.map((key) => {
+                          {q.answerType === 'numerical' ? (
+                            <>
+                              <div className={['flex items-center gap-2 rounded-lg border px-3 py-2.5 text-sm', studentAns ? (isCorrect ? 'border-success-500/40 bg-success-soft/40 text-success-700' : 'border-danger-500/40 bg-danger-soft/40 text-danger-700') : 'border-slate-200 text-slate-500'].join(' ')}>
+                                <span className="font-semibold">Your Answer:</span> {studentAns || 'Not answered'}
+                              </div>
+                              {!isCorrect && (
+                                <div className="flex items-center gap-2 rounded-lg border border-success-500/40 bg-success-soft/40 px-3 py-2.5 text-sm text-success-700">
+                                  <span className="font-semibold">Correct Answer:</span> {String(q.correct_answer ?? '')}
+                                </div>
+                              )}
+                            </>
+                          ) : OPTION_KEYS.map((key) => {
                             const optText = q.options?.[key];
                             const optImg = q.optionImages?.[key];
                             if (!optText && !optImg) return null;

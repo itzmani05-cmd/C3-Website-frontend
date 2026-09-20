@@ -103,22 +103,6 @@ export interface ExamQuestion {
   updatedAt?: string;
 }
 
-export interface DailyQuestion {
-  _id: string;
-  date: string;
-  type: string;
-  answerType: AnswerType;
-  question: string;
-  questionImage: string | null;
-  options: QuestionOptions;
-  optionImages: QuestionOptionImages;
-  correct_answer: CorrectAnswer | '';
-  explanation: string;
-  explanationImage: string | null;
-  createdAt?: string;
-  updatedAt?: string;
-}
-
 export interface StudentExam {
   _id: string;
   studentEmail: string;
@@ -224,21 +208,6 @@ export interface DailyChallengeDashboard {
     totalPublished: number;
     totalParticipantsAllTime: number;
   };
-}
-
-export interface DailyChallengeAttempt {
-  _id: string;
-  challengeId: string;
-  studentEmail: string;
-  attemptNumber: number;
-  answers: Record<string, string>;
-  score: number;
-  totalQuestions: number;
-  correctCount: number;
-  percentage: number;
-  submitted: boolean;
-  startedAt: string;
-  submittedAt?: string;
 }
 
 export interface DailyChallengeStudentStat {

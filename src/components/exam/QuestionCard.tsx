@@ -87,36 +87,53 @@ export default function QuestionCard({
           </div>
         )}
 
-        <div className="mt-5 flex flex-col gap-2.5">
-          {Object.entries(question.options || {}).map(([key, text]) => {
-            const isSelected = selectedAnswer === key;
-            const optionImage = question.optionImages?.[key as keyof typeof question.optionImages];
+        {question.answerType === 'numerical' ? (
+          <div className="mt-5">
+            <label htmlFor={`numerical-answer-${question._id}`} className="mb-1.5 block text-xs font-bold uppercase tracking-wide text-slate-500">
+              Enter your answer
+            </label>
+            <input
+              id={`numerical-answer-${question._id}`}
+              type="text"
+              inputMode="decimal"
+              value={selectedAnswer ?? ''}
+              onChange={(e) => onSelectOption(question._id, e.target.value)}
+              placeholder="Type a numeric value"
+              className="w-full max-w-xs rounded-xl border-2 border-slate-200 px-4 py-3 text-sm text-slate-800 outline-none transition-colors focus:border-brand-500"
+            />
+          </div>
+        ) : (
+          <div className="mt-5 flex flex-col gap-2.5">
+            {Object.entries(question.options || {}).map(([key, text]) => {
+              const isSelected = selectedAnswer === key;
+              const optionImage = question.optionImages?.[key as keyof typeof question.optionImages];
 
-            return (
-              <div
-                key={key}
-                onClick={() => onSelectOption(question._id, key)}
-                className={[
-                  'flex cursor-pointer items-start gap-3 rounded-xl border-2 px-4 py-3 transition-colors',
-                  isSelected ? 'border-brand-600 bg-brand-50' : 'border-slate-200 bg-white hover:border-brand-300',
-                ].join(' ')}
-              >
+              return (
                 <div
+                  key={key}
+                  onClick={() => onSelectOption(question._id, key)}
                   className={[
-                    'flex size-7 shrink-0 items-center justify-center rounded-full text-xs font-bold',
-                    isSelected ? 'bg-brand-600 text-white' : 'bg-slate-100 text-slate-600',
+                    'flex cursor-pointer items-start gap-3 rounded-xl border-2 px-4 py-3 transition-colors',
+                    isSelected ? 'border-brand-600 bg-brand-50' : 'border-slate-200 bg-white hover:border-brand-300',
                   ].join(' ')}
                 >
-                  {key.toUpperCase()}
+                  <div
+                    className={[
+                      'flex size-7 shrink-0 items-center justify-center rounded-full text-xs font-bold',
+                      isSelected ? 'bg-brand-600 text-white' : 'bg-slate-100 text-slate-600',
+                    ].join(' ')}
+                  >
+                    {key.toUpperCase()}
+                  </div>
+                  <div className="flex-1 text-sm text-slate-800">
+                    {text}
+                    {optionImage && <img src={optionImage} alt={`Option ${key}`} className="mt-2 max-h-40 rounded-md border border-slate-100" />}
+                  </div>
                 </div>
-                <div className="flex-1 text-sm text-slate-800">
-                  {text}
-                  {optionImage && <img src={optionImage} alt={`Option ${key}`} className="mt-2 max-h-40 rounded-md border border-slate-100" />}
-                </div>
-              </div>
-            );
-          })}
-        </div>
+              );
+            })}
+          </div>
+        )}
       </div>
 
       <div className="flex flex-wrap items-center justify-between gap-3">
