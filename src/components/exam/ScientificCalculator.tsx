@@ -369,6 +369,34 @@ export default function ScientificCalculator({ open, onToggle }: ScientificCalcu
     </button>
   );
 
+  // Compact keys for phones — the 11-column reference grid squeezes each key under 30px there,
+  // so mobile gets its own tighter-but-legible 5-column layout instead of a shrunk version of it.
+  const mbtn = (label: React.ReactNode, onClick: () => void, extraClass = '') => (
+    <button
+      type="button"
+      onClick={onClick}
+      className={[
+        'rounded-md border border-slate-300 bg-white py-2.5 text-[11px] font-medium leading-tight text-slate-800 shadow-sm transition-colors active:scale-[0.97] active:bg-slate-50',
+        extraClass,
+      ].join(' ')}
+    >
+      {label}
+    </button>
+  );
+
+  const mRedBtn = (label: React.ReactNode, onClick: () => void, extraClass = '') => (
+    <button
+      type="button"
+      onClick={onClick}
+      className={[
+        'rounded-md bg-[#d9534f] py-2.5 text-[11px] font-bold leading-tight text-white shadow-sm transition-colors active:scale-[0.97]',
+        extraClass,
+      ].join(' ')}
+    >
+      {label}
+    </button>
+  );
+
   return (
     <AnimatePresence>
       {open && (
@@ -379,10 +407,10 @@ export default function ScientificCalculator({ open, onToggle }: ScientificCalcu
           animate={{ opacity: 1, scale: 1, y: 0 }}
           exit={{ opacity: 0, scale: 0.97, y: 12 }}
           transition={{ duration: 0.16, ease: [0.16, 1, 0.3, 1] }}
-          className="fixed left-1/2 top-14 z-40 w-[640px] max-w-[95vw] -translate-x-1/2 overflow-hidden rounded-lg border border-slate-400 bg-[#d4d4d4] shadow-2xl"
+          className="fixed inset-x-2 top-3 z-40 mx-auto flex max-h-[94vh] w-auto max-w-[640px] flex-col overflow-hidden rounded-lg border border-slate-400 bg-[#d4d4d4] shadow-2xl sm:inset-x-auto sm:left-1/2 sm:top-14 sm:w-[640px] sm:max-w-[95vw] sm:-translate-x-1/2"
         >
-          <div className="flex items-center justify-between bg-blue-500 px-4 py-2.5">
-            <span className="text-lg font-medium text-white">Scientific Calculator</span>
+          <div className="flex shrink-0 items-center justify-between bg-blue-500 px-4 py-2.5">
+            <span className="text-base font-medium text-white sm:text-lg">Scientific Calculator</span>
             <button
               type="button"
               onClick={onToggle}
@@ -393,6 +421,7 @@ export default function ScientificCalculator({ open, onToggle }: ScientificCalcu
             </button>
           </div>
 
+          <div className="overflow-y-auto">
           <div className="flex flex-col gap-1.5 p-3">
             <div className="flex h-9 items-center justify-end gap-2 rounded border border-slate-500 bg-white px-2.5">
               {memory !== 0 && <span className="rounded bg-slate-200 px-1 text-[10px] font-bold text-slate-600">M</span>}
@@ -403,7 +432,88 @@ export default function ScientificCalculator({ open, onToggle }: ScientificCalcu
             </div>
           </div>
 
-          <div className="grid grid-cols-[repeat(11,minmax(0,1fr))] gap-1.5 px-3 pb-3">
+          {/* Mobile: compact 5-column layout, all keys in the same reading order as the desktop grid */}
+          <div className="flex flex-col gap-1.5 px-3 pb-3 sm:hidden">
+            <div className="flex items-center justify-center gap-6 rounded-md border border-slate-300 bg-white py-2">
+              <label className="flex cursor-pointer items-center gap-1.5">
+                <input type="radio" name="angleModeMobile" checked={angleMode === 'deg'} onChange={() => setAngleMode('deg')} className="size-4 accent-blue-600" />
+                <span className={angleMode === 'deg' ? 'text-sm font-semibold text-slate-900' : 'text-sm text-slate-500'}>Deg</span>
+              </label>
+              <label className="flex cursor-pointer items-center gap-1.5">
+                <input type="radio" name="angleModeMobile" checked={angleMode === 'rad'} onChange={() => setAngleMode('rad')} className="size-4 accent-blue-600" />
+                <span className={angleMode === 'rad' ? 'text-sm font-semibold text-slate-900' : 'text-sm text-slate-500'}>Rad</span>
+              </label>
+            </div>
+
+            <div className="grid grid-cols-5 gap-1.5">
+              {mbtn('mod', () => startBinary('mod'))}
+              {mbtn('MC', () => memAction('MC'))}
+              {mbtn('MR', () => memAction('MR'))}
+              {mbtn('MS', () => memAction('MS'))}
+              {mbtn('M+', () => memAction('M+'))}
+              {mbtn('M-', () => memAction('M-'))}
+              {mbtn('sinh', () => applyUnary('sinh'))}
+              {mbtn('cosh', () => applyUnary('cosh'))}
+              {mbtn('tanh', () => applyUnary('tanh'))}
+              {mbtn('Exp', enterExp)}
+              {mbtn('(', openParen)}
+              {mbtn(')', closeParen)}
+              {mRedBtn('←', backspace, 'col-span-2')}
+              {mRedBtn('C', clearAll)}
+              {mRedBtn('+/-', () => applyUnary('negate'))}
+              {mbtn(<>&radic;</>, () => applyUnary('sqrt'))}
+              {mbtn(<>sinh<sup>-1</sup></>, () => applyUnary('asinh'))}
+              {mbtn(<>cosh<sup>-1</sup></>, () => applyUnary('acosh'))}
+              {mbtn(<>tanh<sup>-1</sup></>, () => applyUnary('atanh'))}
+              {mbtn(<>log<sub>2</sub>x</>, () => applyUnary('log2'))}
+              {mbtn('ln', () => applyUnary('ln'))}
+              {mbtn('log', () => applyUnary('log10'))}
+              {mbtn('7', () => appendDigit('7'))}
+              {mbtn('8', () => appendDigit('8'))}
+              {mbtn('9', () => appendDigit('9'))}
+              {mbtn('/', () => startBinary('/'))}
+              {mbtn('%', () => applyUnary('percent'))}
+              {mbtn(<>&pi;</>, () => applyConst(Math.PI))}
+              {mbtn('e', () => applyConst(Math.E))}
+              {mbtn('n!', () => applyUnary('fact'))}
+              {mbtn(<>log<sub>x</sub>y</>, () => startBinary('logy'))}
+              {mbtn(<>e<sup>x</sup></>, () => applyUnary('exp'))}
+              {mbtn(<>10<sup>x</sup></>, () => applyUnary('pow10'))}
+              {mbtn('4', () => appendDigit('4'))}
+              {mbtn('5', () => appendDigit('5'))}
+              {mbtn('6', () => appendDigit('6'))}
+              {mbtn('*', () => startBinary('*'))}
+              {mbtn('1/x', () => applyUnary('inv'))}
+              {mbtn('sin', () => applyUnary('sin'))}
+              {mbtn('cos', () => applyUnary('cos'))}
+              {mbtn('tan', () => applyUnary('tan'))}
+              {mbtn(<>x<sup>y</sup></>, () => startBinary('^'))}
+              {mbtn(<>x<sup>3</sup></>, () => applyUnary('cube'))}
+              {mbtn(<>x<sup>2</sup></>, () => applyUnary('square'))}
+              {mbtn('1', () => appendDigit('1'))}
+              {mbtn('2', () => appendDigit('2'))}
+              {mbtn('3', () => appendDigit('3'))}
+              {mbtn('-', () => startBinary('-'))}
+              <button
+                type="button"
+                onClick={compute}
+                className="rounded-md bg-[#3fbf7f] text-sm font-bold text-white shadow-sm transition-colors hover:bg-[#35a86e] active:scale-[0.97]"
+              >
+                =
+              </button>
+              {mbtn(<>sin<sup>-1</sup></>, () => applyUnary('asin'))}
+              {mbtn(<>cos<sup>-1</sup></>, () => applyUnary('acos'))}
+              {mbtn(<>tan<sup>-1</sup></>, () => applyUnary('atan'))}
+              {mbtn(<><sup>y</sup>&radic;x</>, () => startBinary('yroot'))}
+              {mbtn(<>&#8731;</>, () => applyUnary('cbrt'))}
+              {mbtn('|x|', () => applyUnary('abs'))}
+              {mbtn('0', () => appendDigit('0'), 'col-span-2')}
+              {mbtn('.', () => appendDigit('.'))}
+              {mbtn('+', () => startBinary('+'))}
+            </div>
+          </div>
+
+          <div className="hidden grid-cols-[repeat(11,minmax(0,1fr))] gap-1.5 px-3 pb-3 sm:grid">
             {/* Row 1 */}
             {btn('mod', () => startBinary('mod'), 'mod')}
             <div className="col-span-5 flex items-center gap-6 px-2">
@@ -573,6 +683,7 @@ export default function ScientificCalculator({ open, onToggle }: ScientificCalcu
             {btn('0', () => appendDigit('0'), '0', 'col-span-2')}
             {btn('.', () => appendDigit('.'), 'dot')}
             {btn('+', () => startBinary('+'), 'add')}
+          </div>
           </div>
         </motion.div>
       )}

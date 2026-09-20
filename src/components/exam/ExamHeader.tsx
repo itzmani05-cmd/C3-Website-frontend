@@ -37,15 +37,15 @@ export default function ExamHeader({
 
   return (
     <header className="sticky top-0 z-20 flex flex-wrap items-center justify-between gap-3 border-b border-slate-200 bg-white px-4 py-3 sm:px-6 lg:px-8">
-      <div className="flex items-center gap-3">
-        <FileEdit className="size-[22px] text-brand-600" />
-        <div>
-          <h1 className="text-base font-bold text-slate-900">{selectedTestName} Portal</h1>
-          <span className="text-xs text-slate-500">{studentEmail}</span>
+      <div className="flex min-w-0 items-center gap-3">
+        <FileEdit className="size-[22px] shrink-0 text-brand-600" />
+        <div className="min-w-0">
+          <h1 className="truncate text-base font-bold text-slate-900">{selectedTestName} Portal</h1>
+          <span className="block truncate text-xs text-slate-500">{studentEmail}</span>
         </div>
       </div>
 
-      <div className="flex items-center gap-3">
+      <div className="flex flex-wrap items-center gap-2 sm:gap-3">
         <button
           type="button"
           onClick={onToggleCalculator}
