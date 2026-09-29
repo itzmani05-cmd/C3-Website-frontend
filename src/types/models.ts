@@ -126,6 +126,11 @@ export interface AvailableTest {
   _id: string;
   name: string;
   createdAt: string;
+  durationMinutes: number;
+  questionCount: number;
+  totalMarks: number;
+  negativeMarkFractions: number[];
+  inProgress: boolean;
   submitted: boolean;
   score: number | null;
   maxScore: number | null;
@@ -237,4 +242,5 @@ export interface DailyChallengeAnalytics {
   challenge: Pick<DailyChallenge, '_id' | 'title' | 'startAt' | 'expiresAt' | 'status'>;
   participation: DailyChallengeParticipation;
   perStudent: DailyChallengeStudentStat[];
+  notAttemptedStudents: { studentEmail: string; studentName: string }[];
 }

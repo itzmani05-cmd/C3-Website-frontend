@@ -1,24 +1,7 @@
 import { ArrowLeft, Calendar, CheckCircle2, Info, Trophy, TriangleAlert, XCircle } from 'lucide-react';
 import QuestionRenderer from '../QuestionRenderer';
+import { isAnswerCorrect, toOptionKeys } from '../../lib/grading';
 import type { ExamQuestion, OptionKey } from '../../types/models';
-
-// Multi-select questions aren't answerable through the current single-choice exam UI yet; this
-// keeps the string comparisons below from crashing on their array correct_answer.
-const correctAnswerAsString = (value: unknown): string => (typeof value === 'string' ? value : '');
-
-// Mirrors the backend's numerical grading (routes/exam.js): compare by value, not exact text, so
-// "7", "7.0" and "07" all match a correct_answer of 7.
-const isNumericalAnswerCorrect = (studentAns: string, correctAnswer: unknown): boolean => {
-  const studentNum = parseFloat(studentAns);
-  const correctNum = parseFloat(String(correctAnswer));
-  if (!Number.isNaN(studentNum) && !Number.isNaN(correctNum)) {
-    return Math.abs(studentNum - correctNum) < 0.01;
-  }
-  return studentAns.trim().toLowerCase() === String(correctAnswer ?? '').trim().toLowerCase();
-};
-
-const isAnswerCorrect = (q: ExamQuestion, studentAns: string): boolean =>
-  q.answerType === 'numerical' ? isNumericalAnswerCorrect(studentAns, q.correct_answer) : studentAns.trim().toLowerCase() === correctAnswerAsString(q.correct_answer).trim().toLowerCase();
 
 interface ExamResultPageProps {
   selectedTestName: string;
@@ -61,8 +44,6 @@ export default function ExamResultPage({
     }
   });
 
-  // Prefer the backend's weighted (marks + negative-marking aware) score when available;
-  // fall back to a plain correct/total tally for legacy attempts that predate marks-per-question.
   const hasWeightedScore = typeof score === 'number' && typeof maxScore === 'number' && maxScore > 0;
   const percentageNum = hasWeightedScore ? (score / maxScore) * 100 : totalQuestions > 0 ? (correctCount / totalQuestions) * 100 : 0;
   const percentage = percentageNum.toFixed(2);
@@ -88,7 +69,6 @@ export default function ExamResultPage({
     <div className="min-h-screen bg-slate-50 px-4 py-8 sm:px-6 lg:px-8">
       <div className="mx-auto max-w-7xl">
         <div className="grid grid-cols-1 gap-6 lg:grid-cols-[380px_1fr] lg:items-start">
-          {/* Left: score summary + navigator */}
           <div className="flex flex-col gap-6 lg:sticky lg:top-8">
             <div className="overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-[0_24px_60px_rgba(15,23,42,0.08)]">
               <div className="relative bg-gradient-to-br from-brand-600 to-brand-700 px-6 py-10 text-center text-white">
@@ -104,7 +84,7 @@ export default function ExamResultPage({
                   <Trophy className="size-3.5" /> Assessment Completed
                 </div>
                 <h2 className="font-heading flex items-center justify-center gap-2 text-xl font-bold">
-                  <Trophy className="size-5 text-amber-300" /> {selectedTestName}
+                  {selectedTestName}
                 </h2>
                 <p className="mt-1 text-sm text-white/80">{studentEmail}</p>
 
@@ -125,7 +105,7 @@ export default function ExamResultPage({
 
               <div className="p-6">
                 <div className="grid grid-cols-2 gap-3">
-                  <StatPill icon={<CheckCircle2 className="size-4" />} label="Corrects" value={correctCount} tone="success" />
+                  <StatPill icon={<CheckCircle2 className="size-4" />} label="Correct" value={correctCount} tone="success" />
                   <StatPill icon={<XCircle className="size-4" />} label="Incorrect" value={wrongCount} tone="danger" />
                   <StatPill icon={<TriangleAlert className="size-4" />} label="Unanswered" value={unansweredCount} tone="neutral" />
                   <StatPill
@@ -175,7 +155,6 @@ export default function ExamResultPage({
             )}
           </div>
 
-          {/* Right: detailed question review */}
           <div>
             {questions.length > 0 && (
               <>
@@ -228,8 +207,8 @@ export default function ExamResultPage({
                             const optImg = q.optionImages?.[key];
                             if (!optText && !optImg) return null;
 
-                            const isThisCorrect = key === correctAnswerAsString(q.correct_answer).toLowerCase().trim();
-                            const isThisStudentChoice = !!studentAns && key === studentAns.toLowerCase().trim();
+                            const isThisCorrect = toOptionKeys(q.correct_answer).includes(key);
+                            const isThisStudentChoice = toOptionKeys(studentAns).includes(key);
 
                             let rowClass = 'border-slate-200';
                             let tag: string | null = null;

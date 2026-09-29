@@ -23,7 +23,6 @@ export default function App() {
     } else if (location.pathname !== '/login') {
       navigate('/login');
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isLoggedIn, location.pathname]);
 
   const handleLogin = (token: string, role: Role) => {

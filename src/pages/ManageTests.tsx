@@ -14,8 +14,6 @@ import EmptyState from '../components/ui/EmptyState';
 import TestPatternEditor, { genKey } from '../components/TestPatternEditor';
 import type { Exam, Test, TestPatternPart } from '../types/models';
 
-// Old tests saved before parts/sections carried a stable `key` won't have one — backfill locally
-// so the very next save starts cascading renames correctly instead of orphaning tagged questions.
 const backfillPatternKeys = (pattern: TestPatternPart[]): TestPatternPart[] =>
   pattern.map((part) => ({
     ...part,
@@ -176,7 +174,6 @@ function ExamTests({ examId, onChanged }: ExamTestsProps) {
 
   useEffect(() => {
     fetchTests();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [examId]);
 
   const fetchTests = async () => {

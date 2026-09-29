@@ -3,9 +3,6 @@ import Button from './ui/Button';
 import { Input } from './ui/Field';
 import type { TestPatternPart } from '../types/models';
 
-// A stable id for a part/section that survives renaming its display `name` — the backend uses it
-// to cascade a rename onto already-tagged ExamQuestions instead of orphaning them (see
-// backend/routes/questions.js cascadeRenamePatternSections). Generated once, never edited by hand.
 export const genKey = () => (typeof crypto !== 'undefined' && crypto.randomUUID ? crypto.randomUUID() : `${Date.now()}-${Math.random().toString(36).slice(2)}`);
 
 const buildGatePattern = (): TestPatternPart[] => [

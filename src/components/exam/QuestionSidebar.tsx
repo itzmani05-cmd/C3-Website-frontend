@@ -25,8 +25,6 @@ function getStatus(answered: boolean, visited: boolean, marked: boolean): Questi
   return 'not-visited';
 }
 
-// Flat top, angled bottom converging to a point — the "shield" badge shape used for
-// Answered / Not Answered, matching the exam-portal reference the sidebar is modeled on.
 const SHIELD = '[clip-path:polygon(0_0,100%_0,100%_64%,50%_100%,0_64%)]';
 
 const SHAPE_CLASSES: Record<QuestionStatus, string> = {
@@ -93,8 +91,6 @@ export default function QuestionSidebar({
     EMPTY_STATUS_COUNTS
   );
 
-  // Questions arrive pre-sorted by Part/Section (backend), so consecutive same-part questions form
-  // one contiguous run — group them under a label. Plain tests (no `part`) render as one flat grid.
   const questionGroups: { label: string | null; items: number[] }[] = [];
   questions.forEach((q, idx) => {
     const label = q.part || null;

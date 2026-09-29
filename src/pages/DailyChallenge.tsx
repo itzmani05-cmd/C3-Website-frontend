@@ -9,6 +9,7 @@ import {
   FileText,
   ListChecks,
   Plus,
+  Search,
   Trash2,
   Trophy,
   TriangleAlert,
@@ -16,7 +17,7 @@ import {
 } from 'lucide-react';
 import api from '../api';
 import { toast } from 'react-toastify';
-import { useModal } from '../components/ui';
+import { Pagination, useModal, usePagination } from '../components/ui';
 import Button from '../components/ui/Button';
 import Card from '../components/ui/Card';
 import StatCard from '../components/ui/StatCard';
@@ -103,6 +104,8 @@ export default function DailyChallengeAdmin() {
 
   const [analytics, setAnalytics] = useState<DailyChallengeAnalytics | null>(null);
   const [analyticsLoading, setAnalyticsLoading] = useState(false);
+  const [studentListTab, setStudentListTab] = useState<'attempted' | 'not-attempted'>('attempted');
+  const [studentSearch, setStudentSearch] = useState('');
 
   const [form, setForm] = useState<ChallengeFormState>(emptyForm);
   const [saving, setSaving] = useState(false);
@@ -223,6 +226,8 @@ export default function DailyChallengeAdmin() {
   const goToAnalytics = (id: string) => {
     setSelectedId(id);
     setView('analytics');
+    setStudentListTab('attempted');
+    setStudentSearch('');
     loadAnalytics(id);
   };
 
@@ -363,7 +368,18 @@ export default function DailyChallengeAdmin() {
     loadDashboard();
   };
 
-  // ─── DASHBOARD ──────────────────────────────────────────────────────────
+  const challengesPage = usePagination(allChallenges);
+
+  const matchesStudentSearch = (s: { studentName: string; studentEmail: string }) => {
+    const q = studentSearch.trim().toLowerCase();
+    return !q || s.studentName?.toLowerCase().includes(q) || s.studentEmail?.toLowerCase().includes(q);
+  };
+  const attemptedPage = usePagination((analytics?.perStudent ?? []).filter(matchesStudentSearch), 10, [analytics, studentSearch]);
+  const notAttemptedPage = usePagination((analytics?.notAttemptedStudents ?? []).filter(matchesStudentSearch), 10, [
+    analytics,
+    studentSearch,
+  ]);
+
   if (view === 'dashboard') {
     return (
       <div className="mx-auto w-full max-w-5xl xl:max-w-6xl 2xl:max-w-7xl">
@@ -469,7 +485,6 @@ export default function DailyChallengeAdmin() {
     );
   }
 
-  // ─── CREATE / EDIT ──────────────────────────────────────────────────────
   if (view === 'create' || view === 'edit') {
     return (
       <div className="mx-auto w-full max-w-5xl xl:max-w-6xl 2xl:max-w-7xl">
@@ -550,7 +565,6 @@ export default function DailyChallengeAdmin() {
     );
   }
 
-  // ─── PREVIEW ────────────────────────────────────────────────────────────
   if (view === 'preview') {
     return (
       <div className="mx-auto w-full max-w-5xl xl:max-w-6xl 2xl:max-w-7xl">
@@ -652,7 +666,6 @@ export default function DailyChallengeAdmin() {
     );
   }
 
-  // ─── ALL CHALLENGES ─────────────────────────────────────────────────────
   if (view === 'all') {
     return (
       <div className="mx-auto w-full max-w-5xl xl:max-w-6xl 2xl:max-w-7xl">
@@ -681,7 +694,7 @@ export default function DailyChallengeAdmin() {
                 </tr>
               </thead>
               <tbody>
-                {allChallenges.map((c) => (
+                {challengesPage.pageItems.map((c) => (
                   <tr key={c._id} className="border-b border-slate-100 last:border-0 hover:bg-slate-50">
                     <td className="px-4 py-3 font-medium text-slate-800">{new Date(c.startAt).toLocaleDateString()}</td>
                     <td className="max-w-[220px] truncate px-4 py-3 text-slate-600">{c.title}</td>
@@ -745,13 +758,21 @@ export default function DailyChallengeAdmin() {
                 ))}
               </tbody>
             </table>
+            <div className="border-t border-slate-100 px-4">
+              <Pagination
+                page={challengesPage.page}
+                totalPages={challengesPage.totalPages}
+                totalItems={challengesPage.totalItems}
+                pageSize={challengesPage.pageSize}
+                onPageChange={challengesPage.setPage}
+              />
+            </div>
           </Card>
         )}
       </div>
     );
   }
 
-  // ─── ANALYTICS ──────────────────────────────────────────────────────────
   if (view === 'analytics') {
     return (
       <div className="mx-auto w-full max-w-5xl xl:max-w-6xl 2xl:max-w-7xl">
@@ -778,33 +799,112 @@ export default function DailyChallengeAdmin() {
             </div>
 
             <Card className="p-5">
-              <h3 className="mb-3 text-sm font-semibold uppercase tracking-wide text-slate-500">Student Attempts</h3>
-              {analytics.perStudent.length === 0 ? (
-                <p className="py-4 text-center text-sm text-slate-400">No attempts yet.</p>
+              <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+                <div role="tablist" className="inline-flex rounded-lg bg-slate-100 p-1">
+                  {(
+                    [
+                      ['attempted', 'Attempted', analytics.perStudent.length],
+                      ['not-attempted', 'Not Attempted', analytics.notAttemptedStudents?.length ?? 0],
+                    ] as const
+                  ).map(([key, label, count]) => (
+                    <button
+                      key={key}
+                      type="button"
+                      role="tab"
+                      aria-selected={studentListTab === key}
+                      onClick={() => setStudentListTab(key)}
+                      className={[
+                        'rounded-md px-3 py-1.5 text-xs font-semibold transition-colors',
+                        studentListTab === key ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500 hover:text-slate-700',
+                      ].join(' ')}
+                    >
+                      {label} ({count})
+                    </button>
+                  ))}
+                </div>
+                <Input
+                  leadingIcon={<Search className="size-4" />}
+                  placeholder="Search by name or email..."
+                  value={studentSearch}
+                  onChange={(e) => setStudentSearch(e.target.value)}
+                  wrapperClassName="w-full max-w-xs"
+                />
+              </div>
+
+              {studentListTab === 'attempted' ? (
+                attemptedPage.totalItems === 0 ? (
+                  <p className="py-4 text-center text-sm text-slate-400">{studentSearch ? 'No matching students.' : 'No attempts yet.'}</p>
+                ) : (
+                  <div className="overflow-x-auto">
+                    <table className="w-full min-w-[640px] text-left text-sm">
+                      <thead>
+                        <tr className="border-b border-slate-100">
+                          <th className="px-3 py-2 text-xs font-semibold uppercase tracking-wide text-slate-500">Student</th>
+                          <th className="px-3 py-2 text-xs font-semibold uppercase tracking-wide text-slate-500">Attempts</th>
+                          <th className="px-3 py-2 text-xs font-semibold uppercase tracking-wide text-slate-500">Best Score</th>
+                          <th className="px-3 py-2 text-xs font-semibold uppercase tracking-wide text-slate-500">Last Attempt</th>
+                          <th className="px-3 py-2 text-xs font-semibold uppercase tracking-wide text-slate-500">Status</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {attemptedPage.pageItems.map((s) => (
+                          <tr key={s.studentEmail} className="border-b border-slate-100 last:border-0">
+                            <td className="px-3 py-2">
+                              <p className="font-medium text-slate-800">{s.studentName || s.studentEmail}</p>
+                              {s.studentName && <p className="text-xs text-slate-400">{s.studentEmail}</p>}
+                            </td>
+                            <td className="px-3 py-2 text-slate-600">{s.attemptsUsed}</td>
+                            <td className="px-3 py-2 text-slate-600">{s.submitted ? `${s.bestPercentage}%` : '—'}</td>
+                            <td className="px-3 py-2 text-slate-600">{s.lastAttemptAt ? new Date(s.lastAttemptAt).toLocaleString() : '—'}</td>
+                            <td className="px-3 py-2">
+                              <Badge variant={s.submitted ? 'success' : 'neutral'}>{s.submitted ? 'Completed' : 'In Progress'}</Badge>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                    <Pagination
+                      page={attemptedPage.page}
+                      totalPages={attemptedPage.totalPages}
+                      totalItems={attemptedPage.totalItems}
+                      pageSize={attemptedPage.pageSize}
+                      onPageChange={attemptedPage.setPage}
+                    />
+                  </div>
+                )
+              ) : notAttemptedPage.totalItems === 0 ? (
+                <p className="py-4 text-center text-sm text-slate-400">
+                  {studentSearch ? 'No matching students.' : 'Every eligible student has attempted this challenge.'}
+                </p>
               ) : (
                 <div className="overflow-x-auto">
-                  <table className="w-full min-w-[560px] text-left text-sm">
+                  <table className="w-full min-w-[480px] text-left text-sm">
                     <thead>
                       <tr className="border-b border-slate-100">
                         <th className="px-3 py-2 text-xs font-semibold uppercase tracking-wide text-slate-500">Student</th>
-                        <th className="px-3 py-2 text-xs font-semibold uppercase tracking-wide text-slate-500">Attempts</th>
-                        <th className="px-3 py-2 text-xs font-semibold uppercase tracking-wide text-slate-500">Best Score</th>
+                        <th className="px-3 py-2 text-xs font-semibold uppercase tracking-wide text-slate-500">Email</th>
                         <th className="px-3 py-2 text-xs font-semibold uppercase tracking-wide text-slate-500">Status</th>
                       </tr>
                     </thead>
                     <tbody>
-                      {analytics.perStudent.map((s) => (
+                      {notAttemptedPage.pageItems.map((s) => (
                         <tr key={s.studentEmail} className="border-b border-slate-100 last:border-0">
-                          <td className="px-3 py-2 text-slate-800">{s.studentName || s.studentEmail}</td>
-                          <td className="px-3 py-2 text-slate-600">{s.attemptsUsed}</td>
-                          <td className="px-3 py-2 text-slate-600">{s.submitted ? `${s.bestPercentage}%` : '—'}</td>
+                          <td className="px-3 py-2 font-medium text-slate-800">{s.studentName || '—'}</td>
+                          <td className="px-3 py-2 text-slate-600">{s.studentEmail}</td>
                           <td className="px-3 py-2">
-                            <Badge variant={s.submitted ? 'success' : 'neutral'}>{s.submitted ? 'Completed' : 'In Progress'}</Badge>
+                            <Badge variant="danger">Not Attempted</Badge>
                           </td>
                         </tr>
                       ))}
                     </tbody>
                   </table>
+                  <Pagination
+                    page={notAttemptedPage.page}
+                    totalPages={notAttemptedPage.totalPages}
+                    totalItems={notAttemptedPage.totalItems}
+                    pageSize={notAttemptedPage.pageSize}
+                    onPageChange={notAttemptedPage.setPage}
+                  />
                 </div>
               )}
             </Card>

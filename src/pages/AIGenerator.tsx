@@ -51,8 +51,6 @@ export default function AIGenerator() {
   const selectedSection = selectedPart?.sections.find((s) => s.name === sectionName);
   const currentMarks = selectedSection?.marksPerQuestion ?? 1;
 
-  // How many more questions the current Part/Section can take: target minus what's already saved
-  // (sectionCounts, from the server) minus what's sitting in the review queue but not yet saved.
   const getSectionCapacity = (part: string, section: string, target: number) => {
     const saved = sectionCounts.find((c) => c.part === part && c.section === section)?.count || 0;
     const queued = batch.filter((q) => q.part === part && q.section === section && q.status !== 'REJECTED').length;
@@ -69,7 +67,6 @@ export default function AIGenerator() {
     if (!pattern.some((p) => p.name === partName)) {
       setPartName(pattern[0].name);
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedTestId, pattern]);
 
   useEffect(() => {
@@ -77,7 +74,6 @@ export default function AIGenerator() {
     if (!selectedPart.sections.some((s) => s.name === sectionName)) {
       setSectionName(selectedPart.sections[0]?.name || '');
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [partName, selectedPart]);
 
   useEffect(() => {
@@ -143,7 +139,6 @@ export default function AIGenerator() {
     if (firstTopic && !selectedUnit.topics.some((t) => t._id === topicId)) {
       setTopicId(firstTopic._id);
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [unitId, curriculum, topicId]);
 
   useEffect(() => {
@@ -155,7 +150,6 @@ export default function AIGenerator() {
     if (selectedTopic && !selectedTopic.subtopics.some((st) => st._id === subtopicId)) {
       setSubtopicId(firstSubtopic?._id || '');
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [topicId, curriculum, subtopicId, unitId]);
 
   const fetchQuestionCount = useCallback(async () => {
@@ -204,7 +198,6 @@ export default function AIGenerator() {
     }
   }, [destinationMode, selectedTestId, selectedTest, pattern, topicId, subtopicId]);
 
-  // Filters changed since the last search — hide the stale progress until Submit is clicked again.
   useEffect(() => {
     setHasSearched(false);
     setQuestionCount(0);
@@ -215,9 +208,6 @@ export default function AIGenerator() {
     fetchQuestionCount();
   };
 
-  // Tags a freshly-extracted batch with the currently selected Part/Section (and its marks) so
-  // each paste keeps its origin even if the admin switches sections before saving, then clamps it
-  // to the section's remaining capacity so a paste can never push a section past its target count.
   const tagAndClampForDestination = (questions: DraftQuestion[]): { accepted: DraftQuestion[]; skipped: number } => {
     if (destinationMode !== 'test' || !pattern || pattern.length === 0) return { accepted: questions, skipped: 0 };
 

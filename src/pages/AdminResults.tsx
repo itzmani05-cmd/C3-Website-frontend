@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import {
   ArrowLeft,
   CheckCircle2,
+  Download,
   Eye,
   FileCheck2,
   FileText,
@@ -14,7 +15,7 @@ import {
 } from 'lucide-react';
 import { toast } from 'react-toastify';
 import api from '../api';
-import { useModal } from '../components/ui';
+import { Pagination, useModal, usePagination } from '../components/ui';
 import Button from '../components/ui/Button';
 import Card from '../components/ui/Card';
 import StatCard from '../components/ui/StatCard';
@@ -24,6 +25,7 @@ import type { BadgeVariant } from '../components/ui/Badge';
 import Modal from '../components/ui/Modal';
 import { LoadingState } from '../components/ui/Spinner';
 import EmptyState from '../components/ui/EmptyState';
+import { isAnswerCorrect, toOptionKeys } from '../lib/grading';
 import type { ExamQuestion, OptionKey, StudentExam, TestSummary } from '../types/models';
 
 const getApiConfig = () => ({
@@ -35,8 +37,6 @@ const formatMarks = (value: number) => {
   return Number.isInteger(rounded) ? String(rounded) : rounded.toFixed(2).replace(/0+$/, '').replace(/\.$/, '');
 };
 
-// Weighted marks were introduced with per-question marks/negative-marking; older attempts predate
-// the maxScore field, so fall back to treating every question as worth 1 mark (the old behavior).
 const maxScoreOf = (result: Pick<StudentExam, 'maxScore' | 'totalQuestions'>) =>
   result.maxScore && result.maxScore > 0 ? result.maxScore : result.totalQuestions || 0;
 
@@ -178,7 +178,38 @@ export default function AdminResults() {
     return 0;
   });
 
-  // ─── Master View: list of conducted tests ────────────────────────────────
+  const resultsPage = usePagination(sortedResults, 10, [selectedTest, searchTerm, sortBy]);
+
+  const handleExportCsv = () => {
+    if (!selectedTest || sortedResults.length === 0) return;
+    const cell = (value: unknown) => {
+      const text = value === null || value === undefined ? '' : String(value);
+      const safe = /^[=+\-@]/.test(text) ? `'${text}` : text;
+      return `"${safe.replace(/"/g, '""')}"`;
+    };
+    const header = ['Rank', 'Student Name', 'Email', 'Score', 'Max Score', 'Percentage', 'Correct', 'Wrong', 'Unanswered', 'Submitted At'];
+    const rows = sortedResults.map((r, i) => [
+      i + 1,
+      r.studentName || '',
+      r.studentEmail,
+      r.score,
+      r.maxScore ?? r.totalQuestions,
+      r.percentage,
+      r.correctCount,
+      r.wrongCount,
+      r.unansweredCount,
+      r.submittedAt ? new Date(r.submittedAt).toLocaleString() : '',
+    ]);
+    const csv = [header, ...rows].map((row) => row.map(cell).join(',')).join('\r\n');
+    const blob = new Blob(['\ufeff' + csv], { type: 'text/csv;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `${selectedTest.testName.replace(/[^\w\- ]+/g, '').trim() || 'results'} - results.csv`;
+    link.click();
+    URL.revokeObjectURL(url);
+  };
+
   if (!selectedTest) {
     return (
       <div className="mx-auto w-full max-w-5xl xl:max-w-6xl 2xl:max-w-7xl">
@@ -271,7 +302,6 @@ export default function AdminResults() {
     );
   }
 
-  // ─── Detail View: students who attempted the selected test ───────────────
   return (
     <div className="mx-auto w-full max-w-5xl xl:max-w-6xl 2xl:max-w-7xl">
       <div className="mb-4 flex items-center gap-2 text-sm">
@@ -309,6 +339,15 @@ export default function AdminResults() {
             <option value="pct-desc">Percentage: Highest First</option>
             <option value="pct-asc">Percentage: Lowest First</option>
           </Select>
+          <Button
+            variant="secondary"
+            size="sm"
+            onClick={handleExportCsv}
+            disabled={loading || sortedResults.length === 0}
+            icon={<Download className="size-3.5" />}
+          >
+            Export CSV
+          </Button>
           <Button variant="secondary" size="sm" onClick={() => fetchResultsForTest(selectedTest)} icon={<RotateCcw className="size-3.5" />}>
             Refresh
           </Button>
@@ -342,7 +381,7 @@ export default function AdminResults() {
               </tr>
             </thead>
             <tbody>
-              {sortedResults.map((result) => {
+              {resultsPage.pageItems.map((result) => {
                 const pct = result.percentage ?? 0;
                 return (
                   <tr key={result._id} className="border-b border-slate-100 transition-colors last:border-0 hover:bg-slate-50">
@@ -375,6 +414,15 @@ export default function AdminResults() {
               })}
             </tbody>
           </table>
+          <div className="border-t border-slate-100 px-5">
+            <Pagination
+              page={resultsPage.page}
+              totalPages={resultsPage.totalPages}
+              totalItems={resultsPage.totalItems}
+              pageSize={resultsPage.pageSize}
+              onPageChange={resultsPage.setPage}
+            />
+          </div>
         </Card>
       )}
 
@@ -436,8 +484,7 @@ export default function AdminResults() {
                 const qId = q._id.toString();
                 const rawAns = (detailData.studentExam.answers as Record<string, string>)?.[qId];
                 const studentAns = typeof rawAns === 'string' ? rawAns : '';
-                const correctAnswer = typeof q.correct_answer === 'string' ? q.correct_answer : '';
-                const isCorrect = !!studentAns && !!correctAnswer && studentAns.trim().toLowerCase() === correctAnswer.trim().toLowerCase();
+                const isCorrect = isAnswerCorrect(q, studentAns);
                 const status: 'unanswered' | 'correct' | 'incorrect' = !studentAns ? 'unanswered' : isCorrect ? 'correct' : 'incorrect';
 
                 const statusBorder =
@@ -466,8 +513,8 @@ export default function AdminResults() {
                         const optImg = q.optionImages?.[key];
                         if (!optText && !optImg) return null;
 
-                        const isThisCorrect = !!correctAnswer && key === correctAnswer.toLowerCase().trim();
-                        const isThisStudentChoice = !!studentAns && key === studentAns.toLowerCase().trim();
+                        const isThisCorrect = toOptionKeys(q.correct_answer).includes(key);
+                        const isThisStudentChoice = toOptionKeys(studentAns).includes(key);
 
                         let rowClass = 'border-slate-200';
                         let tag: string | null = null;

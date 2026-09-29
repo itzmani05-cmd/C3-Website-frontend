@@ -127,7 +127,6 @@ const splitAnswerTokens = (text: string): string[] =>
     .map((token) => token.trim())
     .filter(Boolean);
 
-/** Detects answers like "a, c" / "a and c" / "b & d" / "ac". Returns [] when the text isn't a multi-answer. */
 export const extractOptionKeysFromText = (value: string | null | undefined): OptionKey[] => {
   const text = normalizeLine(value).replace(
     /^(?:answer|ans|correct answer|correct option|options?|பதில்|சரியான பதில்|விடை)\s*[:–—-]?\s*/iu,
@@ -159,7 +158,6 @@ export const extractOptionKeysFromText = (value: string | null | undefined): Opt
   return uniqueKeys.length >= 2 ? uniqueKeys : [];
 };
 
-/** Pulls a plain numeric answer (e.g. "42", "-3.5") out of free text, ignoring surrounding units/words. */
 export const extractNumericalAnswer = (value: string | null | undefined): string | null => {
   const text = normalizeLine(value);
   if (!text) return null;
@@ -228,7 +226,6 @@ export const parseQuestionBlock = (block: string, idx: number, subcategory: stri
       ? compactBlock.slice(explanationMatch.index + explanationMatch[0].length).trim()
       : '';
 
-  // No "Options:" label at all — this is only a valid extraction when it's a numerical answer question.
   if (!optionsMatch || optionsMatch.index === undefined) {
     if (!answerMatch || answerMatch.index === undefined) return null;
 
@@ -309,17 +306,8 @@ export const parseQuestionBlock = (block: string, idx: number, subcategory: stri
   };
 };
 
-// Matches an "Options:" (or localized equivalent) label anywhere in a line, not just at its start —
-// used to detect a self-contained one-question-per-line block, as opposed to OPTIONS_LABEL_REGEX
-// (anchored) which is for stripping the label once a block's boundaries are already known.
 const OPTIONS_LABEL_ANYWHERE_REGEX = /\b(?:options?|choices?|answer choices?|விருப்பங்கள்|தேர்வுகள்)\s*[:–—-]?\s*/iu;
 
-// Handles pasted content where each question is a single, self-contained line with no numbering
-// and no interrogative opening word (e.g. "The axial movement ... Options: a) ... Answer: c
-// Explanation: ..."), which neither splitQuestionBlocks (needs "Question N:"/"N:" numbering) nor
-// parseLineByLine (needs a numbered or interrogative-looking first line) can split correctly.
-// parseQuestionBlock itself already finds "Options:"/"Answer:"/"Explanation:" anywhere in a block,
-// so the only missing piece is treating each such line as its own block.
 export const parseOneQuestionPerLine = (pastedContent: string, subcategory: string): DraftQuestion[] => {
   const lines = pastedContent.replace(/\r\n?/g, '\n').split('\n');
 

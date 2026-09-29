@@ -1,5 +1,6 @@
 import { Bookmark, ChevronLeft, ChevronRight, Eraser, TriangleAlert } from 'lucide-react';
 import QuestionRenderer from '../QuestionRenderer';
+import { toOptionKeys } from '../../lib/grading';
 import type { ExamQuestion } from '../../types/models';
 
 interface QuestionCardProps {
@@ -37,6 +38,19 @@ export default function QuestionCard({
       </div>
     );
   }
+
+  const isMultiple = question.answerType === 'multiple';
+  const selectedKeys = toOptionKeys(selectedAnswer);
+
+  const handleOptionClick = (key: string) => {
+    if (!isMultiple) {
+      onSelectOption(question._id, key);
+      return;
+    }
+    const next = selectedKeys.includes(key) ? selectedKeys.filter((k) => k !== key) : [...selectedKeys, key].sort();
+    if (next.length === 0) onClearSelection(question._id);
+    else onSelectOption(question._id, next.join(','));
+  };
 
   return (
     <div className="mx-auto flex max-w-3xl flex-col gap-5 p-5 sm:p-8 2xl:max-w-4xl">
@@ -104,14 +118,15 @@ export default function QuestionCard({
           </div>
         ) : (
           <div className="mt-5 flex flex-col gap-2.5">
+            {isMultiple && <p className="text-xs font-semibold text-brand-700">More than one answer may be correct — select all that apply.</p>}
             {Object.entries(question.options || {}).map(([key, text]) => {
-              const isSelected = selectedAnswer === key;
+              const isSelected = isMultiple ? selectedKeys.includes(key) : selectedAnswer === key;
               const optionImage = question.optionImages?.[key as keyof typeof question.optionImages];
 
               return (
                 <div
                   key={key}
-                  onClick={() => onSelectOption(question._id, key)}
+                  onClick={() => handleOptionClick(key)}
                   className={[
                     'flex cursor-pointer items-start gap-3 rounded-xl border-2 px-4 py-3 transition-colors',
                     isSelected ? 'border-brand-600 bg-brand-50' : 'border-slate-200 bg-white hover:border-brand-300',
@@ -119,7 +134,8 @@ export default function QuestionCard({
                 >
                   <div
                     className={[
-                      'flex size-7 shrink-0 items-center justify-center rounded-full text-xs font-bold',
+                      'flex size-7 shrink-0 items-center justify-center text-xs font-bold',
+                      isMultiple ? 'rounded-md' : 'rounded-full',
                       isSelected ? 'bg-brand-600 text-white' : 'bg-slate-100 text-slate-600',
                     ].join(' ')}
                   >

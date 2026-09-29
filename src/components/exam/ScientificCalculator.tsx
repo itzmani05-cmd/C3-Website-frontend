@@ -37,10 +37,6 @@ const BINARY_SYMBOLS: Record<string, string> = {
 };
 
 export default function ScientificCalculator({ open, onToggle }: ScientificCalculatorProps) {
-  // `current` is the operand actively being edited; `expression` is everything typed
-  // before it (e.g. "12 +"). The top line is derived from both, live. `result` only
-  // ever changes when a calculation actually completes, so it never gets overwritten
-  // by keystrokes that are still building the next expression.
   const [current, setCurrent] = useState('0');
   const [expression, setExpression] = useState('');
   const [typingCurrent, setTypingCurrent] = useState(false);
@@ -68,8 +64,6 @@ export default function ScientificCalculator({ open, onToggle }: ScientificCalcu
     setJustEvaluated(false);
   };
 
-  // Opens a group: the outer pending operator/operand are parked on a stack so a fresh
-  // sub-expression can be built inside the parens, then unwound by closeParen.
   const openParen = () => {
     setParenStack((st) => [...st, { pendingOp, pendingVal }]);
     setPendingOp(null);
@@ -80,8 +74,6 @@ export default function ScientificCalculator({ open, onToggle }: ScientificCalcu
     setJustEvaluated(false);
   };
 
-  // Resolves the innermost open group to a single value, then restores whatever operator/operand
-  // was pending before its "(" was pressed — repeat presses unwind nested parens one level at a time.
   const closeParen = () => {
     if (parenStack.length === 0) return;
     const val = parseFloat(current);
@@ -97,8 +89,6 @@ export default function ScientificCalculator({ open, onToggle }: ScientificCalcu
     setJustEvaluated(false);
   };
 
-  // Scientific-notation entry: subsequent digits are appended to the exponent by the existing
-  // appendDigit (it just concatenates onto a non-"0" `current`, so "5" + Exp + "3" -> "5e+3").
   const enterExp = () => {
     if (justEvaluated) {
       setCurrent('0');
@@ -339,8 +329,6 @@ export default function ScientificCalculator({ open, onToggle }: ScientificCalcu
     }
   };
 
-  // Plain white keys — every scientific function, digit, and memory slot share this look in the
-  // reference design; only backspace/clear/sign (red) and equals (green) stand apart.
   const btn = (label: React.ReactNode, onClick: () => void, keyId: string, extraClass = '') => (
     <button
       key={keyId}
@@ -369,8 +357,6 @@ export default function ScientificCalculator({ open, onToggle }: ScientificCalcu
     </button>
   );
 
-  // Compact keys for phones — the 11-column reference grid squeezes each key under 30px there,
-  // so mobile gets its own tighter-but-legible 5-column layout instead of a shrunk version of it.
   const mbtn = (label: React.ReactNode, onClick: () => void, extraClass = '') => (
     <button
       type="button"
@@ -432,7 +418,6 @@ export default function ScientificCalculator({ open, onToggle }: ScientificCalcu
             </div>
           </div>
 
-          {/* Mobile: compact 5-column layout, all keys in the same reading order as the desktop grid */}
           <div className="flex flex-col gap-1.5 px-3 pb-3 sm:hidden">
             <div className="flex items-center justify-center gap-6 rounded-md border border-slate-300 bg-white py-2">
               <label className="flex cursor-pointer items-center gap-1.5">
@@ -514,7 +499,6 @@ export default function ScientificCalculator({ open, onToggle }: ScientificCalcu
           </div>
 
           <div className="hidden grid-cols-[repeat(11,minmax(0,1fr))] gap-1.5 px-3 pb-3 sm:grid">
-            {/* Row 1 */}
             {btn('mod', () => startBinary('mod'), 'mod')}
             <div className="col-span-5 flex items-center gap-6 px-2">
               <label className="flex cursor-pointer items-center gap-1.5">
@@ -532,7 +516,6 @@ export default function ScientificCalculator({ open, onToggle }: ScientificCalcu
             {btn('M+', () => memAction('M+'), 'M+')}
             {btn('M-', () => memAction('M-'), 'M-')}
 
-            {/* Row 2 */}
             {btn('sinh', () => applyUnary('sinh'), 'sinh')}
             {btn('cosh', () => applyUnary('cosh'), 'cosh')}
             {btn('tanh', () => applyUnary('tanh'), 'tanh')}
@@ -544,7 +527,6 @@ export default function ScientificCalculator({ open, onToggle }: ScientificCalcu
             {redBtn('+/-', () => applyUnary('negate'), 'negate')}
             {btn(<>&radic;</>, () => applyUnary('sqrt'), 'sqrt')}
 
-            {/* Row 3 */}
             {btn(
               <>
                 sinh<sup>-1</sup>
@@ -581,7 +563,6 @@ export default function ScientificCalculator({ open, onToggle }: ScientificCalcu
             {btn('/', () => startBinary('/'), 'div')}
             {btn('%', () => applyUnary('percent'), 'percent')}
 
-            {/* Row 4 */}
             {btn(<>&pi;</>, () => applyConst(Math.PI), 'pi')}
             {btn('e', () => applyConst(Math.E), 'euler')}
             {btn('n!', () => applyUnary('fact'), 'fact')}
@@ -612,7 +593,6 @@ export default function ScientificCalculator({ open, onToggle }: ScientificCalcu
             {btn('*', () => startBinary('*'), 'mul')}
             {btn('1/x', () => applyUnary('inv'), 'inv')}
 
-            {/* Row 5 */}
             {btn('sin', () => applyUnary('sin'), 'sin')}
             {btn('cos', () => applyUnary('cos'), 'cos')}
             {btn('tan', () => applyUnary('tan'), 'tan')}
@@ -649,7 +629,6 @@ export default function ScientificCalculator({ open, onToggle }: ScientificCalcu
               =
             </button>
 
-            {/* Row 6 */}
             {btn(
               <>
                 sin<sup>-1</sup>

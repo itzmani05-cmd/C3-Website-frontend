@@ -40,7 +40,7 @@ export default function ExamHeader({
       <div className="flex min-w-0 items-center gap-3">
         <FileEdit className="size-[22px] shrink-0 text-brand-600" />
         <div className="min-w-0">
-          <h1 className="truncate text-base font-bold text-slate-900">{selectedTestName} Portal</h1>
+          <h1 className="truncate text-base font-bold text-slate-900">{selectedTestName}</h1>
           <span className="block truncate text-xs text-slate-500">{studentEmail}</span>
         </div>
       </div>
@@ -60,9 +60,13 @@ export default function ExamHeader({
           <span className="hidden sm:inline">Calculator</span>
         </button>
 
-        <div className={['inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-semibold', syncColorClasses].join(' ')}>
+        <div
+          role="status"
+          title={syncLabel}
+          aria-label={syncLabel}
+          className={['inline-flex items-center justify-center rounded-full p-1.5', syncColorClasses].join(' ')}
+        >
           <SyncIcon className={['size-3.5', syncing || hasUnsynced ? 'animate-spin' : ''].join(' ')} />
-          <span>{syncLabel}</span>
         </div>
 
         <div

@@ -49,8 +49,6 @@ export default function DailyChallengeQuestionPicker({ examId, selected, onChang
     });
   }, [examId]);
 
-  // Resolve full question data for any pre-selected ids not already in the local cache
-  // (e.g. when editing an existing challenge).
   useEffect(() => {
     const missing = selected.filter((id) => !questionsById[id]);
     if (missing.length === 0) return;
@@ -70,7 +68,6 @@ export default function DailyChallengeQuestionPicker({ examId, selected, onChang
         return next;
       });
     });
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selected]);
 
   const selectedUnit = curriculum.find((u) => u._id === unitId);

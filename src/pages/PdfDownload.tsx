@@ -127,7 +127,6 @@ export default function PdfDownload() {
     loadExamScopedData();
   }, [examId]);
 
-  // Filters changed since the last search — hide the stale results until Submit is clicked again.
   useEffect(() => {
     setHasSearched(false);
     setQuestions([]);
@@ -475,7 +474,6 @@ export default function PdfDownload() {
       {pageHeader}
 
       <div className="grid grid-cols-1 gap-6 xl:grid-cols-[420px_1fr]">
-        {/* Config Panel */}
         <div className="no-print flex flex-col gap-5">
           <Card className="p-5">
             <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
@@ -668,7 +666,6 @@ export default function PdfDownload() {
           </Card>
         </div>
 
-        {/* Preview Panel */}
         <Card className={`p-4 font-size-${fontSize} sm:p-6`}>
           <div className="no-print mb-6 flex flex-wrap items-center justify-between gap-3 border-b border-slate-100 pb-4">
             <h3 className="font-heading text-lg font-extrabold text-slate-900 sm:text-xl">Question Paper Preview</h3>
@@ -719,9 +716,6 @@ export default function PdfDownload() {
               <div className={`questions-grid cols-${layoutColumns} ${layoutColumns === '2' ? 'grid grid-cols-2 gap-x-8' : 'flex flex-col'}`}>
                 {printableQuestions.map((q, index) => {
                   const prev = printableQuestions[index - 1];
-                  // Part/Section headers only make sense in the single-column layout — in the
-                  // 2-column grid each question is its own grid item, so a header can't span both
-                  // columns cleanly and would land in whichever column that question falls into.
                   const isNewPart = layoutColumns === '1' && !!q.part && q.part !== prev?.part;
                   const isNewSection = layoutColumns === '1' && !!q.section && (q.part !== prev?.part || q.section !== prev?.section);
                   return (

@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { useLocation, useNavigate, useParams } from 'react-router-dom';
 import { TriangleAlert } from 'lucide-react';
+import { toast } from 'react-toastify';
 import api from '../api';
 import { formatTime, getApiConfig, getEmailFromToken } from '../lib/examSession';
 import { LoadingState } from '../components/ui/Spinner';
@@ -37,6 +38,7 @@ export default function TestArea({ onLogout }: TestAreaProps) {
   const [submittedAt, setSubmittedAt] = useState<string | null>(null);
   const [resultScore, setResultScore] = useState<number | null>(null);
   const [resultMaxScore, setResultMaxScore] = useState<number | null>(null);
+  const [studentName, setStudentName] = useState('');
   const [activeQuestionIndex, setActiveQuestionIndex] = useState(0);
   const [syncing, setSyncing] = useState(false);
   const [online, setOnline] = useState(navigator.onLine);
@@ -50,6 +52,9 @@ export default function TestArea({ onLogout }: TestAreaProps) {
   const emailRef = useRef('student');
   const tabIdRef = useRef('');
   const syncTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const timeWarningsShownRef = useRef<Set<number>>(new Set());
+
+  const progressKey = (tId: string) => `c3_exam_progress_${emailRef.current}_${tId}`;
 
   useEffect(() => {
     emailRef.current = getEmailFromToken();
@@ -78,7 +83,6 @@ export default function TestArea({ onLogout }: TestAreaProps) {
       document.removeEventListener('visibilitychange', handleVisibilityChange);
       if (syncTimeoutRef.current) clearTimeout(syncTimeoutRef.current);
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [examStarted]);
 
   useEffect(() => {
@@ -103,10 +107,8 @@ export default function TestArea({ onLogout }: TestAreaProps) {
       setSubmittedAt(null);
       fetchTestsList();
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [testId, studentEmail, location.pathname]);
 
-  // Countdown timer
   useEffect(() => {
     if (loading || submitted || remainingTime <= 0 || !examStarted) return;
 
@@ -122,18 +124,30 @@ export default function TestArea({ onLogout }: TestAreaProps) {
     }, 1000);
 
     return () => clearInterval(timer);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [loading, submitted, remainingTime, examStarted]);
 
-  // Server heartbeat every 30s
+  useEffect(() => {
+    if (!examStarted || submitted || loading) return;
+    for (const threshold of [300, 60]) {
+      if (remainingTime > 0 && remainingTime <= threshold && !timeWarningsShownRef.current.has(threshold)) {
+        timeWarningsShownRef.current.add(threshold);
+        toast.warning(
+          threshold === 60
+            ? '1 minute left — your test will be submitted automatically.'
+            : '5 minutes left. Review any questions marked for review.',
+          { autoClose: 8000 }
+        );
+        break;
+      }
+    }
+  }, [remainingTime, examStarted, submitted, loading]);
+
   useEffect(() => {
     if (loading || submitted || !examStarted) return;
     const heartbeat = setInterval(() => refreshExamStatus(), 30000);
     return () => clearInterval(heartbeat);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [loading, submitted, unsyncedAnswers, examStarted]);
 
-  // Mark the active question visited (drives the "Not Visited" vs "Not Answered" sidebar state)
   useEffect(() => {
     if (!examStarted || questions.length === 0) return;
     const activeId = questions[activeQuestionIndex]?._id;
@@ -141,7 +155,18 @@ export default function TestArea({ onLogout }: TestAreaProps) {
     setVisitedQuestions((prev) => (prev.has(activeId) ? prev : new Set(prev).add(activeId)));
   }, [examStarted, questions, activeQuestionIndex]);
 
-  // Detect duplicate-tab conflict
+  useEffect(() => {
+    if (!examStarted || submitted || !selectedTestId || questions.length === 0) return;
+    localStorage.setItem(
+      progressKey(selectedTestId),
+      JSON.stringify({
+        activeQuestionIndex,
+        visited: Array.from(visitedQuestions),
+        marked: Array.from(markedForReview),
+      })
+    );
+  }, [examStarted, submitted, selectedTestId, questions.length, activeQuestionIndex, visitedQuestions, markedForReview]);
+
   useEffect(() => {
     if (submitted || !examStarted) return;
     const checkTabLock = setInterval(() => {
@@ -151,7 +176,6 @@ export default function TestArea({ onLogout }: TestAreaProps) {
     return () => clearInterval(checkTabLock);
   }, [submitted, examStarted]);
 
-  // Auto-sync unsynced answers after 3-second debounce
   useEffect(() => {
     if (Object.keys(unsyncedAnswers).length === 0 || !examStarted) return;
     if (syncTimeoutRef.current) clearTimeout(syncTimeoutRef.current);
@@ -161,14 +185,18 @@ export default function TestArea({ onLogout }: TestAreaProps) {
     return () => {
       if (syncTimeoutRef.current) clearTimeout(syncTimeoutRef.current);
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [unsyncedAnswers, examStarted]);
 
   const fetchTestsList = async () => {
     try {
       setLoading(true);
-      const response = await api.get<AvailableTest[]>('/api/exam/list', getApiConfig());
+      setError('');
+      const [response, profile] = await Promise.all([
+        api.get<AvailableTest[]>('/api/exam/list', getApiConfig()),
+        api.get<{ name?: string }>('/api/auth/me', getApiConfig()).catch(() => null),
+      ]);
       setAvailableTests(response.data || []);
+      setStudentName(profile?.data?.name || '');
     } catch (err) {
       console.error(err);
       setError('Failed to fetch exams list. Please login again.');
@@ -190,6 +218,7 @@ export default function TestArea({ onLogout }: TestAreaProps) {
     try {
       setLoading(true);
       setError('');
+      timeWarningsShownRef.current = new Set();
       const { data } = await api.post('/api/exam/start', { testId: tId }, getApiConfig());
 
       setQuestions(data.questions || []);
@@ -232,6 +261,29 @@ export default function TestArea({ onLogout }: TestAreaProps) {
           }
         }
 
+        Object.keys(mergedAnswers).forEach((key) => {
+          if (mergedAnswers[key] == null) delete mergedAnswers[key];
+        });
+
+        let savedIndex = 0;
+        let savedVisited: string[] = [];
+        let savedMarked: string[] = [];
+        const progressStr = localStorage.getItem(progressKey(tId));
+        if (progressStr) {
+          try {
+            const progress = JSON.parse(progressStr);
+            if (Number.isInteger(progress.activeQuestionIndex)) savedIndex = progress.activeQuestionIndex;
+            if (Array.isArray(progress.visited)) savedVisited = progress.visited;
+            if (Array.isArray(progress.marked)) savedMarked = progress.marked;
+          } catch (e) {
+            console.error(e);
+          }
+        }
+        const questionCount = (data.questions || []).length;
+        setActiveQuestionIndex(Math.min(Math.max(savedIndex, 0), Math.max(questionCount - 1, 0)));
+        setVisitedQuestions(new Set(savedVisited));
+        setMarkedForReview(new Set(savedMarked));
+
         setAnswers(mergedAnswers);
         setUnsyncedAnswers(localUnsynced);
         setExamStarted(true);
@@ -243,9 +295,9 @@ export default function TestArea({ onLogout }: TestAreaProps) {
         setAnswers(data.answers || {});
         setExamStarted(true);
       }
-    } catch (err) {
+    } catch (err: any) {
       console.error(err);
-      setError('Failed to load exam session.');
+      setError(err.response?.data?.message || 'Failed to load exam session. Check your connection and try again.');
     } finally {
       setLoading(false);
     }
@@ -295,7 +347,7 @@ export default function TestArea({ onLogout }: TestAreaProps) {
     if (!navigator.onLine || submitted) return;
     try {
       if (Object.keys(unsyncedAnswers).length > 0) await syncAnswersWithBackend(answers, unsyncedAnswers);
-      const { data } = await api.post('/api/exam/start', { testId: selectedTestId }, getApiConfig());
+      const { data } = await api.get('/api/exam/status', { ...getApiConfig(), params: { testId: selectedTestId } });
       setSubmitted(data.submitted);
       setRemainingTime(data.remainingTime);
       setAnswers((prev) => {
@@ -342,6 +394,7 @@ export default function TestArea({ onLogout }: TestAreaProps) {
   const clearLocalCache = () => {
     localStorage.removeItem(`c3_exam_answers_${emailRef.current}_${selectedTestId}`);
     localStorage.removeItem(`c3_exam_unsynced_${emailRef.current}_${selectedTestId}`);
+    localStorage.removeItem(progressKey(selectedTestId));
     localStorage.removeItem(`c3_exam_active_tab_${emailRef.current}`);
   };
 
@@ -380,10 +433,10 @@ export default function TestArea({ onLogout }: TestAreaProps) {
     });
   };
 
-  const handleNavigateQuestion = async (index: number) => {
+  const handleNavigateQuestion = (index: number) => {
     if (index < 0 || index >= questions.length) return;
-    if (Object.keys(unsyncedAnswers).length > 0) await forceImmediateSync();
     setActiveQuestionIndex(index);
+    if (Object.keys(unsyncedAnswers).length > 0) void forceImmediateSync();
   };
 
   const handleTabTakeover = () => {
@@ -396,9 +449,7 @@ export default function TestArea({ onLogout }: TestAreaProps) {
     navigate('/');
   };
 
-  // ─── Render — early-exit screens ───────────────────────────────────────
-
-  if (loading && questions.length === 0 && availableTests.length === 0) {
+  if (loading && !examStarted) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-slate-50">
         <LoadingState message="Loading Assessment Portal..." />
@@ -406,15 +457,28 @@ export default function TestArea({ onLogout }: TestAreaProps) {
     );
   }
 
-  if (error && questions.length === 0 && availableTests.length === 0) {
+  if (error && !examStarted) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-slate-50 px-4">
         <div className="max-w-sm rounded-2xl border border-slate-200 bg-white p-8 text-center shadow-soft-sm">
-          <h2 className="text-lg font-bold text-slate-900">Connection or Authentication Error</h2>
+          <h2 className="text-lg font-bold text-slate-900">{testId ? 'Could Not Open This Test' : 'Could Not Load Your Tests'}</h2>
           <p className="mt-2 text-sm text-slate-500">{error}</p>
-          <button onClick={onLogout} className="mt-5 w-full rounded-lg bg-slate-900 py-2.5 text-sm font-semibold text-white hover:bg-slate-800">
-            Return to Login
-          </button>
+          <div className="mt-5 flex flex-col gap-2">
+            <button
+              onClick={() => (testId ? loadOrResumeExam(testId, location.pathname.endsWith('/result')) : fetchTestsList())}
+              className="w-full rounded-lg bg-brand-600 py-2.5 text-sm font-semibold text-white hover:bg-brand-700"
+            >
+              Try Again
+            </button>
+            {testId && (
+              <button onClick={() => navigate('/')} className="w-full rounded-lg border border-slate-200 py-2.5 text-sm font-semibold text-slate-600 hover:bg-slate-50">
+                Back to Tests List
+              </button>
+            )}
+            <button onClick={onLogout} className="w-full rounded-lg py-2 text-sm font-semibold text-slate-500 hover:text-slate-700">
+              Sign Out
+            </button>
+          </div>
         </div>
       </div>
     );
@@ -443,7 +507,14 @@ export default function TestArea({ onLogout }: TestAreaProps) {
   }
 
   if (!examStarted) {
-    return <TestSelectionPage availableTests={availableTests} studentEmail={emailRef.current} onStartExam={handleStartExam} onLogout={onLogout} />;
+    return (
+      <TestSelectionPage
+        availableTests={availableTests}
+        studentName={studentName || emailRef.current}
+        onStartExam={handleStartExam}
+        onLogout={onLogout}
+      />
+    );
   }
 
   if (submitted) {
@@ -464,6 +535,7 @@ export default function TestArea({ onLogout }: TestAreaProps) {
   const currentQuestion = questions[activeQuestionIndex];
   const answeredCount = Object.keys(answers).length;
   const unansweredCount = questions.length - answeredCount;
+  const markedCount = questions.filter((q) => markedForReview.has(q._id)).length;
 
   return (
     <div className="flex min-h-screen flex-col bg-slate-50 lg:h-screen lg:overflow-hidden">
@@ -517,7 +589,13 @@ export default function TestArea({ onLogout }: TestAreaProps) {
       </div>
 
       {showSubmitModal && (
-        <SubmitModal answeredCount={answeredCount} unansweredCount={unansweredCount} onConfirm={handleManualSubmit} onCancel={() => setShowSubmitModal(false)} />
+        <SubmitModal
+          answeredCount={answeredCount}
+          unansweredCount={unansweredCount}
+          markedCount={markedCount}
+          onConfirm={handleManualSubmit}
+          onCancel={() => setShowSubmitModal(false)}
+        />
       )}
 
       {showExitModal && (

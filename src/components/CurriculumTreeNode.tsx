@@ -22,7 +22,6 @@ interface CurriculumTreeNodeProps {
   addChildLabel: string;
   onAddChild: () => void;
   children?: ReactNode;
-  // Unit-only: lets the edit row also reassign which exam the unit belongs to.
   examOptions?: { _id: string; name: string }[];
   selectedExamId?: string;
   onExamChange?: (examId: string) => void;

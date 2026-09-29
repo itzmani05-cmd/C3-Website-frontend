@@ -3,7 +3,7 @@ import type { FormEvent } from 'react';
 import { motion } from 'framer-motion';
 import { Eye, EyeOff, Lock, Mail } from 'lucide-react';
 import { toast } from 'react-toastify';
-import api from '../api';
+import api, { SESSION_EXPIRED_FLAG } from '../api';
 import { Spinner } from '../components/ui';
 import type { Role } from '../types/models';
 
@@ -23,6 +23,10 @@ export default function Login({ onLogin }: LoginProps) {
   useEffect(() => {
     const saved = localStorage.getItem(REMEMBER_EMAIL_KEY);
     if (saved) setEmail(saved);
+    if (sessionStorage.getItem(SESSION_EXPIRED_FLAG)) {
+      sessionStorage.removeItem(SESSION_EXPIRED_FLAG);
+      toast.info('Your session expired. Please sign in again.');
+    }
   }, []);
 
   const handleSubmit = async (e: FormEvent) => {
@@ -57,7 +61,7 @@ export default function Login({ onLogin }: LoginProps) {
       >
         <div className="mb-7 flex justify-center">
           <div className="inline-flex items-center gap-2.5 rounded-xl border border-slate-200 bg-slate-50 px-4.5 py-2.5">
-            <img src="/C3AppLogo.png" alt="C³" className="h-[30px] object-contain" />
+            <img src="/C3AppLogo-128.png" alt="C³" className="h-[30px] object-contain" />
             <span className="text-[1.1rem] font-bold text-slate-900">C³EP</span>
           </div>
         </div>
@@ -163,6 +167,7 @@ export default function Login({ onLogin }: LoginProps) {
               `Sign In as ${role.charAt(0).toUpperCase() + role.slice(1)}`
             )}
           </button>
+          <p className="text-center text-xs text-slate-500">Forgot your password? Ask your institute admin to reset it.</p>
         </form>
       </motion.div>
     </div>

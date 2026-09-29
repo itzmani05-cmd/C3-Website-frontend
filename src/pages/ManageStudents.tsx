@@ -1,9 +1,9 @@
 import { useEffect, useState } from 'react';
 import type { FormEvent } from 'react';
-import { Pencil, Plus, Trash2, UserCheck, UserX, Users } from 'lucide-react';
+import { KeyRound, Pencil, Plus, Search, Trash2, UserCheck, UserX, Users } from 'lucide-react';
 import { toast } from 'react-toastify';
 import api from '../api';
-import { useModal } from '../components/ui';
+import { Pagination, useModal, usePagination } from '../components/ui';
 import Button from '../components/ui/Button';
 import Card from '../components/ui/Card';
 import StatCard from '../components/ui/StatCard';
@@ -34,6 +34,8 @@ export default function ManageStudents() {
   const [editEmail, setEditEmail] = useState('');
   const [editStatus, setEditStatus] = useState<UserStatus>('active');
   const [editExamIds, setEditExamIds] = useState<string[]>([]);
+  const [editPassword, setEditPassword] = useState('');
+  const [searchTerm, setSearchTerm] = useState('');
 
   useEffect(() => {
     fetchStudents();
@@ -98,17 +100,29 @@ export default function ManageStudents() {
     setEditEmail(student.email);
     setEditStatus(student.status || 'active');
     setEditExamIds((student.examIds || []).map((exam) => exam._id));
+    setEditPassword('');
   };
 
   const handleEditStudent = async (studentId: string) => {
     if (!editName.trim() || !editEmail.trim()) return;
+    if (editPassword && editPassword.length < 6) {
+      toast.error('New password must be at least 6 characters.');
+      return;
+    }
     try {
       await api.put(
         `/api/auth/admin/students/${studentId}`,
-        { name: editName.trim(), email: editEmail.trim(), status: editStatus, examIds: editExamIds },
+        {
+          name: editName.trim(),
+          email: editEmail.trim(),
+          status: editStatus,
+          examIds: editExamIds,
+          ...(editPassword ? { password: editPassword } : {}),
+        },
         getApiConfig()
       );
-      toast.success('Student updated successfully.');
+      toast.success(editPassword ? 'Student updated and password reset.' : 'Student updated successfully.');
+      setEditPassword('');
       setEditingId(null);
       fetchStudents();
     } catch (err: any) {
@@ -131,6 +145,12 @@ export default function ManageStudents() {
       toast.error(err.response?.data?.message || 'Error deleting student.');
     }
   };
+
+  const searchLower = searchTerm.trim().toLowerCase();
+  const filteredStudents = searchLower
+    ? students.filter((s) => s.name?.toLowerCase().includes(searchLower) || s.email?.toLowerCase().includes(searchLower))
+    : students;
+  const studentsPage = usePagination(filteredStudents, undefined, [searchTerm]);
 
   return (
     <div className="mx-auto w-full max-w-5xl xl:max-w-6xl 2xl:max-w-7xl">
@@ -209,14 +229,28 @@ export default function ManageStudents() {
         </Card>
       )}
 
+      {!loading && students.length > 0 && (
+        <Input
+          leadingIcon={<Search className="size-4" />}
+          placeholder="Search by student name or email..."
+          value={searchTerm}
+          onChange={(e) => setSearchTerm(e.target.value)}
+          wrapperClassName="mb-4"
+        />
+      )}
+
       {loading && <LoadingState message="Loading students..." />}
+
+      {!loading && students.length > 0 && filteredStudents.length === 0 && (
+        <p className="py-8 text-center text-sm text-slate-500">No students match "{searchTerm}".</p>
+      )}
 
       {!loading && students.length === 0 && (
         <EmptyState title="No students found." description="Add your first student to get started!" />
       )}
 
       <div className="flex flex-col gap-3">
-        {students.map((student) => {
+        {studentsPage.pageItems.map((student) => {
           const isEditing = editingId === student._id;
           const isActive = student.status === 'active' || !student.status;
           const initial = (student.name || student.email || '?').trim().charAt(0).toUpperCase();
@@ -252,6 +286,15 @@ export default function ManageStudents() {
                       Cancel
                     </Button>
                   </div>
+                  <Input
+                    type="password"
+                    leadingIcon={<KeyRound className="size-4" />}
+                    value={editPassword}
+                    onChange={(e) => setEditPassword(e.target.value)}
+                    placeholder="New password (leave blank to keep the current one)"
+                    autoComplete="new-password"
+                    wrapperClassName="max-w-md"
+                  />
                   <ExamCheckboxes exams={exams} selectedIds={editExamIds} onToggle={(id) => setEditExamIds(toggleExamId(editExamIds, id))} />
                 </div>
               ) : (
@@ -299,6 +342,13 @@ export default function ManageStudents() {
           );
         })}
       </div>
+      <Pagination
+        page={studentsPage.page}
+        totalPages={studentsPage.totalPages}
+        totalItems={studentsPage.totalItems}
+        pageSize={studentsPage.pageSize}
+        onPageChange={studentsPage.setPage}
+      />
     </div>
   );
 }

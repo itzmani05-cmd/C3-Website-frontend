@@ -4,7 +4,7 @@ import { toast } from 'react-toastify';
 import api from '../../api';
 import { fileToBase64, getImagePreview } from '../../lib/helpers';
 
-const MAX_IMAGE_BYTES = 150 * 1024; // 150KB — keep in sync with backend/routes/questions.js
+const MAX_IMAGE_BYTES = 150 * 1024;
 
 interface ImageUploadFieldProps {
   label: string;

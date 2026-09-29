@@ -1,7 +1,3 @@
-// Strips an accidental leading list marker (e.g. "1.", "A.") from a bracketed
-// column subtitle like "1. (Key Characteristic)" -> "(Key Characteristic)".
-// Real list items (e.g. "1. Calcination of Kaolinite clay") aren't fully
-// parenthesized, so they're left untouched.
 const cleanListLine = (line: string): string => {
   const match = line.match(/^[A-Za-z0-9]+[.)]\s*(\(.+\))$/);
   return match ? match[1] : line;

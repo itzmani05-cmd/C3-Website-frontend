@@ -53,7 +53,7 @@ export default function AdminPanel({ onLogout }: AdminPanelProps) {
   const sidebarContent = (
     <>
       <div className="flex items-center gap-3 border-b border-white/10 px-5 py-5">
-        <img src="/C3AppLogo.png" alt="C³" className="h-9 w-9 rounded-lg object-contain ring-1 ring-white/10" />
+        <img src="/C3AppLogo-128.png" alt="C³" className="h-9 w-9 rounded-lg object-contain ring-1 ring-white/10" />
         <div className="min-w-0 leading-tight">
           <h2 className="font-heading truncate text-base font-bold text-white">Admin Portal</h2>
           <p className="truncate text-[11px] text-slate-500">C³ Institute</p>
@@ -126,7 +126,7 @@ export default function AdminPanel({ onLogout }: AdminPanelProps) {
 
       <header className="fixed inset-x-0 top-0 z-30 flex items-center justify-between border-b border-slate-200 bg-white px-4 py-3 shadow-soft-sm md:hidden">
         <div className="flex items-center gap-2">
-          <img src="/C3AppLogo.png" alt="C³" className="h-7 w-7 rounded-md object-contain" />
+          <img src="/C3AppLogo-128.png" alt="C³" className="h-7 w-7 rounded-md object-contain" />
           <span className="font-heading text-sm font-bold text-slate-900">Admin Portal</span>
         </div>
         <button

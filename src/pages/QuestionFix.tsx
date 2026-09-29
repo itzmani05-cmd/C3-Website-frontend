@@ -5,7 +5,7 @@ import api from '../api';
 import { detectQuestionType, formatCorrectAnswerLabel } from '../lib/helpers';
 import QuestionForm from '../components/QuestionForm';
 import type { QuestionFormValue } from '../components/QuestionForm';
-import { useModal } from '../components/ui';
+import { Pagination, useModal, usePagination } from '../components/ui';
 import Button from '../components/ui/Button';
 import Card from '../components/ui/Card';
 import { Select } from '../components/ui/Field';
@@ -147,7 +147,6 @@ export default function QuestionFix() {
     }
   }, [destinationMode, unitId, topicId, subtopicId, selectedTestId]);
 
-  // Filters changed since the last search — hide the stale results until Submit is clicked again.
   useEffect(() => {
     setHasSearched(false);
     setQuestions([]);
@@ -402,6 +401,8 @@ export default function QuestionFix() {
     </div>
   );
 
+  const questionsPage = usePagination(visibleQuestions, 10, [filterPart, filterSection]);
+
   if (curriculumLoading) {
     return (
       <div className="mx-auto w-full max-w-5xl xl:max-w-6xl 2xl:max-w-7xl">
@@ -608,7 +609,7 @@ export default function QuestionFix() {
         <EmptyState title="No questions found." description="Try a different unit, topic, test, part, or section — or add a new question above." />
       ) : (
         <div className="flex flex-col gap-4">
-          {visibleQuestions.map((q, idx) => (
+          {questionsPage.pageItems.map((q, idx) => (
             <Card key={q._id} className="overflow-hidden transition-shadow hover:shadow-soft-md">
               <button
                 type="button"
@@ -616,7 +617,7 @@ export default function QuestionFix() {
                 className="flex w-full items-center justify-between gap-3 rounded-t-2xl bg-slate-50 px-5 py-4 text-left"
               >
                 <div className="flex items-center gap-2.5 overflow-hidden">
-                  <span className="shrink-0 font-extrabold text-brand-600">Q{idx + 1}.</span>
+                  <span className="shrink-0 font-extrabold text-brand-600">Q{questionsPage.startIndex + idx + 1}.</span>
                   <span className="truncate font-semibold text-slate-800">
                     {(q.question || '').length > 100 ? `${(q.question || '').substring(0, 100)}...` : q.question}
                   </span>
@@ -661,6 +662,13 @@ export default function QuestionFix() {
               )}
             </Card>
           ))}
+          <Pagination
+            page={questionsPage.page}
+            totalPages={questionsPage.totalPages}
+            totalItems={questionsPage.totalItems}
+            pageSize={questionsPage.pageSize}
+            onPageChange={questionsPage.setPage}
+          />
         </div>
       ))}
     </div>
