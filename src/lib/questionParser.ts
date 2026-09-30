@@ -99,7 +99,7 @@ export const formatSpecialQuestion = (value: string | null | undefined): string 
   return text.replace(/\n{3,}/g, '\n\n').trim();
 };
 
-const META_LINE_REGEX = /^\s*(question\s*type|type|page(?:\s*(?:no\.?|number))?)\s*[:–—-]\s*(.*)$/i;
+const META_LINE_REGEX = /^\s*(question\s*type|type|marks?|page(?:\s*(?:no\.?|number))?)\s*[:–—-]\s*(.*)$/i;
 
 export const normalizeQuestionType = (value: string | null | undefined): QuestionType | undefined => {
   const text = normalizeLine(value).toLowerCase();
@@ -121,6 +121,7 @@ const normalizePage = (value: string): string | undefined => {
 interface QuestionMeta {
   questionType?: QuestionType;
   page?: string;
+  marksValue?: number;
 }
 
 const applyMetaLine = (line: string, meta: QuestionMeta): boolean => {
@@ -128,6 +129,9 @@ const applyMetaLine = (line: string, meta: QuestionMeta): boolean => {
   if (!match) return false;
   if (/type/i.test(match[1])) {
     meta.questionType = normalizeQuestionType(match[2]) ?? meta.questionType;
+  } else if (/mark/i.test(match[1])) {
+    const marks = parseFloat(match[2]);
+    if (marks > 0) meta.marksValue = marks;
   } else {
     meta.page = normalizePage(match[2]) ?? meta.page;
   }

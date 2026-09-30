@@ -16,26 +16,39 @@ import {
   QUESTION_TYPE_LABELS,
   buildNotebookPrompt,
   formatPageRange,
+  resizePlan,
+  totalMarks,
 } from '../lib/promptBuilder';
-import type { PromptConfig, PromptDifficulty, PromptLanguage, PromptQuestionType } from '../lib/promptBuilder';
+import type { PromptConfig, PromptDifficulty, PromptLanguage, PromptQuestionType, QuestionSlot } from '../lib/promptBuilder';
 import type { Exam } from '../types/models';
 
 const NOTEBOOKLM_URL = 'https://notebooklm.google.com/';
 const STORAGE_KEY = 'promptLibrary.lastConfig';
 
-type FormState = Omit<PromptConfig, 'examName' | 'questionCount'> & { questionCount: string };
+type FormState = Omit<PromptConfig, 'examName'> & { questionCount: string };
+
+const DEFAULT_QUESTION_COUNT = 10;
+const PAGE_REGEX = /^(\d+)(?:\s*[-–]\s*(\d+))?$/;
 
 const DEFAULT_FORM: FormState = {
   bookName: '',
-  questionCount: '25',
+  questionCount: String(DEFAULT_QUESTION_COUNT),
   chapter: '',
   pageFrom: '',
   pageTo: '',
   difficulty: 'mixed',
   language: 'english',
-  questionTypes: ['single'],
+  questionPlan: resizePlan([], DEFAULT_QUESTION_COUNT),
   extraInstructions: '',
 };
+
+const parseCount = (value: string): number | null => {
+  const count = Number(value);
+  return Number.isInteger(count) && count >= 1 && count <= MAX_QUESTION_COUNT ? count : null;
+};
+
+const PLAN_CONTROL_CLASSES =
+  'w-full rounded-md border border-slate-200 bg-white px-2.5 py-1.5 text-xs text-slate-900 placeholder:text-slate-400 focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500/30';
 
 const loadSavedForms = (): Record<string, FormState> => {
   try {
@@ -81,6 +94,8 @@ export default function PromptLibrary() {
   const [formError, setFormError] = useState('');
   const [prompt, setPrompt] = useState('');
   const [copied, setCopied] = useState(false);
+  const [bulkType, setBulkType] = useState<PromptQuestionType>('single');
+  const [bulkMarks, setBulkMarks] = useState('1');
 
   useEffect(() => {
     const loadExams = async () => {
@@ -104,7 +119,9 @@ export default function PromptLibrary() {
 
   const openExam = (exam: Exam) => {
     setActiveExam(exam);
-    setForm({ ...DEFAULT_FORM, ...loadSavedForms()[exam._id] });
+    const saved: FormState = { ...DEFAULT_FORM, ...loadSavedForms()[exam._id] };
+    const count = parseCount(saved.questionCount) ?? DEFAULT_QUESTION_COUNT;
+    setForm({ ...saved, questionCount: String(count), questionPlan: resizePlan(saved.questionPlan ?? [], count) });
     setFormError('');
     setPrompt('');
     setCopied(false);
@@ -117,24 +134,40 @@ export default function PromptLibrary() {
     setFormError('');
   };
 
-  const toggleType = (type: PromptQuestionType) => {
-    setForm((prev) => {
-      const has = prev.questionTypes.includes(type);
-      if (has && prev.questionTypes.length === 1) return prev;
-      const order = Object.keys(QUESTION_TYPE_LABELS) as PromptQuestionType[];
-      const next = has ? prev.questionTypes.filter((t) => t !== type) : [...prev.questionTypes, type];
-      return { ...prev, questionTypes: order.filter((t) => next.includes(t)) };
-    });
+  const updateCount = (value: string) => {
+    const count = parseCount(value);
+    setForm((prev) => ({
+      ...prev,
+      questionCount: value,
+      questionPlan: count ? resizePlan(prev.questionPlan, count) : prev.questionPlan,
+    }));
+    setFormError('');
+  };
+
+  const updateSlot = <K extends keyof QuestionSlot>(index: number, key: K, value: QuestionSlot[K]) => {
+    setForm((prev) => ({
+      ...prev,
+      questionPlan: prev.questionPlan.map((slot, i) => (i === index ? { ...slot, [key]: value } : slot)),
+    }));
+    setFormError('');
+  };
+
+  const applyToAll = () => {
+    setForm((prev) => ({
+      ...prev,
+      questionPlan: prev.questionPlan.map((slot) => ({ ...slot, type: bulkType, marks: bulkMarks.trim() || slot.marks })),
+    }));
+    setFormError('');
   };
 
   const handleGenerate = () => {
     if (!activeExam) return;
-    const count = Number(form.questionCount);
+    const count = parseCount(form.questionCount);
     if (!form.bookName.trim()) {
       setFormError('Please enter the book name.');
       return;
     }
-    if (!Number.isInteger(count) || count < 1 || count > MAX_QUESTION_COUNT) {
+    if (!count) {
       setFormError(`Number of questions must be between 1 and ${MAX_QUESTION_COUNT}.`);
       return;
     }
@@ -152,8 +185,35 @@ export default function PromptLibrary() {
       return;
     }
 
+    for (let i = 0; i < form.questionPlan.length; i++) {
+      const slot = form.questionPlan[i];
+      const marks = Number(slot.marks);
+      if (!slot.marks.trim() || !(marks > 0)) {
+        setFormError(`Question ${i + 1}: marks must be a number greater than 0.`);
+        return;
+      }
+      const page = slot.page.trim();
+      if (!page) continue;
+      const pageMatch = page.match(PAGE_REGEX);
+      if (!pageMatch) {
+        setFormError(`Question ${i + 1}: page must be a number like 45 or a range like 45-46.`);
+        return;
+      }
+      const start = Number(pageMatch[1]);
+      const end = Number(pageMatch[2] ?? pageMatch[1]);
+      if (start < 1 || start > end) {
+        setFormError(`Question ${i + 1}: page range "${page}" is not valid.`);
+        return;
+      }
+      if ((form.pageFrom.trim() && start < pageFrom) || (form.pageTo.trim() && end > pageTo)) {
+        setFormError(`Question ${i + 1}: page ${page} is outside ${formatPageRange(form.pageFrom, form.pageTo).toLowerCase()}.`);
+        return;
+      }
+    }
+
+    const { questionCount: _count, ...config } = form;
     saveForm(activeExam._id, form);
-    setPrompt(buildNotebookPrompt({ ...form, examName: activeExam.name, questionCount: count }));
+    setPrompt(buildNotebookPrompt({ ...config, examName: activeExam.name }));
     setCopied(false);
   };
 
@@ -245,7 +305,7 @@ export default function PromptLibrary() {
         <h3 className="mb-3 text-sm font-semibold uppercase tracking-wide text-slate-500">How it works</h3>
         <ol className="grid grid-cols-1 gap-3 text-sm text-slate-600 sm:grid-cols-3">
           {[
-            ['Generate', 'Pick an exam, enter the book name and number of questions.'],
+            ['Generate', 'Pick an exam, enter the book and number of questions, then set the type, marks and page for each question.'],
             ['Paste in NotebookLM', 'Upload the book as a source in NotebookLM and paste the copied prompt in the chat.'],
             ['Extract', 'Copy NotebookLM’s answer into the Extractor tab — it is already in the right format.'],
           ].map(([title, text], idx) => (
@@ -326,7 +386,8 @@ export default function PromptLibrary() {
               {formatPageRange(form.pageFrom, form.pageTo) && (
                 <span className="rounded-full bg-slate-100 px-2.5 py-1 font-semibold text-slate-600">{formatPageRange(form.pageFrom, form.pageTo)}</span>
               )}
-              <span className="rounded-full bg-slate-100 px-2.5 py-1 font-semibold text-slate-600">{form.questionCount} questions</span>
+              <span className="rounded-full bg-slate-100 px-2.5 py-1 font-semibold text-slate-600">{form.questionPlan.length} questions</span>
+              <span className="rounded-full bg-slate-100 px-2.5 py-1 font-semibold text-slate-600">{totalMarks(form.questionPlan)} marks</span>
               <span className="rounded-full bg-slate-100 px-2.5 py-1 font-semibold text-slate-600">{DIFFICULTY_LABELS[form.difficulty]}</span>
               <span className="rounded-full bg-slate-100 px-2.5 py-1 font-semibold text-slate-600">{LANGUAGE_LABELS[form.language]}</span>
             </div>
@@ -354,7 +415,7 @@ export default function PromptLibrary() {
                 min={1}
                 max={MAX_QUESTION_COUNT}
                 value={form.questionCount}
-                onChange={(e) => updateForm('questionCount', e.target.value)}
+                onChange={(e) => updateCount(e.target.value)}
               />
             </div>
 
@@ -401,29 +462,84 @@ export default function PromptLibrary() {
               </Select>
             </div>
 
-            <div>
-              <p className="mb-1.5 text-sm font-medium text-slate-700">Question types</p>
-              <div className="flex flex-wrap gap-2">
-                {(Object.keys(QUESTION_TYPE_LABELS) as PromptQuestionType[]).map((type) => {
-                  const selected = form.questionTypes.includes(type);
-                  return (
-                    <button
-                      key={type}
-                      type="button"
-                      onClick={() => toggleType(type)}
-                      aria-pressed={selected}
-                      className={[
-                        'inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs font-semibold transition-colors',
-                        selected
-                          ? 'border-brand-500 bg-brand-50 text-brand-700'
-                          : 'border-slate-200 bg-white text-slate-500 hover:border-slate-300 hover:text-slate-700',
-                      ].join(' ')}
+            <div className="rounded-xl border border-slate-200">
+              <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-100 px-4 py-3">
+                <div>
+                  <p className="text-sm font-semibold text-slate-800">Question plan</p>
+                  <p className="text-xs text-slate-400">
+                    {form.questionPlan.length} questions · {totalMarks(form.questionPlan)} marks · leave page empty to let NotebookLM choose
+                  </p>
+                </div>
+                <div className="flex flex-wrap items-center gap-2">
+                  <select
+                    aria-label="Type for all questions"
+                    value={bulkType}
+                    onChange={(e) => setBulkType(e.target.value as PromptQuestionType)}
+                    className={[PLAN_CONTROL_CLASSES, 'w-auto cursor-pointer'].join(' ')}
+                  >
+                    {(Object.keys(QUESTION_TYPE_LABELS) as PromptQuestionType[]).map((type) => (
+                      <option key={type} value={type}>
+                        {QUESTION_TYPE_LABELS[type]}
+                      </option>
+                    ))}
+                  </select>
+                  <input
+                    aria-label="Marks for all questions"
+                    type="number"
+                    min={0.5}
+                    step={0.5}
+                    value={bulkMarks}
+                    onChange={(e) => setBulkMarks(e.target.value)}
+                    className={[PLAN_CONTROL_CLASSES, 'w-16'].join(' ')}
+                  />
+                  <Button variant="secondary" size="sm" onClick={applyToAll}>
+                    Apply to all
+                  </Button>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-[2.25rem_minmax(0,1fr)_4.5rem_5.5rem] gap-2 border-b border-slate-100 bg-slate-50 px-4 py-2 text-[11px] font-semibold uppercase tracking-wide text-slate-500">
+                <span>#</span>
+                <span>Type</span>
+                <span>Marks</span>
+                <span>Page</span>
+              </div>
+              <div className="scrollbar-thin max-h-72 overflow-y-auto px-4 py-2">
+                {form.questionPlan.map((slot, idx) => (
+                  <div key={idx} className="grid grid-cols-[2.25rem_minmax(0,1fr)_4.5rem_5.5rem] items-center gap-2 py-1">
+                    <span className="flex size-7 items-center justify-center rounded-md bg-brand-100 text-[11px] font-bold text-brand-700">
+                      {idx + 1}
+                    </span>
+                    <select
+                      aria-label={`Question ${idx + 1} type`}
+                      value={slot.type}
+                      onChange={(e) => updateSlot(idx, 'type', e.target.value as PromptQuestionType)}
+                      className={[PLAN_CONTROL_CLASSES, 'cursor-pointer'].join(' ')}
                     >
-                      {selected && <Check className="size-3.5" />}
-                      {QUESTION_TYPE_LABELS[type]}
-                    </button>
-                  );
-                })}
+                      {(Object.keys(QUESTION_TYPE_LABELS) as PromptQuestionType[]).map((type) => (
+                        <option key={type} value={type}>
+                          {QUESTION_TYPE_LABELS[type]}
+                        </option>
+                      ))}
+                    </select>
+                    <input
+                      aria-label={`Question ${idx + 1} marks`}
+                      type="number"
+                      min={0.5}
+                      step={0.5}
+                      value={slot.marks}
+                      onChange={(e) => updateSlot(idx, 'marks', e.target.value)}
+                      className={PLAN_CONTROL_CLASSES}
+                    />
+                    <input
+                      aria-label={`Question ${idx + 1} page`}
+                      value={slot.page}
+                      onChange={(e) => updateSlot(idx, 'page', e.target.value)}
+                      placeholder="Any"
+                      className={PLAN_CONTROL_CLASSES}
+                    />
+                  </div>
+                ))}
               </div>
             </div>
 

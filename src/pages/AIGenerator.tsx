@@ -683,6 +683,7 @@ export default function AIGenerator() {
                       <h3 className="text-sm font-semibold text-slate-900">Question {idx + 1}</h3>
                       <p className="text-xs text-slate-400">
                         {q.questionType ?? detectQuestionType(q.question)}
+                        {!(q.part && q.section) && q.marksValue && ` · ${q.marksValue} mark${q.marksValue === 1 ? '' : 's'}`}
                         {q.page && ` · Page ${q.page}`}
                         {q.part && q.section && ` · ${q.part} · ${q.section} · ${q.marksValue ?? 1} mark${(q.marksValue ?? 1) === 1 ? '' : 's'}`}
                       </p>
