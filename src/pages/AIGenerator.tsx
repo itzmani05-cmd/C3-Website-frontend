@@ -309,7 +309,7 @@ export default function AIGenerator() {
         part: q.part || '',
         section: q.section || '',
         marks: q.marksValue ?? 1,
-        type: detectQuestionType(q.question),
+        type: q.questionType ?? detectQuestionType(q.question),
         answerType,
         question: q.question,
         questionImage: q.questionImage,
@@ -325,7 +325,7 @@ export default function AIGenerator() {
       unitId,
       topicId,
       subtopicId,
-      type: detectQuestionType(q.question),
+      type: q.questionType ?? detectQuestionType(q.question),
       answerType,
       question: q.question,
       questionImage: q.questionImage,
@@ -682,7 +682,8 @@ export default function AIGenerator() {
                     <div>
                       <h3 className="text-sm font-semibold text-slate-900">Question {idx + 1}</h3>
                       <p className="text-xs text-slate-400">
-                        {detectQuestionType(q.question)}
+                        {q.questionType ?? detectQuestionType(q.question)}
+                        {q.page && ` · Page ${q.page}`}
                         {q.part && q.section && ` · ${q.part} · ${q.section} · ${q.marksValue ?? 1} mark${(q.marksValue ?? 1) === 1 ? '' : 's'}`}
                       </p>
                     </div>

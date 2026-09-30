@@ -1,5 +1,5 @@
 import { normalizeOptionKey } from './helpers';
-import type { AnswerType, OptionKey, QuestionOptionImages, QuestionOptions } from '../types/models';
+import type { AnswerType, OptionKey, QuestionOptionImages, QuestionOptions, QuestionType } from '../types/models';
 
 export interface DraftQuestion {
   id: number;
@@ -16,6 +16,8 @@ export interface DraftQuestion {
   part?: string;
   section?: string;
   marksValue?: number;
+  questionType?: QuestionType;
+  page?: string;
 }
 
 export const normalizeLine = (value: string | null | undefined): string => {
@@ -95,6 +97,51 @@ export const formatSpecialQuestion = (value: string | null | undefined): string 
   }
 
   return text.replace(/\n{3,}/g, '\n\n').trim();
+};
+
+const META_LINE_REGEX = /^\s*(question\s*type|type|page(?:\s*(?:no\.?|number))?)\s*[:–—-]\s*(.*)$/i;
+
+export const normalizeQuestionType = (value: string | null | undefined): QuestionType | undefined => {
+  const text = normalizeLine(value).toLowerCase();
+  if (!text) return undefined;
+  if (/assertion/.test(text)) return 'Assertion-Reason';
+  if (/match/.test(text)) return 'Match the Following';
+  if (/statement|true\s*\/\s*false/.test(text)) return 'Statement type (True/False)';
+  if (/numer|\bnat\b|problem/.test(text)) return 'Numerical/Problem-based';
+  if (/diagram/.test(text)) return 'Diagram-based';
+  if (/mcq|theory|single|multiple|choice/.test(text)) return 'Theory-based MCQ';
+  return undefined;
+};
+
+const normalizePage = (value: string): string | undefined => {
+  const text = normalizeLine(value).replace(/^(?:page|pg|p)\.?\s*(?:no\.?)?\s*/i, '');
+  return !text || /^(?:n\/?a|none|unknown|-)$/i.test(text) ? undefined : text;
+};
+
+interface QuestionMeta {
+  questionType?: QuestionType;
+  page?: string;
+}
+
+const applyMetaLine = (line: string, meta: QuestionMeta): boolean => {
+  const match = line.match(META_LINE_REGEX);
+  if (!match) return false;
+  if (/type/i.test(match[1])) {
+    meta.questionType = normalizeQuestionType(match[2]) ?? meta.questionType;
+  } else {
+    meta.page = normalizePage(match[2]) ?? meta.page;
+  }
+  return true;
+};
+
+const extractMetaLines = (block: string): { body: string; meta: QuestionMeta } => {
+  const meta: QuestionMeta = {};
+  const body = block
+    .replace(/\r\n?/g, '\n')
+    .split('\n')
+    .filter((line) => !applyMetaLine(line, meta))
+    .join('\n');
+  return { body, meta };
 };
 
 export const extractOptionKeyFromText = (value: string | null | undefined): OptionKey | null => {
@@ -214,7 +261,8 @@ export const splitQuestionBlocks = (text: string): string[] => {
 };
 
 export const parseQuestionBlock = (block: string, idx: number, subcategory: string): DraftQuestion | null => {
-  const compactBlock = normalizeLine(block);
+  const { body, meta } = extractMetaLines(block);
+  const compactBlock = normalizeLine(body);
   if (!compactBlock) return null;
 
   const optionsMatch = compactBlock.match(/\b(?:options?|choices?|answer choices?|விருப்பங்கள்|தேர்வுகள்)\s*[:–—-]?\s*/iu);
@@ -251,6 +299,7 @@ export const parseQuestionBlock = (block: string, idx: number, subcategory: stri
       questionImage: null,
       explanationImage: null,
       subcategory,
+      ...meta,
     };
   }
 
@@ -303,6 +352,7 @@ export const parseQuestionBlock = (block: string, idx: number, subcategory: stri
     questionImage: null,
     explanationImage: null,
     subcategory,
+    ...meta,
   };
 };
 
@@ -373,6 +423,12 @@ export const parseLineByLine = (pastedContent: string, subcategory: string): Dra
     const qMatch = trimmed.match(QUESTION_START_REGEX);
     if (qMatch) {
       startQuestion(trimmed.slice(qMatch[0].length), idx);
+      return;
+    }
+
+    if (currentQuestion && applyMetaLine(trimmed, currentQuestion)) {
+      currentSection = null;
+      currentOptionKey = null;
       return;
     }
 

@@ -10,12 +10,14 @@ import {
   Lightbulb,
   LogOut,
   Menu,
+  Sparkles,
   Trophy,
   Users,
   Wrench,
   X,
 } from 'lucide-react';
 import AIGenerator from './AIGenerator';
+import PromptLibrary from './PromptLibrary';
 import PdfDownload from './PdfDownload';
 import QuestionFix from './QuestionFix';
 import ManageExams from './ManageExams';
@@ -28,11 +30,12 @@ interface AdminPanelProps {
   onLogout: () => void;
 }
 
-type TabKey = 'ai' | 'pdf' | 'fix' | 'exams' | 'tests' | 'dailyChallenge' | 'students' | 'results';
+type TabKey = 'ai' | 'prompts' | 'pdf' | 'fix' | 'exams' | 'tests' | 'dailyChallenge' | 'students' | 'results';
 type Section = 'Content' | 'Management';
 
 const TABS: { key: TabKey; label: string; icon: ComponentType<{ className?: string }>; Component: ComponentType; section: Section }[] = [
   { key: 'ai', label: 'Extractor', icon: Lightbulb, Component: AIGenerator, section: 'Content' },
+  { key: 'prompts', label: 'Prompts', icon: Sparkles, Component: PromptLibrary, section: 'Content' },
   { key: 'pdf', label: 'PDF Download', icon: Download, Component: PdfDownload, section: 'Content' },
   { key: 'fix', label: 'Question Fix', icon: Wrench, Component: QuestionFix, section: 'Content' },
   { key: 'exams', label: 'Manage Exams', icon: GraduationCap, Component: ManageExams, section: 'Management' },

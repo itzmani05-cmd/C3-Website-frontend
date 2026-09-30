@@ -161,7 +161,7 @@ export default function DailyChallengeQuestionPicker({ examId, selected, onChang
         unitId: sel.unitId,
         topicId: sel.topicId || null,
         subtopicId: sel.subtopicId || null,
-        type: detectQuestionType(draft.question),
+        type: draft.questionType ?? detectQuestionType(draft.question),
         answerType: draft.answerType || 'single',
         question: draft.question,
         questionImage: draft.questionImage,
