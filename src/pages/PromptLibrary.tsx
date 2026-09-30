@@ -15,6 +15,7 @@ import {
   MAX_QUESTION_COUNT,
   QUESTION_TYPE_LABELS,
   buildNotebookPrompt,
+  formatPageRange,
 } from '../lib/promptBuilder';
 import type { PromptConfig, PromptDifficulty, PromptLanguage, PromptQuestionType } from '../lib/promptBuilder';
 import type { Exam } from '../types/models';
@@ -28,6 +29,8 @@ const DEFAULT_FORM: FormState = {
   bookName: '',
   questionCount: '25',
   chapter: '',
+  pageFrom: '',
+  pageTo: '',
   difficulty: 'mixed',
   language: 'english',
   questionTypes: ['single'],
@@ -133,6 +136,19 @@ export default function PromptLibrary() {
     }
     if (!Number.isInteger(count) || count < 1 || count > MAX_QUESTION_COUNT) {
       setFormError(`Number of questions must be between 1 and ${MAX_QUESTION_COUNT}.`);
+      return;
+    }
+    const pageFrom = Number(form.pageFrom);
+    const pageTo = Number(form.pageTo);
+    if (
+      (form.pageFrom.trim() && (!Number.isInteger(pageFrom) || pageFrom < 1)) ||
+      (form.pageTo.trim() && (!Number.isInteger(pageTo) || pageTo < 1))
+    ) {
+      setFormError('Page numbers must be whole numbers of 1 or more.');
+      return;
+    }
+    if (form.pageFrom.trim() && form.pageTo.trim() && pageFrom > pageTo) {
+      setFormError('"From page" cannot be after "To page".');
       return;
     }
 
@@ -307,6 +323,9 @@ export default function PromptLibrary() {
             <div className="flex flex-wrap items-center gap-2 text-xs text-slate-500">
               <span className="rounded-full bg-brand-100 px-2.5 py-1 font-semibold text-brand-700">{form.bookName}</span>
               {form.chapter && <span className="rounded-full bg-slate-100 px-2.5 py-1 font-semibold text-slate-600">{form.chapter}</span>}
+              {formatPageRange(form.pageFrom, form.pageTo) && (
+                <span className="rounded-full bg-slate-100 px-2.5 py-1 font-semibold text-slate-600">{formatPageRange(form.pageFrom, form.pageTo)}</span>
+              )}
               <span className="rounded-full bg-slate-100 px-2.5 py-1 font-semibold text-slate-600">{form.questionCount} questions</span>
               <span className="rounded-full bg-slate-100 px-2.5 py-1 font-semibold text-slate-600">{DIFFICULTY_LABELS[form.difficulty]}</span>
               <span className="rounded-full bg-slate-100 px-2.5 py-1 font-semibold text-slate-600">{LANGUAGE_LABELS[form.language]}</span>
@@ -339,12 +358,31 @@ export default function PromptLibrary() {
               />
             </div>
 
-            <Input
-              label="Chapter / topic (optional)"
-              value={form.chapter}
-              onChange={(e) => updateForm('chapter', e.target.value)}
-              placeholder="Leave empty to cover the whole book"
-            />
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-4">
+              <Input
+                label="Chapter / topic (optional)"
+                value={form.chapter}
+                onChange={(e) => updateForm('chapter', e.target.value)}
+                placeholder="Leave empty to cover the whole book"
+                wrapperClassName="sm:col-span-2"
+              />
+              <Input
+                label="From page"
+                type="number"
+                min={1}
+                value={form.pageFrom}
+                onChange={(e) => updateForm('pageFrom', e.target.value)}
+                placeholder="e.g. 45"
+              />
+              <Input
+                label="To page"
+                type="number"
+                min={1}
+                value={form.pageTo}
+                onChange={(e) => updateForm('pageTo', e.target.value)}
+                placeholder="e.g. 60"
+              />
+            </div>
 
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
               <Select label="Difficulty" value={form.difficulty} onChange={(e) => updateForm('difficulty', e.target.value as PromptDifficulty)}>

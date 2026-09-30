@@ -7,6 +7,8 @@ export interface PromptConfig {
   bookName: string;
   questionCount: number;
   chapter: string;
+  pageFrom: string;
+  pageTo: string;
   difficulty: PromptDifficulty;
   language: PromptLanguage;
   questionTypes: PromptQuestionType[];
@@ -92,12 +94,28 @@ Page: 31`,
 const numberTemplates = (types: PromptQuestionType[]) =>
   types.map((type, idx) => TYPE_TEMPLATES[type].replace(/^\d+\./, `${idx + 1}.`)).join('\n\n');
 
-export const buildNotebookPrompt = (config: PromptConfig): string => {
+export const formatPageRange = (from: string, to: string): string => {
+  const start = from.trim();
+  const end = to.trim();
+  if (start && end) return start === end ? `Page ${start}` : `Pages ${start}–${end}`;
+  if (start) return `Pages ${start} onwards`;
+  if (end) return `Pages up to ${end}`;
+  return '';
+};
+
+export const buildNotebookPrompt =(config: PromptConfig): string => {
   const types = config.questionTypes.length > 0 ? config.questionTypes : (['single'] as PromptQuestionType[]);
   const bookName = config.bookName.trim();
   const chapter = config.chapter.trim();
   const extra = config.extraInstructions.trim();
-  const scope = chapter ? `the chapter / topic "${chapter}" of the book "${bookName}"` : `the book "${bookName}"`;
+  const pageRange = formatPageRange(config.pageFrom, config.pageTo);
+  const scope = [
+    pageRange ? `${pageRange.toLowerCase()} of` : '',
+    chapter ? `the chapter / topic "${chapter}" of` : '',
+    `the book "${bookName}"`,
+  ]
+    .filter(Boolean)
+    .join(' ');
   const hasOptionTypes = types.some((t) => t !== 'numerical');
 
   const sections: string[] = [
@@ -109,7 +127,9 @@ Using ONLY the content of ${scope} uploaded in this notebook, create exactly ${c
 
     `SOURCE RULES
 - Every question, option, answer and explanation must be supported by the uploaded source. Do not use outside knowledge.
-- Record the book page number each question is taken from.
+- Record the book page number each question is taken from.${
+      pageRange ? `\n- Use only ${pageRange.toLowerCase()}. Ignore every page outside this range.` : ''
+    }
 - If the source does not contain enough material for ${config.questionCount} good questions, create as many as the source supports and stop. Never invent facts.
 - Cover the material broadly; do not ask the same concept twice.`,
 
