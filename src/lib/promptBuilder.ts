@@ -4,7 +4,7 @@ export type PromptLanguage = 'english' | 'tamil' | 'bilingual';
 
 export interface PagePlanRow {
   page: string;
-  count: string;
+  questionNo: string;
   type: PromptQuestionType;
   marks: string;
 }
@@ -42,7 +42,6 @@ export const LANGUAGE_LABELS: Record<PromptLanguage, string> = {
 };
 
 export const MAX_QUESTION_COUNT = 100;
-export const MAX_QUESTIONS_PER_PAGE = 50;
 // Prompts longer than this are split into parts that are pasted into NotebookLM one after another.
 export const NOTEBOOKLM_CHAR_LIMIT = 2000;
 
@@ -68,28 +67,27 @@ const TYPE_HINTS: Partial<Record<PromptQuestionType, string>> = {
 };
 
 export const createRow = (previous?: PagePlanRow): PagePlanRow => ({
-  page: '',
-  count: '1',
+  page: previous?.page ?? '',
+  questionNo: previous ? nextQuestionNo(previous.questionNo) : '',
   type: previous?.type ?? 'single',
   marks: previous?.marks ?? '1',
 });
 
-export const rowCount = (row: PagePlanRow): number => {
-  const count = Number(row.count);
-  return Number.isInteger(count) && count > 0 ? count : 0;
+// "1.1" -> "1.2", "Q9" -> "Q10"; anything without a trailing number is left empty.
+export const nextQuestionNo = (questionNo: string): string => {
+  const match = questionNo.trim().match(/^(.*?)(\d+)$/);
+  return match ? `${match[1]}${Number(match[2]) + 1}` : '';
 };
 
-export const totalQuestions = (plan: PagePlanRow[]): number => plan.reduce((sum, row) => sum + rowCount(row), 0);
+export const totalQuestions = (plan: PagePlanRow[]): number => plan.length;
 
-export const totalMarks = (plan: PagePlanRow[]): number =>
-  plan.reduce((sum, row) => sum + rowCount(row) * (Number(row.marks) || 0), 0);
+export const totalMarks = (plan: PagePlanRow[]): number => plan.reduce((sum, row) => sum + (Number(row.marks) || 0), 0);
 
-const planLine = (row: PagePlanRow, first: number): string => {
-  const count = rowCount(row);
-  const last = first + count - 1;
-  const range = count === 1 ? `Q${first}` : `Q${first}-Q${last}`;
+const planLine = (row: PagePlanRow, number: number): string => {
   const page = row.page.trim() ? `PDF page ${row.page.trim()}` : 'any page';
-  return `${range}: ${page}, ${QUESTION_TYPE_LABELS[row.type]}, ${row.marks.trim()} mark${row.marks.trim() === '1' ? '' : 's'}`;
+  const source = row.questionNo.trim() ? `question no. ${row.questionNo.trim()}` : 'new question';
+  const marks = row.marks.trim();
+  return `Q${number}: ${page}, ${source}, ${QUESTION_TYPE_LABELS[row.type]}, ${marks} mark${marks === '1' ? '' : 's'}`;
 };
 
 const buildRules = (config: PromptConfig, types: PromptQuestionType[]): string => {
@@ -100,11 +98,12 @@ const buildRules = (config: PromptConfig, types: PromptQuestionType[]): string =
   const hints = types.map((t) => TYPE_HINTS[t]).filter(Boolean);
 
   return [
-    `You are a ${config.examName} question-paper setter. Using ONLY ${source} in this notebook (no outside knowledge), write the questions in the plan below. Difficulty: ${DIFFICULTY_TEXT[config.difficulty]}; higher marks = harder question.`,
+    `You are a ${config.examName} question-paper setter. Using ONLY ${source} in this notebook (no outside knowledge), prepare the questions in the plan below. Difficulty: ${DIFFICULTY_TEXT[config.difficulty]}; higher marks = harder question.`,
     `RULES
 - Page numbers are PDF page numbers: the 1st page of the PDF file (cover included) is PDF page 1. Ignore the page numbers printed in the book.
-- Each question comes only from its plan PDF page and is of its plan type. Skip a number if the page lacks material; never invent facts.
-- 4 options (a)-(d), plausible distractors, no "All/None of the above", vary the correct letter.
+- "question no. X" = the question numbered X printed on that PDF page. Reproduce it with its original wording and options (fix only formatting), then give its correct answer and explanation.
+- "new question" = write an original question from that PDF page: 4 options (a)-(d), plausible distractors, no "All/None of the above".
+- Use the plan type and marks. Skip a number if it cannot be found on that page; never invent facts.
 - Explanation: 1-3 sentences.${LANGUAGE_TEXT[config.language] ? `\n${LANGUAGE_TEXT[config.language]}` : ''}`,
     `FORMAT (strict, plain text, no markdown, no citations, no intro or summary, blank line between questions):
 1. <question on ONE line>
@@ -114,7 +113,7 @@ Explanation: <ONE line>
 Marks: <plan marks>
 Type: <plan type>
 Page: <PDF page, or N/A>
-Number questions as in the plan. Never write the labels (Options:, Answer:, etc.) inside question or explanation text.${hints.length ? `\n${hints.join('\n')}` : ''}`,
+Number questions Q1 = 1, Q2 = 2 … as in the plan (not the book's question numbers). Never write the labels (Options:, Answer:, etc.) inside question or explanation text.${hints.length ? `\n${hints.join('\n')}` : ''}`,
     extra ? `EXTRA\n${extra}` : '',
   ]
     .filter(Boolean)
@@ -126,17 +125,12 @@ Number questions as in the plan. Never write the labels (Options:, Answer:, etc.
  * otherwise several parts: the first carries the rules, the rest continue the plan.
  */
 export const buildNotebookPrompts = (config: PromptConfig, limit = NOTEBOOKLM_CHAR_LIMIT): string[] => {
-  const plan = config.pagePlan.filter((row) => rowCount(row) > 0);
+  const plan = config.pagePlan;
   const count = totalQuestions(plan);
   const types = (Object.keys(QUESTION_TYPE_LABELS) as PromptQuestionType[]).filter((t) => plan.some((row) => row.type === t));
   const rules = buildRules(config, types);
 
-  let next = 1;
-  const lines = plan.map((row) => {
-    const line = planLine(row, next);
-    next += rowCount(row);
-    return { line, last: next - 1 };
-  });
+  const lines = plan.map((row, idx) => ({ line: planLine(row, idx + 1), last: idx + 1 }));
 
   const header = (part: number, parts: number) =>
     parts === 1 ? `PLAN (${count} questions, ${totalMarks(plan)} marks)` : `PLAN part ${part}/${parts}`;
