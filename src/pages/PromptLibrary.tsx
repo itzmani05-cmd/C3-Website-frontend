@@ -164,7 +164,7 @@ export default function PromptLibrary() {
 
     for (let i = 0; i < form.pagePlan.length; i++) {
       const row = form.pagePlan[i];
-      const label = row.page.trim() ? `Page ${row.page.trim()}` : `Row ${i + 1}`;
+      const label = row.page.trim() ? `PDF page ${row.page.trim()}` : `Row ${i + 1}`;
       const count = Number(row.count);
       if (!Number.isInteger(count) || count < 1 || count > MAX_QUESTIONS_PER_PAGE) {
         setFormError(`${label}: number of questions must be between 1 and ${MAX_QUESTIONS_PER_PAGE}.`);
@@ -178,7 +178,7 @@ export default function PromptLibrary() {
       if (!page) continue;
       const pageMatch = page.match(PAGE_REGEX);
       if (!pageMatch) {
-        setFormError(`Row ${i + 1}: page must be a number like 45 or a range like 45-46.`);
+        setFormError(`Row ${i + 1}: PDF page must be a number like 45 or a range like 45-46.`);
         return;
       }
       const start = Number(pageMatch[1]);
@@ -295,7 +295,7 @@ export default function PromptLibrary() {
         <h3 className="mb-3 text-sm font-semibold uppercase tracking-wide text-slate-500">How it works</h3>
         <ol className="grid grid-cols-1 gap-3 text-sm text-slate-600 sm:grid-cols-3">
           {[
-            ['Generate', 'Pick an exam, enter the book, then add each page with how many questions to take from it, their type and marks.'],
+            ['Generate', 'Pick an exam, enter the book, then add each PDF page with how many questions to take from it, their type and marks.'],
             ['Paste in NotebookLM', 'Upload the book as a source in NotebookLM and paste the copied prompt in the chat. Long plans are split into parts — paste them one by one.'],
             ['Extract', 'Copy NotebookLM’s answer into the Extractor tab — it is already in the right format.'],
           ].map(([title, text], idx) => (
@@ -450,7 +450,7 @@ export default function PromptLibrary() {
                 <div>
                   <p className="text-sm font-semibold text-slate-800">Questions per page</p>
                   <p className="text-xs text-slate-400">
-                    {planQuestions} questions · {planMarks} marks · leave page empty to let NotebookLM choose
+                    {planQuestions} questions · {planMarks} marks · page = PDF page number (the number in your PDF viewer, not the printed book page) · leave empty to let NotebookLM choose
                   </p>
                 </div>
                 <Button variant="secondary" size="sm" icon={<Plus className="size-3.5" />} onClick={addRow}>
@@ -462,7 +462,7 @@ export default function PromptLibrary() {
                 <div className="min-w-[30rem]">
                   <div className={`${PLAN_GRID} border-b border-slate-100 bg-slate-50 px-4 py-2 text-[11px] font-semibold uppercase tracking-wide text-slate-500`}>
                     <span>#</span>
-                    <span>Page</span>
+                    <span>PDF page</span>
                     <span>Questions</span>
                     <span>Type</span>
                     <span>Marks</span>
@@ -475,7 +475,7 @@ export default function PromptLibrary() {
                           {idx + 1}
                         </span>
                         <input
-                          aria-label={`Row ${idx + 1} page`}
+                          aria-label={`Row ${idx + 1} PDF page`}
                           value={row.page}
                           onChange={(e) => updateRow(idx, 'page', e.target.value)}
                           placeholder="Any"

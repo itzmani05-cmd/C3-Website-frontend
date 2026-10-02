@@ -88,7 +88,7 @@ const planLine = (row: PagePlanRow, first: number): string => {
   const count = rowCount(row);
   const last = first + count - 1;
   const range = count === 1 ? `Q${first}` : `Q${first}-Q${last}`;
-  const page = row.page.trim() ? `page ${row.page.trim()}` : 'any page';
+  const page = row.page.trim() ? `PDF page ${row.page.trim()}` : 'any page';
   return `${range}: ${page}, ${QUESTION_TYPE_LABELS[row.type]}, ${row.marks.trim()} mark${row.marks.trim() === '1' ? '' : 's'}`;
 };
 
@@ -102,7 +102,8 @@ const buildRules = (config: PromptConfig, types: PromptQuestionType[]): string =
   return [
     `You are a ${config.examName} question-paper setter. Using ONLY ${source} in this notebook (no outside knowledge), write the questions in the plan below. Difficulty: ${DIFFICULTY_TEXT[config.difficulty]}; higher marks = harder question.`,
     `RULES
-- Each question comes only from its plan page and is of its plan type. Skip a number if the page lacks material; never invent facts.
+- Page numbers are PDF page numbers: the 1st page of the PDF file (cover included) is PDF page 1. Ignore the page numbers printed in the book.
+- Each question comes only from its plan PDF page and is of its plan type. Skip a number if the page lacks material; never invent facts.
 - 4 options (a)-(d), plausible distractors, no "All/None of the above", vary the correct letter.
 - Explanation: 1-3 sentences.${LANGUAGE_TEXT[config.language] ? `\n${LANGUAGE_TEXT[config.language]}` : ''}`,
     `FORMAT (strict, plain text, no markdown, no citations, no intro or summary, blank line between questions):
@@ -112,7 +113,7 @@ Answer: (b)
 Explanation: <ONE line>
 Marks: <plan marks>
 Type: <plan type>
-Page: <book page, or N/A>
+Page: <PDF page, or N/A>
 Number questions as in the plan. Never write the labels (Options:, Answer:, etc.) inside question or explanation text.${hints.length ? `\n${hints.join('\n')}` : ''}`,
     extra ? `EXTRA\n${extra}` : '',
   ]
