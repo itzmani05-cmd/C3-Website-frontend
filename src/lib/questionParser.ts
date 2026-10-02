@@ -225,23 +225,36 @@ const LOOSE_OPTION_MARKER_REGEX = /(?:^|[\s/|•·-])([a-dA-D1-4அஆஇஈ])[)
 
 const INLINE_LABEL_REGEX = /\s+(?=(?:Options|Answer|Explanation|Marks|Type|Page)\s*:)/g;
 const BULLET_REGEX = /^\s*(?:[*•]|-(?=\s))\s+/;
-const HAS_QUESTION_PARTS_REGEX = /\b(?:Options|Answer)\s*:/;
+const PART_LABEL_REGEX = /\b(Options|Answer|Explanation)\s*:/g;
+const OPTION_START_REGEX = /^\(?[a-dA-D1-4]\)/;
+
+// A whole question on one line: question text first, then at least two of Options / Answer / Explanation.
+const isOneLineQuestion = (line: string): boolean => {
+  const labels = [...line.matchAll(PART_LABEL_REGEX)];
+  const firstLabel = labels[0]?.index ?? 0;
+  return (
+    new Set(labels.map((m) => m[1])).size >= 2 &&
+    line.slice(0, firstLabel).trim() !== '' &&
+    !OPTION_START_REGEX.test(line.trim())
+  );
+};
 
 /**
  * Chat tools such as NotebookLM render their answer as markdown, so a copied answer often has each
- * question on one line ("* Question Options: … Answer: … Marks: 1 Type: … Page: 1") with bullets
- * instead of numbers. Rewrites those lines into the numbered, one-label-per-line format.
+ * question on one line ("Question Options: … Answer: … Marks: 1 Type: … Page: 1"), with a bullet or
+ * nothing in front instead of a number. Rewrites those lines into the numbered, one-label-per-line format.
  */
 export const normalizeChatOutput = (text: string): string => {
   let number = 0;
   return text
     .replace(/\r\n?/g, '\n')
-    .replace(/\*\*|__/g, '')
+    .replace(/\*\*/g, '')
     .split('\n')
     .map((line) => {
-      if (!HAS_QUESTION_PARTS_REGEX.test(line)) return line;
-      const bullet = line.match(BULLET_REGEX);
-      const numbered = bullet ? `${++number}. ${line.slice(bullet[0].length)}` : line;
+      const unbulleted = line.replace(BULLET_REGEX, '');
+      if (!isOneLineQuestion(unbulleted)) return line;
+      number += 1;
+      const numbered = QUESTION_START_REGEX.test(unbulleted.trim()) ? unbulleted : `${number}. ${unbulleted.trim()}`;
       return numbered.replace(INLINE_LABEL_REGEX, '\n');
     })
     .join('\n');
