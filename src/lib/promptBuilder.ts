@@ -101,7 +101,8 @@ const buildRules = (config: PromptConfig, types: PromptQuestionType[]): string =
     `You are a ${config.examName} question-paper setter. Using ONLY ${source} in this notebook (no outside knowledge), prepare the questions in the plan below. Difficulty: ${DIFFICULTY_TEXT[config.difficulty]}; higher marks = harder question.`,
     `RULES
 - Page numbers are PDF page numbers: the 1st page of the PDF file (cover included) is PDF page 1. Ignore the page numbers printed in the book.
-- "question no. X" = the question numbered X printed on that PDF page. Reproduce it with its original wording and options (fix only formatting), then give its correct answer and explanation.
+- "question no. X" = the question numbered X printed on that PDF page. The first row with X: reproduce it with its original wording and options, then give its correct answer and explanation. Later rows with the same X: write a new question of the plan type on the same concept.
+- Every question must stand alone: never mention question numbers, "the book" or other questions. If it refers to a figure, state the figure's values in words.
 - "new question" = write an original question from that PDF page: 4 options (a)-(d), plausible distractors, no "All/None of the above".
 - Use the plan type and marks. Skip a number if it cannot be found on that page; never invent facts.
 - Explanation: 1-3 sentences.${LANGUAGE_TEXT[config.language] ? `\n${LANGUAGE_TEXT[config.language]}` : ''}`,

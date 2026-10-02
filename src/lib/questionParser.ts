@@ -223,6 +223,30 @@ export const OPTIONS_LABEL_REGEX = /^(?:options?|choices?|answer choices?|வி
 const STRICT_OPTION_MARKER_REGEX = /(?:^|[\s/|•·-])(\([a-dA-D1-4அஆஇஈ]\)|\([a-dA-D1-4அஆஇஈ]\)|\([1-4]\))\s*/gu;
 const LOOSE_OPTION_MARKER_REGEX = /(?:^|[\s/|•·-])([a-dA-D1-4அஆஇஈ])[).:]\s*/gu;
 
+const INLINE_LABEL_REGEX = /\s+(?=(?:Options|Answer|Explanation|Marks|Type|Page)\s*:)/g;
+const BULLET_REGEX = /^\s*(?:[*•]|-(?=\s))\s+/;
+const HAS_QUESTION_PARTS_REGEX = /\b(?:Options|Answer)\s*:/;
+
+/**
+ * Chat tools such as NotebookLM render their answer as markdown, so a copied answer often has each
+ * question on one line ("* Question Options: … Answer: … Marks: 1 Type: … Page: 1") with bullets
+ * instead of numbers. Rewrites those lines into the numbered, one-label-per-line format.
+ */
+export const normalizeChatOutput = (text: string): string => {
+  let number = 0;
+  return text
+    .replace(/\r\n?/g, '\n')
+    .replace(/\*\*|__/g, '')
+    .split('\n')
+    .map((line) => {
+      if (!HAS_QUESTION_PARTS_REGEX.test(line)) return line;
+      const bullet = line.match(BULLET_REGEX);
+      const numbered = bullet ? `${++number}. ${line.slice(bullet[0].length)}` : line;
+      return numbered.replace(INLINE_LABEL_REGEX, '\n');
+    })
+    .join('\n');
+};
+
 export interface OptionToken {
   key: OptionKey;
   text: string;

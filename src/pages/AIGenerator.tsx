@@ -3,7 +3,7 @@ import { Lightbulb } from 'lucide-react';
 import { toast } from 'react-toastify';
 import api from '../api';
 import { detectQuestionType } from '../lib/helpers';
-import { parseQuestionBlock, parseLineByLine, parseOneQuestionPerLine, splitQuestionBlocks } from '../lib/questionParser';
+import { normalizeChatOutput, parseQuestionBlock, parseLineByLine, parseOneQuestionPerLine, splitQuestionBlocks } from '../lib/questionParser';
 import type { DraftQuestion } from '../lib/questionParser';
 import QuestionForm from '../components/QuestionForm';
 import Button from '../components/ui/Button';
@@ -230,15 +230,16 @@ export default function AIGenerator() {
     }
 
     const subcategory = subtopicId || topicId;
-    let raw: DraftQuestion[] = splitQuestionBlocks(pastedContent)
+    const content = normalizeChatOutput(pastedContent);
+    let raw: DraftQuestion[] = splitQuestionBlocks(content)
       .map((block, idx) => parseQuestionBlock(block, idx, subcategory))
       .filter((v): v is DraftQuestion => v !== null);
 
     if (raw.length === 0) {
-      raw = parseLineByLine(pastedContent, subcategory);
+      raw = parseLineByLine(content, subcategory);
     }
     if (raw.length === 0) {
-      raw = parseOneQuestionPerLine(pastedContent, subcategory);
+      raw = parseOneQuestionPerLine(content, subcategory);
     }
 
     if (raw.length === 0) {

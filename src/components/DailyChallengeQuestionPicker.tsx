@@ -3,7 +3,7 @@ import { ArrowDown, ArrowUp, Plus, Sparkles, X } from 'lucide-react';
 import { toast } from 'react-toastify';
 import api from '../api';
 import { detectQuestionType } from '../lib/helpers';
-import { parseLineByLine, parseOneQuestionPerLine, parseQuestionBlock, splitQuestionBlocks } from '../lib/questionParser';
+import { normalizeChatOutput, parseLineByLine, parseOneQuestionPerLine, parseQuestionBlock, splitQuestionBlocks } from '../lib/questionParser';
 import type { DraftQuestion } from '../lib/questionParser';
 import QuestionForm from './QuestionForm';
 import Card from './ui/Card';
@@ -95,17 +95,18 @@ export default function DailyChallengeQuestionPicker({ examId, selected, onChang
       return;
     }
     const subcategory = subtopicId || topicId;
-    const blockQuestions = splitQuestionBlocks(pastedContent)
+    const content = normalizeChatOutput(pastedContent);
+    const blockQuestions = splitQuestionBlocks(content)
       .map((block, idx) => parseQuestionBlock(block, idx, subcategory))
       .filter((v): v is DraftQuestion => v !== null);
 
-    const lineByLineQuestions = blockQuestions.length > 0 ? [] : parseLineByLine(pastedContent, subcategory);
+    const lineByLineQuestions = blockQuestions.length > 0 ? [] : parseLineByLine(content, subcategory);
     const extracted =
       blockQuestions.length > 0
         ? blockQuestions
         : lineByLineQuestions.length > 0
           ? lineByLineQuestions
-          : parseOneQuestionPerLine(pastedContent, subcategory);
+          : parseOneQuestionPerLine(content, subcategory);
 
     if (extracted.length === 0) {
       toast.error('Could not find any questions in the pasted content. Please ensure questions are numbered and options are labeled (a, b, c, d).');
