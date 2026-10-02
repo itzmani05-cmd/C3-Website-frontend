@@ -2,21 +2,20 @@ export type PromptQuestionType = 'single' | 'multiple' | 'numerical' | 'assertio
 export type PromptDifficulty = 'easy' | 'medium' | 'hard' | 'mixed';
 export type PromptLanguage = 'english' | 'tamil' | 'bilingual';
 
-export interface QuestionSlot {
+export interface PagePlanRow {
+  page: string;
+  count: string;
   type: PromptQuestionType;
   marks: string;
-  page: string;
 }
 
 export interface PromptConfig {
   examName: string;
   bookName: string;
   chapter: string;
-  pageFrom: string;
-  pageTo: string;
   difficulty: PromptDifficulty;
   language: PromptLanguage;
-  questionPlan: QuestionSlot[];
+  pagePlan: PagePlanRow[];
   extraInstructions: string;
 }
 
@@ -43,189 +42,134 @@ export const LANGUAGE_LABELS: Record<PromptLanguage, string> = {
 };
 
 export const MAX_QUESTION_COUNT = 100;
+export const MAX_QUESTIONS_PER_PAGE = 50;
+// Prompts longer than this are split into parts that are pasted into NotebookLM one after another.
+export const NOTEBOOKLM_CHAR_LIMIT = 2000;
 
 const DIFFICULTY_TEXT: Record<PromptDifficulty, string> = {
-  easy: 'Easy — direct recall of definitions, facts and basic formulas.',
-  medium: 'Medium — conceptual understanding and one or two step application.',
-  hard: 'Hard — multi-step reasoning, analysis and tricky distractors, at the level of the actual competitive exam.',
-  mixed: 'Mixed — roughly 30% easy, 50% medium and 20% hard.',
+  easy: 'easy (direct recall)',
+  medium: 'medium (concept + 1-2 step application)',
+  hard: 'hard (multi-step reasoning, tricky distractors)',
+  mixed: 'mixed (30% easy, 50% medium, 20% hard)',
 };
 
 const LANGUAGE_TEXT: Record<PromptLanguage, string> = {
-  english: 'Write everything in English.',
-  tamil: 'Write the question, options and explanation in Tamil. Keep the labels "Options:", "Answer:" and "Explanation:" and the option markers (a) (b) (c) (d) in English exactly as shown.',
-  bilingual:
-    'Write the question and every option in English followed by " / " and the Tamil translation on the same line (example: "Which gas is most abundant in air? / காற்றில் அதிகம் உள்ள வாயு எது?"). The explanation may be in English only. Keep the labels "Options:", "Answer:" and "Explanation:" in English.',
+  english: '',
+  tamil: '- Write question, options and explanation in Tamil; keep labels and (a)-(d) in English.',
+  bilingual: '- Write question and each option as "English / Tamil" on the same line; explanation in English; labels in English.',
 };
 
-const TYPE_TEMPLATES: Record<PromptQuestionType, string> = {
-  single: `1. Which of the following is the SI unit of force?
-Options: (a) Joule (b) Newton (c) Watt (d) Pascal
-Answer: (b)
-Explanation: Force is measured in newtons, where 1 N = 1 kg·m/s².
-Marks: 1
-Type: Single-correct MCQ
-Page: 12`,
-  multiple: `2. Which of the following are vector quantities?
-Options: (a) Velocity (b) Mass (c) Force (d) Temperature
-Answer: (a), (c)
-Explanation: Velocity and force have both magnitude and direction; mass and temperature are scalars.
-Marks: 1
-Type: Multiple-correct MCQ
-Page: 15`,
-  numerical: `3. A body of mass 2 kg is accelerated at 3 m/s². What is the force acting on it in newtons?
-Answer: 6
-Explanation: F = m × a = 2 × 3 = 6 N.
-Marks: 2
-Type: Numerical answer (NAT)
-Page: 18`,
-  assertion: `4. Assertion (A): Ice floats on water. Reason (R): Ice has a lower density than liquid water.
-Options: (a) Both A and R are true and R is the correct explanation of A (b) Both A and R are true but R is not the correct explanation of A (c) A is true but R is false (d) A is false but R is true
-Answer: (a)
-Explanation: Water expands on freezing, so ice is less dense and floats; R directly explains A.
-Marks: 2
-Type: Assertion–Reason
-Page: 23`,
-  match: `5. Match the following. List I: A. Newton B. Joule C. Watt D. Pascal List II: 1) Power 2) Pressure 3) Force 4) Energy
-Options: (a) A-3, B-4, C-1, D-2 (b) A-4, B-3, C-2, D-1 (c) A-3, B-1, C-4, D-2 (d) A-2, B-4, C-1, D-3
-Answer: (a)
-Explanation: Newton is the unit of force, joule of energy, watt of power and pascal of pressure.
-Marks: 1
-Type: Match the following
-Page: 9`,
-  statement: `6. Consider the following statements. Statement I: Sound cannot travel through vacuum. Statement II: Light requires a medium to travel. Which of the statements given above is/are correct?
-Options: (a) Statement I only (b) Statement II only (c) Both Statement I and II (d) Neither Statement I nor II
-Answer: (a)
-Explanation: Sound is a mechanical wave and needs a medium, while light is electromagnetic and travels through vacuum.
-Marks: 2
-Type: Statement based
-Page: 31`,
+const TYPE_HINTS: Partial<Record<PromptQuestionType, string>> = {
+  multiple: 'Multiple-correct: "Answer: (a), (c)".',
+  numerical: 'Numerical: no Options line, "Answer: 12.5".',
+  assertion: 'Assertion–Reason: "Assertion (A): … Reason (R): …" with the 4 standard A/R options.',
+  match: 'Match: "List I: A. … B. … List II: 1) … 2) …" on one line, options like "A-3, B-1, C-4, D-2".',
+  statement: 'Statement based: "Statement I: … Statement II: …" on one line.',
 };
 
-const numberTemplates = (types: PromptQuestionType[]) =>
-  types.map((type, idx) => TYPE_TEMPLATES[type].replace(/^\d+\./, `${idx + 1}.`)).join('\n\n');
-
-export const createSlot = (previous?: QuestionSlot): QuestionSlot => ({
+export const createRow = (previous?: PagePlanRow): PagePlanRow => ({
+  page: '',
+  count: '1',
   type: previous?.type ?? 'single',
   marks: previous?.marks ?? '1',
-  page: '',
 });
 
-export const resizePlan = (plan: QuestionSlot[], count: number): QuestionSlot[] => {
-  if (plan.length >= count) return plan.slice(0, count);
-  const next = [...plan];
-  while (next.length < count) next.push(createSlot(next[next.length - 1]));
-  return next;
+export const rowCount = (row: PagePlanRow): number => {
+  const count = Number(row.count);
+  return Number.isInteger(count) && count > 0 ? count : 0;
 };
 
-export const totalMarks = (plan: QuestionSlot[]): number => plan.reduce((sum, slot) => sum + (Number(slot.marks) || 0), 0);
+export const totalQuestions = (plan: PagePlanRow[]): number => plan.reduce((sum, row) => sum + rowCount(row), 0);
 
-export const formatPageRange = (from: string, to: string): string => {
-  const start = from.trim();
-  const end = to.trim();
-  if (start && end) return start === end ? `Page ${start}` : `Pages ${start}–${end}`;
-  if (start) return `Pages ${start} onwards`;
-  if (end) return `Pages up to ${end}`;
-  return '';
+export const totalMarks = (plan: PagePlanRow[]): number =>
+  plan.reduce((sum, row) => sum + rowCount(row) * (Number(row.marks) || 0), 0);
+
+const planLine = (row: PagePlanRow, first: number): string => {
+  const count = rowCount(row);
+  const last = first + count - 1;
+  const range = count === 1 ? `Q${first}` : `Q${first}-Q${last}`;
+  const page = row.page.trim() ? `page ${row.page.trim()}` : 'any page';
+  return `${range}: ${page}, ${QUESTION_TYPE_LABELS[row.type]}, ${row.marks.trim()} mark${row.marks.trim() === '1' ? '' : 's'}`;
 };
 
-export const buildNotebookPrompt = (config: PromptConfig): string => {
-  const plan = config.questionPlan;
-  const count = plan.length;
-  const types = (Object.keys(QUESTION_TYPE_LABELS) as PromptQuestionType[]).filter((t) => plan.some((slot) => slot.type === t));
+const buildRules = (config: PromptConfig, types: PromptQuestionType[]): string => {
   const bookName = config.bookName.trim();
   const chapter = config.chapter.trim();
   const extra = config.extraInstructions.trim();
-  const pageRange = formatPageRange(config.pageFrom, config.pageTo);
-  const scope = [
-    pageRange ? `${pageRange.toLowerCase()} of` : '',
-    chapter ? `the chapter / topic "${chapter}" of` : '',
-    `the book "${bookName}"`,
+  const source = chapter ? `"${chapter}" in the book "${bookName}"` : `the book "${bookName}"`;
+  const hints = types.map((t) => TYPE_HINTS[t]).filter(Boolean);
+
+  return [
+    `You are a ${config.examName} question-paper setter. Using ONLY ${source} in this notebook (no outside knowledge), write the questions in the plan below. Difficulty: ${DIFFICULTY_TEXT[config.difficulty]}; higher marks = harder question.`,
+    `RULES
+- Each question comes only from its plan page and is of its plan type. Skip a number if the page lacks material; never invent facts.
+- 4 options (a)-(d), plausible distractors, no "All/None of the above", vary the correct letter.
+- Explanation: 1-3 sentences.${LANGUAGE_TEXT[config.language] ? `\n${LANGUAGE_TEXT[config.language]}` : ''}`,
+    `FORMAT (strict, plain text, no markdown, no citations, no intro or summary, blank line between questions):
+1. <question on ONE line>
+Options: (a) … (b) … (c) … (d) …
+Answer: (b)
+Explanation: <ONE line>
+Marks: <plan marks>
+Type: <plan type>
+Page: <book page, or N/A>
+Number questions as in the plan. Never write the labels (Options:, Answer:, etc.) inside question or explanation text.${hints.length ? `\n${hints.join('\n')}` : ''}`,
+    extra ? `EXTRA\n${extra}` : '',
   ]
     .filter(Boolean)
-    .join(' ');
-  const hasOptionTypes = types.some((t) => t !== 'numerical');
-  const anyPage = pageRange ? `any page within ${pageRange.toLowerCase()}` : 'any page';
+    .join('\n\n');
+};
 
-  const planRows = plan
-    .map(
-      (slot, idx) =>
-        `Q${idx + 1} | Type: ${QUESTION_TYPE_LABELS[slot.type]} | Marks: ${slot.marks.trim()} | Page: ${slot.page.trim() || anyPage}`
-    )
-    .join('\n');
+/**
+ * Builds the NotebookLM prompt. Returns one part when it fits within NOTEBOOKLM_CHAR_LIMIT,
+ * otherwise several parts: the first carries the rules, the rest continue the plan.
+ */
+export const buildNotebookPrompts = (config: PromptConfig, limit = NOTEBOOKLM_CHAR_LIMIT): string[] => {
+  const plan = config.pagePlan.filter((row) => rowCount(row) > 0);
+  const count = totalQuestions(plan);
+  const types = (Object.keys(QUESTION_TYPE_LABELS) as PromptQuestionType[]).filter((t) => plan.some((row) => row.type === t));
+  const rules = buildRules(config, types);
 
-  const sections: string[] = [
-    `ROLE
-You are a senior question-paper setter for the ${config.examName} examination. You write accurate, exam-standard multiple choice questions strictly from the uploaded source material.`,
+  let next = 1;
+  const lines = plan.map((row) => {
+    const line = planLine(row, next);
+    next += rowCount(row);
+    return { line, last: next - 1 };
+  });
 
-    `TASK
-Using ONLY the content of ${scope} uploaded in this notebook, create exactly ${count} original questions that follow the question plan below.`,
+  const header = (part: number, parts: number) =>
+    parts === 1 ? `PLAN (${count} questions, ${totalMarks(plan)} marks)` : `PLAN part ${part}/${parts}`;
+  const firstFooter = (last: number) => `Write Q1 to Q${last} now.`;
+  const contFooter = (first: number, last: number) =>
+    `Continue with the same rules and format. Write Q${first} to Q${last} now.`;
 
-    `SOURCE RULES
-- Every question, option, answer and explanation must be supported by the uploaded source. Do not use outside knowledge.
-- Record the book page number each question is taken from.${
-      pageRange ? `\n- Use only ${pageRange.toLowerCase()}. Ignore every page outside this range.` : ''
+  const single = `${rules}\n\n${header(1, 1)}\n${lines.map((l) => l.line).join('\n')}\n${firstFooter(count)}`;
+  if (single.length <= limit) return [single];
+
+  // Greedily pack plan lines into chunks, leaving room for the header/footer of each part.
+  const chunks: { line: string; last: number }[][] = [];
+  let current: { line: string; last: number }[] = [];
+  let size = rules.length + 120;
+  for (const l of lines) {
+    if (current.length && size + l.line.length + 1 > limit) {
+      chunks.push(current);
+      current = [];
+      size = 120;
     }
-- If the source does not contain enough material for a question in the plan, skip that question number rather than invent facts.
-- Cover the material broadly; do not ask the same concept twice.`,
-
-    `QUESTION PLAN (follow exactly — question N must match row N)
-${planRows}
-Total: ${count} questions, ${totalMarks(plan)} marks.`,
-
-    `PLAN RULES
-- Each question must be exactly the type given in its row.
-- When a row gives a page number, write that question only from the content of that page, and show that page in its Page line.
-- Marks set the depth of the question: 1 mark = direct recall of a single fact, definition or formula; 2 marks = understanding or a one-to-two step application; 3 or more marks = multi-step reasoning, calculation or combining several concepts. Higher-mark questions must be clearly harder and have more detailed explanations.
-- Overall difficulty: ${DIFFICULTY_TEXT[config.difficulty]}`,
-
-    `QUALITY RULES${
-      hasOptionTypes
-        ? `
-- Every option-based question has exactly four options: (a), (b), (c), (d).
-- Wrong options must be plausible distractors of similar length and style — no "All of the above" or "None of the above".
-- Spread the correct answers across (a), (b), (c) and (d); avoid a predictable pattern.`
-        : ''
-    }
-- Each explanation states why the correct answer is right in one to three sentences.
-- ${LANGUAGE_TEXT[config.language]}`,
-
-    `OUTPUT FORMAT (STRICT — the output is imported by an automatic extractor)
-Follow this exact structure for every question:
-
-<number>. <complete question text on ONE line>
-Options: (a) <option> (b) <option> (c) <option> (d) <option>
-Answer: (<letter>)
-Explanation: <explanation on ONE line>
-Marks: <marks from the plan>
-Type: <question type from the plan>
-Page: <page number in the book>
-
-Formatting rules:
-1. Number questions 1, 2, 3 … followed by a full stop, at the start of the line, matching the plan row numbers.
-2. The whole question stays on a single line. Never put numbered sub-points on new lines; write statements as "Statement I: … Statement II: …" and match lists as "List I: A. … B. … List II: 1) … 2) …" on the same line.
-3. All four options are on ONE line after the label "Options:", each marked (a) (b) (c) (d).
-4. Answer line: "Answer: (b)" for one correct option, "Answer: (a), (c)" for multiple correct options, and just the number (e.g. "Answer: 12.5") for numerical questions. Numerical questions have NO Options line.
-5. Explanation is a single paragraph on ONE line. It must not start any line with a number and must not contain the words "Answer:" or "Options:".
-6. Do not use the words "Options:", "Answer:", "Explanation:", "Marks:", "Type:" or "Page:" inside question text or explanations.
-7. Marks line: the marks from that question's plan row (e.g. "Marks: 2").
-8. Type line: the type from that question's plan row, written exactly as one of these labels — ${types.map((t) => QUESTION_TYPE_LABELS[t]).join(', ')}.
-9. Page line: the page number printed in the book where the answer is found (e.g. "Page: 45", or "Page: 45-46" if it spans pages). If the page number cannot be identified, write "Page: N/A". Never guess a page number.
-10. Leave one blank line between questions.
-11. Plain text only — no markdown, no bold, no tables, no headings, no citations or source numbers like [1].
-12. Output ONLY the questions. No introduction, summary or closing remarks.`,
-
-    `EXAMPLE (format reference only — do not reuse this content)
-
-${numberTemplates(types)}`,
-  ];
-
-  if (extra) {
-    sections.push(`ADDITIONAL INSTRUCTIONS
-${extra}`);
+    current.push(l);
+    size += l.line.length + 1;
   }
+  if (current.length) chunks.push(current);
 
-  sections.push(`Begin now with question 1 and continue until question ${count}.`);
-
-  return sections.join('\n\n');
+  let first = 1;
+  return chunks.map((chunk, idx) => {
+    const last = chunk[chunk.length - 1].last;
+    const body = `${header(idx + 1, chunks.length)}\n${chunk.map((l) => l.line).join('\n')}`;
+    const text =
+      idx === 0
+        ? `${rules}\n\nThe plan is sent in ${chunks.length} parts.\n${body}\n${firstFooter(last)}`
+        : `${body}\n${contFooter(first, last)}`;
+    first = last + 1;
+    return text;
+  });
 };
