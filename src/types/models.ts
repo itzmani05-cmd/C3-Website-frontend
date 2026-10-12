@@ -16,6 +16,7 @@ export interface StudentUser {
 export interface Exam {
   _id: string;
   name: string;
+  archivedAt?: string | null;
   createdAt?: string;
   updatedAt?: string;
 }
@@ -41,6 +42,9 @@ export interface Test {
   publishToStudent: boolean;
   pattern?: TestPatternPart[];
   durationMinutes?: number;
+  availableFrom?: string | null;
+  availableUntil?: string | null;
+  archivedAt?: string | null;
   createdAt?: string;
   updatedAt?: string;
 }
@@ -84,8 +88,7 @@ export interface Question {
 
 export interface ExamQuestion {
   _id: string;
-  testId: string | null;
-  testName: string;
+  testId: string;
   part?: string;
   section?: string;
   marks?: number;
@@ -99,15 +102,21 @@ export interface ExamQuestion {
   correct_answer: CorrectAnswer | '';
   explanation: string;
   explanationImage: string | null;
+  /** Curriculum questions only. */
+  status?: 'pending' | 'accepted' | 'rejected';
+  /** Curriculum questions only: when the question was created. */
+  timestamp?: string;
   createdAt?: string;
   updatedAt?: string;
 }
 
+// Admin views get studentEmail/studentName/testName read live from the linked user and test.
 export interface StudentExam {
   _id: string;
+  userId: string;
   studentEmail: string;
   studentName?: string;
-  testId: string | null;
+  testId: string;
   testName: string;
   startedAt: string;
   answers: Record<string, string>;
@@ -127,6 +136,9 @@ export interface AvailableTest {
   name: string;
   createdAt: string;
   durationMinutes: number;
+  availableFrom: string | null;
+  availableUntil: string | null;
+  availability: 'upcoming' | 'open' | 'closed';
   questionCount: number;
   totalMarks: number;
   negativeMarkFractions: number[];
@@ -139,7 +151,7 @@ export interface AvailableTest {
 }
 
 export interface TestSummary {
-  testId: string | null;
+  testId: string;
   testName: string;
   studentsAttempted: number;
   lastSubmittedAt: string | null;
@@ -188,7 +200,7 @@ export interface DailyChallenge {
   publishedAt: string | null;
   notifiedAt: string | null;
   status: DailyChallengeStatus;
-  createdByEmail: string;
+  createdById: string | null;
   createdAt?: string;
   updatedAt?: string;
 }
@@ -243,4 +255,27 @@ export interface DailyChallengeAnalytics {
   participation: DailyChallengeParticipation;
   perStudent: DailyChallengeStudentStat[];
   notAttemptedStudents: { studentEmail: string; studentName: string }[];
+}
+
+export interface QuestionPaper {
+  _id: string;
+  examId: Pick<Exam, '_id' | 'name'>;
+  title: string;
+  year: number | null;
+  description: string;
+  fileName: string;
+  mimeType: string;
+  sizeBytes: number;
+  published: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
+/** One page of a server-paged list (list endpoints called with ?page=). */
+export interface Paged<T> {
+  items: T[];
+  total: number;
+  page: number;
+  pageSize: number;
+  totalPages: number;
 }

@@ -1,6 +1,18 @@
 import { normalizeOptionKey } from './helpers';
 import type { AnswerType, OptionKey, QuestionOptionImages, QuestionOptions, QuestionType } from '../types/models';
 
+/** Where a draft will be saved, fixed when it is extracted so a later change of selection can't redirect it. */
+export type DraftDestination =
+  | { mode: 'curriculum'; unitId: string; topicId: string; subtopicId: string; label: string }
+  | { mode: 'test'; testId: string; label: string };
+
+let lastDraftId = 0;
+/** A unique id for a draft question (increasing, so drafts created in the same millisecond differ). */
+export const newDraftId = (): number => {
+  lastDraftId = Math.max(Date.now(), lastDraftId + 1);
+  return lastDraftId;
+};
+
 export interface DraftQuestion {
   id: number;
   question: string;
@@ -18,88 +30,38 @@ export interface DraftQuestion {
   marksValue?: number;
   questionType?: QuestionType;
   page?: string;
+  destination?: DraftDestination;
 }
+
+/**
+ * The Extractor format: a JSON array with one object per question.
+ *
+ * [{"question": "…", "options": {"a": "…", "b": "…", "c": "…", "d": "…"}, "correct_answer": "b", "explanation": "…"}]
+ *
+ * correct_answer is a letter, a list of letters for multiple-correct (["a", "c"]), or for a numerical
+ * question (empty options) a number or a range ("12.4 to 12.6"). marks, type and page are optional.
+ */
+export const EXTRACTOR_FORMAT_EXAMPLE =
+  '[{"question": "…", "options": {"a": "…", "b": "…", "c": "…", "d": "…"}, "correct_answer": "b", "explanation": "…"}]';
 
 export const normalizeLine = (value: string | null | undefined): string => {
   return (value || '')
     .normalize('NFC')
-    .replace(/\u00a0/g, ' ')
+    .replace(/ /g, ' ')
     .replace(/\s+/g, ' ')
     .trim();
 };
 
-export const appendText = (existing: string | null | undefined, addition: string | null | undefined): string => {
-  const base = normalizeLine(existing);
-  const extra = normalizeLine(addition);
-  if (!base) return extra;
-  if (!extra) return base;
-  return `${base} ${extra}`.replace(/\s+/g, ' ').trim();
-};
-
-export const formatSpecialQuestion = (value: string | null | undefined): string => {
-  let text = (value || '')
+// Like normalizeLine, but keeps line breaks (match/statement/assertion questions are laid out on several lines).
+const normalizeText = (value: unknown): string =>
+  (typeof value === 'string' || typeof value === 'number' ? String(value) : '')
     .normalize('NFC')
-    .replace(/\u00a0/g, ' ')
+    .replace(/ /g, ' ')
     .replace(/\r\n?/g, '\n')
     .replace(/[ \t]+/g, ' ')
     .replace(/ *\n */g, '\n')
+    .replace(/\n{3,}/g, '\n\n')
     .trim();
-
-  if (/match\s+the\s+following/i.test(text)) {
-    text = text
-      .replace(/match\s+the\s+following[.:]?\s*/i, 'Match the following.\n')
-      .replace(/\s*(\/\s*பின்வருவனவற்றைப்\s*பொருத்துக[.:]?)\s*/iu, ' $1\n')
-      .replace(/\s+(?=List\s+I{1,2}\b)/gi, '\n')
-      .replace(/(List\s+I\b)[.:]?\s*/i, '$1\n')
-      .replace(/\s+(?=[A-D]\s*[.)]\s*)/g, '\n');
-
-    const listTwoMatch = text.match(/\bList\s+II\b[.:]?\s*/i);
-    if (listTwoMatch && listTwoMatch.index !== undefined) {
-      const listTwoStart = listTwoMatch.index;
-      const listTwoBodyStart = listTwoStart + listTwoMatch[0].length;
-      const beforeListTwo = text.slice(0, listTwoStart).trimEnd();
-      let listTwoBody = text.slice(listTwoBodyStart).trim();
-
-      listTwoBody = listTwoBody
-        .replace(/\s+(?=(?:[1-4]|[A-D])\s*[.)]\s*)/g, '\n')
-        .replace(/([஀-௿])\s+(?=[A-Za-z])/gu, '$1\n');
-
-      const listTwoItems = listTwoBody
-        .split('\n')
-        .map((item) => item.trim())
-        .filter(Boolean)
-        .map((item, index) => (/^(?:[1-4]|[A-D])\s*[.)]/i.test(item) ? item : `${index + 1}. ${item}`));
-
-      text = `${beforeListTwo}\nList II\n${listTwoItems.join('\n')}`;
-    }
-  }
-
-  if (/assertion\s*[–—-]\s*reason|assertion\s*\(A\)|reason\s*\(R\)/i.test(text)) {
-    text = text
-      .replace(/assertion\s*[–—-]\s*reason(?:\s+questions?)?[.:]?\s*/i, 'Assertion–Reason Questions:\n\n')
-      .replace(/\s*(?=Assertion\s*(?:\([Aஅ]\))?\s*:)/gi, '\n')
-      .replace(/\s+(?=Reason\s*(?:\([Rக]\))?\s*:)/gi, '\n')
-      .replace(/\s*(?=கூற்று\s*(?:\([Aஅ]\))?\s*:)/gu, '\n')
-      .replace(/\s+(?=காரணம்\s*(?:\([Rக]\))?\s*:)/gu, '\n');
-  }
-
-  const isStatementQuestion =
-    /\b(?:consider\s+the\s+following\s+statements?|statements?)\b/i.test(text) ||
-    /பின்வரும்\s+கூற்றுகள|கூற்றுகளைக்\s+கவனியுங்கள்/u.test(text);
-
-  if (isStatementQuestion) {
-    text = text
-      .replace(/\s+(?=\/\s*பின்வரும்\s+கூற்றுகள)/u, '\n\n')
-      .replace(/\s+(?=பின்வரும்\s+கூற்றுகள)/u, '\n\n')
-      .replace(/\s+(?=[1-9]\d*\s*[.)]\s*(?:[A-Za-z஀-௿]))/gu, '\n')
-      .replace(/\s+(?=Statements?\s*(?:\(?I{1,3}\)?|\(?[1-3]\)?)\s*[:.)-])/gi, '\n')
-      .replace(/\s+(?=Statement\s+(?:I{1,3}|[1-3])\b)/gi, '\n');
-  }
-
-  return text.replace(/\n{3,}/g, '\n\n').trim();
-};
-
-const META_LINE_REGEX = /^\s*(question\s*type|type|marks?|page(?:\s*(?:no\.?|number))?)\s*[:–—-]\s*(.*)$/i;
 
 export const normalizeQuestionType = (value: string | null | undefined): QuestionType | undefined => {
   const text = normalizeLine(value).toLowerCase();
@@ -113,448 +75,193 @@ export const normalizeQuestionType = (value: string | null | undefined): Questio
   return undefined;
 };
 
-const normalizePage = (value: string): string | undefined => {
-  const text = normalizeLine(value).replace(/^(?:page|pg|p)\.?\s*(?:no\.?)?\s*/i, '');
+const normalizePage = (value: unknown): string | undefined => {
+  const text = normalizeLine(typeof value === 'number' ? String(value) : typeof value === 'string' ? value : '').replace(
+    /^(?:page|pg|p)\.?\s*(?:no\.?)?\s*/i,
+    ''
+  );
   return !text || /^(?:n\/?a|none|unknown|-)$/i.test(text) ? undefined : text;
 };
 
-interface QuestionMeta {
-  questionType?: QuestionType;
-  page?: string;
-  marksValue?: number;
-}
+const NUMBER = String.raw`-?\d+(?:\.\d+)?|-?\.\d+`;
+// "2.5 to 3.5", "2.5 - 3.5", "2.5–3.5", "between 2.5 and 3.5", "2.5 ~ 3.5" (also negatives like "-3 to -1").
+const NUMERIC_RANGE_REGEX = new RegExp(String.raw`(?:between\s+)?(${NUMBER})\s*(?:to|and|–|—|-|~)\s*(${NUMBER})`, 'i');
+const SINGLE_NUMBER_REGEX = new RegExp(NUMBER);
 
-const applyMetaLine = (line: string, meta: QuestionMeta): boolean => {
-  const match = line.match(META_LINE_REGEX);
-  if (!match) return false;
-  if (/type/i.test(match[1])) {
-    meta.questionType = normalizeQuestionType(match[2]) ?? meta.questionType;
-  } else if (/mark/i.test(match[1])) {
-    const marks = parseFloat(match[2]);
-    if (marks > 0) meta.marksValue = marks;
-  } else {
-    meta.page = normalizePage(match[2]) ?? meta.page;
-  }
-  return true;
-};
+const tidyNumber = (raw: string) => String(Number(raw));
 
-const extractMetaLines = (block: string): { body: string; meta: QuestionMeta } => {
-  const meta: QuestionMeta = {};
-  const body = block
-    .replace(/\r\n?/g, '\n')
-    .split('\n')
-    .filter((line) => !applyMetaLine(line, meta))
-    .join('\n');
-  return { body, meta };
-};
-
-export const extractOptionKeyFromText = (value: string | null | undefined): OptionKey | null => {
-  const text = normalizeLine(value);
-  if (!text) return null;
-
-  const directMatch = text.match(/^(?:\(?([a-d])\)?|\(?([1-4])\)?|([அஆஇஈ]))[).:]*\s*/iu);
-  if (directMatch) {
-    return normalizeOptionKey(directMatch[1] || directMatch[2] || directMatch[3]);
-  }
-
-  const labeledMatch = text.match(
-    /^(?:answer|ans|correct answer|correct option|option|பதில்|சரியான பதில்|விடை)\s*[:–—-]?\s*(?:\(?([a-d])\)?|\(?([1-4])\)?|([அஆஇஈ]))/iu
-  );
-  if (labeledMatch) {
-    return normalizeOptionKey(labeledMatch[1] || labeledMatch[2] || labeledMatch[3]);
-  }
-
-  const standaloneMatch = text.match(/\b([a-d])\b/i);
-  if (standaloneMatch) {
-    return standaloneMatch[1].toLowerCase() as OptionKey;
-  }
-
-  return null;
-};
-
-const splitAnswerTokens = (text: string): string[] =>
-  text
-    .split(/\s*(?:,|\band\b|&|\/)\s*/iu)
-    .map((token) => token.trim())
-    .filter(Boolean);
-
-export const extractOptionKeysFromText = (value: string | null | undefined): OptionKey[] => {
-  const text = normalizeLine(value).replace(
-    /^(?:answer|ans|correct answer|correct option|options?|பதில்|சரியான பதில்|விடை)\s*[:–—-]?\s*/iu,
-    ''
-  );
-  if (!text) return [];
-
-  if (/^[a-d]{2,4}$/i.test(text)) {
-    const keys = text
-      .toLowerCase()
-      .split('')
-      .map((ch) => normalizeOptionKey(ch))
-      .filter((k): k is OptionKey => !!k);
-    return Array.from(new Set(keys));
-  }
-
-  const tokens = splitAnswerTokens(text);
-  if (tokens.length < 2) return [];
-
-  const keys = tokens
-    .map((token) => {
-      const match = token.match(/\(?([a-d])\)?|\(?([1-4])\)?|([அஆஇஈ])/iu);
-      if (!match) return null;
-      return normalizeOptionKey(match[1] || match[2] || match[3]);
-    })
-    .filter((k): k is OptionKey => !!k);
-
-  const uniqueKeys = Array.from(new Set(keys));
-  return uniqueKeys.length >= 2 ? uniqueKeys : [];
-};
-
+// The answer of a numerical question: a single number ("12.5") or a range in the canonical
+// "<from> to <to>" form that grading understands. Returns null when there is no number.
 export const extractNumericalAnswer = (value: string | null | undefined): string | null => {
   const text = normalizeLine(value);
   if (!text) return null;
-  const match = text.match(/-?\d+(?:\.\d+)?/);
-  return match ? match[0] : null;
-};
 
-export const QUESTION_START_REGEX = /^(?:(?:question|q|கேள்வி)\s*\d+\s*[:.)–—-]\s*|\d+\s*[:.)–—-]\s*)/iu;
-export const ANSWER_LABEL_REGEX = /^(?:answer|ans|correct answer|correct option|பதில்|சரியான பதில்|விடை)\s*[:–—-]\s*/iu;
-export const EXPLANATION_LABEL_REGEX = /^(?:explanation|reason|detailed explanation|விளக்கம்|காரணம்)\s*[:–—-]\s*/iu;
-export const OPTIONS_LABEL_REGEX = /^(?:options?|choices?|answer choices?|விருப்பங்கள்|தேர்வுகள்)\s*[:–—-]?\s*/iu;
-const STRICT_OPTION_MARKER_REGEX = /(?:^|[\s/|•·-])(\([a-dA-D1-4அஆஇஈ]\)|\([a-dA-D1-4அஆஇஈ]\)|\([1-4]\))\s*/gu;
-const LOOSE_OPTION_MARKER_REGEX = /(?:^|[\s/|•·-])([a-dA-D1-4அஆஇஈ])[).:]\s*/gu;
-
-const INLINE_LABEL_REGEX = /\s+(?=(?:Options|Answer|Explanation|Marks|Type|Page)\s*:)/g;
-const BULLET_REGEX = /^\s*(?:[*•]|-(?=\s))\s+/;
-const PART_LABEL_REGEX = /\b(Options|Answer|Explanation)\s*:/g;
-const OPTION_START_REGEX = /^\(?[a-dA-D1-4]\)/;
-
-// A whole question on one line: question text first, then at least two of Options / Answer / Explanation.
-const isOneLineQuestion = (line: string): boolean => {
-  const labels = [...line.matchAll(PART_LABEL_REGEX)];
-  const firstLabel = labels[0]?.index ?? 0;
-  return (
-    new Set(labels.map((m) => m[1])).size >= 2 &&
-    line.slice(0, firstLabel).trim() !== '' &&
-    !OPTION_START_REGEX.test(line.trim())
-  );
-};
-
-/**
- * Chat tools such as NotebookLM render their answer as markdown, so a copied answer often has each
- * question on one line ("Question Options: … Answer: … Marks: 1 Type: … Page: 1"), with a bullet or
- * nothing in front instead of a number. Rewrites those lines into the numbered, one-label-per-line format.
- */
-export const normalizeChatOutput = (text: string): string => {
-  let number = 0;
-  return text
-    .replace(/\r\n?/g, '\n')
-    .replace(/\*\*/g, '')
-    .split('\n')
-    .map((line) => {
-      const unbulleted = line.replace(BULLET_REGEX, '');
-      if (!isOneLineQuestion(unbulleted)) return line;
-      number += 1;
-      const numbered = QUESTION_START_REGEX.test(unbulleted.trim()) ? unbulleted : `${number}. ${unbulleted.trim()}`;
-      return numbered.replace(INLINE_LABEL_REGEX, '\n');
-    })
-    .join('\n');
-};
-
-export interface OptionToken {
-  key: OptionKey;
-  text: string;
-}
-
-export const parseInlineOptions = (text: string): OptionToken[] => {
-  const optionsText = text.replace(OPTIONS_LABEL_REGEX, '');
-  const strictMatches = [...optionsText.matchAll(STRICT_OPTION_MARKER_REGEX)];
-  const looseMatches = strictMatches.length > 0 ? [] : [...optionsText.matchAll(LOOSE_OPTION_MARKER_REGEX)];
-  const matches = strictMatches.length > 0 ? strictMatches : looseMatches;
-
-  return matches
-    .map((tokenMatch, tokenIndex, allMatches): OptionToken | null => {
-      const rawToken = tokenMatch[1];
-      const key = normalizeOptionKey(rawToken);
-      if (!key) return null;
-
-      const valueStart = tokenMatch.index! + tokenMatch[0].length;
-      const nextToken = allMatches[tokenIndex + 1];
-      const valueEnd = nextToken ? nextToken.index! : optionsText.length;
-      return { key, text: optionsText.slice(valueStart, valueEnd) };
-    })
-    .filter((v): v is OptionToken => v !== null);
-};
-
-export const splitQuestionBlocks = (text: string): string[] => {
-  const normalizedText = text.replace(/\r\n/g, '\n').replace(/\r/g, '\n');
-  const questionStartPattern = /(?:^|\n)\s*(?:(?:question|q|கேள்வி)\s*\d+|\d+)\s*[:.)–—-]\s*/giu;
-  const matches = [...normalizedText.matchAll(questionStartPattern)];
-
-  if (matches.length === 0) return [];
-
-  return matches
-    .map((match, index) => {
-      const start = match.index! + match[0].length;
-      const end = matches[index + 1]?.index ?? normalizedText.length;
-      return normalizedText.slice(start, end).trim();
-    })
-    .filter(Boolean);
-};
-
-export const parseQuestionBlock = (block: string, idx: number, subcategory: string): DraftQuestion | null => {
-  const { body, meta } = extractMetaLines(block);
-  const compactBlock = normalizeLine(body);
-  if (!compactBlock) return null;
-
-  const optionsMatch = compactBlock.match(/\b(?:options?|choices?|answer choices?|விருப்பங்கள்|தேர்வுகள்)\s*[:–—-]?\s*/iu);
-  const answerMatch = compactBlock.match(/\b(?:correct answer|answer|ans|correct option|பதில்|சரியான பதில்|விடை)\s*[:–—-]\s*/iu);
-  const explanationMatch = compactBlock.match(/\b(?:detailed explanation|explanation|reason|விளக்கம்|காரணம்)\s*[:–—-]\s*/iu);
-
-  const explanationOf = (afterIndex: number) =>
-    explanationMatch && explanationMatch.index !== undefined && explanationMatch.index >= afterIndex
-      ? compactBlock.slice(explanationMatch.index + explanationMatch[0].length).trim()
-      : '';
-
-  if (!optionsMatch || optionsMatch.index === undefined) {
-    if (!answerMatch || answerMatch.index === undefined) return null;
-
-    const questionText = formatSpecialQuestion(compactBlock.slice(0, answerMatch.index));
-    const answerStart = answerMatch.index + answerMatch[0].length;
-    const answerEnd =
-      explanationMatch && explanationMatch.index !== undefined && explanationMatch.index > answerStart
-        ? explanationMatch.index
-        : compactBlock.length;
-    const numericAnswer = extractNumericalAnswer(compactBlock.slice(answerStart, answerEnd));
-
-    if (!questionText || !numericAnswer) return null;
-
-    return {
-      id: Date.now() + idx,
-      question: questionText,
-      options: { a: '', b: '', c: '', d: '' },
-      correct_answer: numericAnswer,
-      answerType: 'numerical',
-      explanation: explanationOf(answerStart),
-      status: 'PENDING',
-      optionImages: { a: null, b: null, c: null, d: null },
-      questionImage: null,
-      explanationImage: null,
-      subcategory,
-      ...meta,
-    };
+  const range = text.match(NUMERIC_RANGE_REGEX);
+  if (range) {
+    const [from, to] = [Number(range[1]), Number(range[2])].sort((x, y) => x - y);
+    return from === to ? tidyNumber(String(from)) : `${tidyNumber(String(from))} to ${tidyNumber(String(to))}`;
   }
 
-  const questionText = formatSpecialQuestion(compactBlock.slice(0, optionsMatch.index));
-  const optionsStart = optionsMatch.index + optionsMatch[0].length;
-  const optionsEnd = [answerMatch?.index, explanationMatch?.index, compactBlock.length]
-    .filter((value): value is number => typeof value === 'number' && value >= optionsStart)
-    .sort((a, b) => a - b)[0];
-  const optionsText = compactBlock.slice(optionsStart, optionsEnd).trim();
+  const single = text.match(SINGLE_NUMBER_REGEX);
+  return single ? tidyNumber(single[0]) : null;
+};
 
+const OPTION_KEYS: OptionKey[] = ['a', 'b', 'c', 'd'];
+
+// {"a": "…"} or {"A": "…"} or {"(a)": "…"}, or a plain list of up to four options.
+const parseOptions = (value: unknown): QuestionOptions => {
   const options: QuestionOptions = { a: '', b: '', c: '', d: '' };
-  parseInlineOptions(`Options: ${optionsText}`).forEach((token) => {
-    options[token.key] = appendText(options[token.key], token.text);
-  });
+  if (Array.isArray(value)) {
+    value.slice(0, 4).forEach((text, idx) => {
+      options[OPTION_KEYS[idx]] = normalizeText(text);
+    });
+  } else if (value && typeof value === 'object') {
+    Object.entries(value as Record<string, unknown>).forEach(([key, text]) => {
+      const optionKey = normalizeOptionKey(key);
+      if (optionKey) options[optionKey] = normalizeText(text);
+    });
+  }
+  return options;
+};
 
-  let correctAnswer: OptionKey | OptionKey[] = 'a';
-  let answerType: AnswerType = 'single';
-  if (answerMatch && answerMatch.index !== undefined) {
-    const answerStart = answerMatch.index + answerMatch[0].length;
-    const answerEnd =
-      explanationMatch && explanationMatch.index !== undefined && explanationMatch.index > answerStart
-        ? explanationMatch.index
-        : compactBlock.length;
-    const answerText = compactBlock.slice(answerStart, answerEnd);
-    const multiKeys = extractOptionKeysFromText(answerText);
-    if (multiKeys.length >= 2) {
-      correctAnswer = multiKeys;
-      answerType = 'multiple';
-    } else {
-      correctAnswer = extractOptionKeyFromText(answerText) || 'a';
-    }
+// "b", "(b)", "B", ["a", "c"], "a, c" → option keys, in order and without duplicates.
+const parseAnswerKeys = (value: unknown): OptionKey[] => {
+  const tokens = Array.isArray(value)
+    ? value.map((v) => String(v))
+    : String(value ?? '')
+        .replace(/^(?:answer|ans|correct answer|correct option|options?)\s*[:–—-]?\s*/i, '')
+        .split(/\s*(?:,|\band\b|&|\/)\s*/i);
+  const keys = tokens.map((token) => normalizeOptionKey(token)).filter((k): k is OptionKey => !!k);
+  return Array.from(new Set(keys));
+};
+
+const toDraft = (item: Record<string, unknown>, subcategory: string): DraftQuestion | null => {
+  const question = normalizeText(item.question ?? item.questions);
+  if (!question) return null;
+
+  const options = parseOptions(item.options);
+  const hasOptions = Object.values(options).filter(Boolean).length >= 2;
+  const answer = item.correct_answer ?? item.correctAnswer ?? item.answer;
+
+  let correctAnswer: DraftQuestion['correct_answer'];
+  let answerType: AnswerType;
+  if (hasOptions) {
+    const keys = parseAnswerKeys(answer);
+    correctAnswer = keys.length >= 2 ? keys : keys[0] || 'a';
+    answerType = keys.length >= 2 ? 'multiple' : 'single';
+  } else {
+    const numeric = extractNumericalAnswer(typeof answer === 'number' ? String(answer) : typeof answer === 'string' ? answer : '');
+    if (!numeric) return null;
+    correctAnswer = numeric;
+    answerType = 'numerical';
   }
 
-  const explanation =
-    explanationMatch && explanationMatch.index !== undefined
-      ? compactBlock.slice(explanationMatch.index + explanationMatch[0].length).trim()
-      : '';
-
-  if (!questionText || Object.values(options).filter(Boolean).length < 2) return null;
+  const marks = parseFloat(String(item.marks ?? ''));
+  const typeText = typeof item.type === 'string' ? item.type : typeof item.questionType === 'string' ? item.questionType : '';
 
   return {
-    id: Date.now() + idx,
-    question: questionText,
+    id: newDraftId(),
+    question,
     options,
     correct_answer: correctAnswer,
     answerType,
-    explanation,
+    explanation: normalizeText(item.explanation),
     status: 'PENDING',
     optionImages: { a: null, b: null, c: null, d: null },
     questionImage: null,
     explanationImage: null,
     subcategory,
-    ...meta,
+    ...(marks > 0 ? { marksValue: marks } : {}),
+    ...(normalizeQuestionType(typeText) ? { questionType: normalizeQuestionType(typeText) } : {}),
+    ...(normalizePage(item.page) ? { page: normalizePage(item.page) } : {}),
   };
 };
 
-const OPTIONS_LABEL_ANYWHERE_REGEX = /\b(?:options?|choices?|answer choices?|விருப்பங்கள்|தேர்வுகள்)\s*[:–—-]?\s*/iu;
+const VALID_JSON_ESCAPES = '"\\/bfnrtu';
 
-export const parseOneQuestionPerLine = (pastedContent: string, subcategory: string): DraftQuestion[] => {
-  const lines = pastedContent.replace(/\r\n?/g, '\n').split('\n');
-
-  return lines
-    .map((line, idx) => {
-      const trimmed = normalizeLine(line);
-      if (!trimmed || !OPTIONS_LABEL_ANYWHERE_REGEX.test(trimmed)) return null;
-      return parseQuestionBlock(trimmed, idx, subcategory);
-    })
-    .filter((v): v is DraftQuestion => v !== null);
+/**
+ * Fixes the usual slips in chat-written JSON: markdown escapes such as \_ (NotebookLM's copied answer
+ * has "correct\_answer"), real line breaks or tabs inside a string (instead of \n / \t) and trailing
+ * commas ("…",] / "…",}).
+ */
+const repairJson = (json: string): string => {
+  let out = '';
+  let inString = false;
+  let escaped = false;
+  for (const ch of json) {
+    if (inString) {
+      if (escaped) {
+        escaped = false;
+        // Not a JSON escape (\_, \*, \[ …): drop the backslash and keep the character.
+        if (!VALID_JSON_ESCAPES.includes(ch)) out = out.slice(0, -1);
+      } else if (ch === '\\') escaped = true;
+      else if (ch === '"') inString = false;
+      else if (ch === '\n') {
+        out += '\\n';
+        continue;
+      } else if (ch === '\t') {
+        out += '\\t';
+        continue;
+      } else if (ch === '\r') continue;
+    } else if (ch === '"') {
+      inString = true;
+    } else if (ch === '}' || ch === ']') {
+      out = out.replace(/,\s*$/, '');
+    }
+    out += ch;
+  }
+  return out;
 };
 
-const FALLBACK_QUESTION_LIKE_REGEX =
-  /^(?:what|which|who|whom|whose|why|how|when|where|explain|describe|define|discuss|compare|prove|show|list|name|mention|state|write|calculate|derive|கேள்வி|என்ன|எப்படி|ஏன்|விளக்குக|வரையறு|விவரி)\b/i;
-
-export const parseLineByLine = (pastedContent: string, subcategory: string): DraftQuestion[] => {
-  const questions: DraftQuestion[] = [];
-  const lines = pastedContent.split('\n');
-  let currentQuestion: DraftQuestion | null = null;
-  let currentSection: 'question' | 'options' | 'answer' | 'explanation' | null = null;
-  let currentOptionKey: OptionKey | null = null;
-
-  const finalizeQuestion = () => {
-    if (!currentQuestion) return;
-
-    currentQuestion.question = formatSpecialQuestion(currentQuestion.question);
-    currentQuestion.explanation = normalizeLine(currentQuestion.explanation);
-    currentQuestion.options = {
-      a: normalizeLine(currentQuestion.options.a),
-      b: normalizeLine(currentQuestion.options.b),
-      c: normalizeLine(currentQuestion.options.c),
-      d: normalizeLine(currentQuestion.options.d),
-    };
-
-    if (currentQuestion.question) {
-      questions.push(currentQuestion);
+// Parses one object; if that fails, retries with curly quotes turned into straight ones (some editors
+// "smarten" the quotes when the answer is copied through them).
+const parseObject = (raw: string): unknown => {
+  for (const candidate of [raw, raw.replace(/[“”]/g, '"')]) {
+    try {
+      return JSON.parse(repairJson(candidate));
+    } catch {
+      // try the next candidate
     }
-  };
+  }
+  return null;
+};
 
-  const startQuestion = (questionText: string, idx: number) => {
-    finalizeQuestion();
-    currentQuestion = {
-      id: Date.now() + idx,
-      question: normalizeLine(questionText),
-      options: { a: '', b: '', c: '', d: '' },
-      correct_answer: 'a',
-      answerType: 'single',
-      explanation: '',
-      status: 'PENDING',
-      optionImages: { a: null, b: null, c: null, d: null },
-      questionImage: null,
-      explanationImage: null,
-      subcategory,
-    };
-    currentSection = 'question';
-    currentOptionKey = null;
-  };
+/**
+ * Finds every top-level {...} object in the text. Chat tools wrap the array in code fences, add
+ * citations, split a long answer over several arrays or stop midway, so rather than parsing the
+ * whole paste as one array, each complete question object is picked out and parsed on its own.
+ */
+const findJsonObjects = (text: string): string[] => {
+  const objects: string[] = [];
+  let depth = 0;
+  let start = -1;
+  let inString = false;
+  let escaped = false;
 
-  lines.forEach((line, idx) => {
-    const trimmed = normalizeLine(line);
-    if (!trimmed && !currentQuestion) return;
-
-    const qMatch = trimmed.match(QUESTION_START_REGEX);
-    if (qMatch) {
-      startQuestion(trimmed.slice(qMatch[0].length), idx);
-      return;
+  for (let i = 0; i < text.length; i += 1) {
+    const ch = text[i];
+    if (inString) {
+      if (escaped) escaped = false;
+      else if (ch === '\\') escaped = true;
+      else if (ch === '"') inString = false;
+    } else if (ch === '"') {
+      inString = true;
+    } else if (ch === '{') {
+      if (depth === 0) start = i;
+      depth += 1;
+    } else if (ch === '}' && depth > 0) {
+      depth -= 1;
+      if (depth === 0) objects.push(text.slice(start, i + 1));
     }
+  }
+  return objects;
+};
 
-    if (currentQuestion && applyMetaLine(trimmed, currentQuestion)) {
-      currentSection = null;
-      currentOptionKey = null;
-      return;
-    }
-
-    if (!currentQuestion) {
-      const fallbackQuestionLike = trimmed.match(FALLBACK_QUESTION_LIKE_REGEX);
-      if (fallbackQuestionLike) {
-        startQuestion(trimmed, idx);
-      } else {
-        return;
-      }
-    }
-
-    const q = currentQuestion as DraftQuestion;
-
-    const hasOptionsLabel = OPTIONS_LABEL_REGEX.test(trimmed);
-    if (hasOptionsLabel) {
-      currentSection = 'options';
-      currentOptionKey = null;
-    }
-
-    const answerLabelMatch = trimmed.match(ANSWER_LABEL_REGEX);
-    if (answerLabelMatch) {
-      const answerValue = trimmed.slice(answerLabelMatch[0].length);
-      const multiKeys = extractOptionKeysFromText(answerValue);
-      if (multiKeys.length >= 2) {
-        q.correct_answer = multiKeys;
-        q.answerType = 'multiple';
-      } else {
-        const parsedAnswer = extractOptionKeyFromText(answerValue);
-        if (parsedAnswer) {
-          q.correct_answer = parsedAnswer;
-          q.answerType = 'single';
-        } else if (!q.options.a && !q.options.b && !q.options.c && !q.options.d) {
-          const numericAnswer = extractNumericalAnswer(answerValue);
-          if (numericAnswer) {
-            q.correct_answer = numericAnswer;
-            q.answerType = 'numerical';
-          }
-        }
-      }
-      currentSection = 'answer';
-      currentOptionKey = null;
-      return;
-    }
-
-    const explanationLabelMatch = trimmed.match(EXPLANATION_LABEL_REGEX);
-    const isAssertionReasonLine = /^reason\s*\(R\)\s*:/i.test(trimmed);
-    if (explanationLabelMatch && !isAssertionReasonLine) {
-      q.explanation = appendText(q.explanation, trimmed.slice(explanationLabelMatch[0].length));
-      currentSection = 'explanation';
-      currentOptionKey = null;
-      return;
-    }
-
-    const optionTokens = parseInlineOptions(trimmed);
-    if (optionTokens.length > 0) {
-      optionTokens.forEach((token) => {
-        q.options[token.key] = appendText(q.options[token.key], token.text);
-        currentOptionKey = token.key;
-      });
-      currentSection = 'options';
-      return;
-    }
-
-    if (hasOptionsLabel) {
-      return;
-    }
-
-    if (trimmed) {
-      if (
-        currentSection === 'question' ||
-        (!q.options.a && !q.options.b && !q.options.c && !q.options.d && currentSection !== 'explanation' && currentSection !== 'answer')
-      ) {
-        q.question = appendText(q.question, trimmed);
-      } else if (currentSection === 'explanation') {
-        q.explanation = appendText(q.explanation, trimmed);
-      } else if (currentSection === 'options' && currentOptionKey) {
-        q.options[currentOptionKey] = appendText(q.options[currentOptionKey], trimmed);
-      } else if (!q.explanation && (q.options.d || currentSection === 'answer')) {
-        q.explanation = appendText(q.explanation, trimmed);
-      }
-    }
-  });
-
-  finalizeQuestion();
-
-  return questions;
+/** Parses pasted Extractor-format JSON into draft questions; objects that are not valid questions are skipped. */
+export const parseQuestionsJson = (pastedContent: string, subcategory: string): DraftQuestion[] => {
+  return findJsonObjects(pastedContent.normalize('NFC'))
+    .map(parseObject)
+    .filter((item): item is Record<string, unknown> => !!item && typeof item === 'object' && !Array.isArray(item))
+    .map((item) => toDraft(item, subcategory))
+    .filter((q): q is DraftQuestion => q !== null);
 };
