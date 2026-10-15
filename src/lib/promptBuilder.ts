@@ -121,6 +121,60 @@ Number questions Q1 = 1, Q2 = 2 … as in the plan (not the book's question numb
     .join('\n\n');
 };
 
+export const DAILY_CHALLENGE_MAX_QUESTIONS = 5;
+
+export interface DailyChallengePromptConfig {
+  examName: string;
+  bookName: string;
+  chapter: string;
+  pages: string;
+  questionCount: number;
+  difficulty: PromptDifficulty;
+  language: PromptLanguage;
+  types: PromptQuestionType[];
+  extraInstructions: string;
+}
+
+/** Builds a single short NotebookLM prompt for a Daily Challenge set (pasted into the Daily Challenge question picker). */
+export const buildDailyChallengePrompt = (config: DailyChallengePromptConfig): string => {
+  const bookName = config.bookName.trim();
+  const chapter = config.chapter.trim();
+  const pages = config.pages.trim();
+  const extra = config.extraInstructions.trim();
+  const count = Math.min(Math.max(Math.round(config.questionCount) || 1, 1), DAILY_CHALLENGE_MAX_QUESTIONS);
+  const types = config.types.length ? config.types : (['single'] as PromptQuestionType[]);
+  const source = [
+    chapter ? `"${chapter}" in the book "${bookName}"` : `the book "${bookName}"`,
+    pages ? ` (PDF pages ${pages} only; the PDF's 1st page, cover included, is page 1)` : '',
+  ].join('');
+  const typeList = types.map((t) => QUESTION_TYPE_LABELS[t]).join(', ');
+  const hints = types.map((t) => TYPE_HINTS[t]).filter(Boolean);
+
+  return [
+    `You are a ${config.examName} question setter writing today's Daily Challenge, solved on a phone in about 5 minutes. Using ONLY ${source} in this notebook (no outside knowledge), write ${count} original question${count === 1 ? '' : 's'}. Difficulty: ${DIFFICULTY_TEXT[config.difficulty]}.`,
+    `RULES
+- Each question tests a different key concept.
+- Question types to use: ${typeList}.${types.length > 1 ? ' Mix them across the set.' : ''}
+- Keep questions short (under 40 words). No figures or tables: state values in words.
+- Never mention "the book", page numbers or other questions.
+- MCQs: 4 options (a)-(d), plausible distractors, no "All/None of the above".
+- Explanation: 1-2 sentences giving the key fact or step. Never invent facts.${LANGUAGE_TEXT[config.language] ? `\n${LANGUAGE_TEXT[config.language]}` : ''}`,
+    `FORMAT (strict, plain text, no markdown, no citations, no intro or summary, blank line between questions):
+1. <question on ONE line>
+Options: (a) … (b) … (c) … (d) …
+Answer: (b)
+Explanation: <ONE line>
+Marks: 1
+Type: <question type>
+Page: <PDF page, or N/A>
+Number the questions 1 to ${count}. Never write the labels (Options:, Answer:, etc.) inside question or explanation text.${hints.length ? `\n${hints.join('\n')}` : ''}`,
+    extra ? `EXTRA\n${extra}` : '',
+    `Write all ${count} questions now.`,
+  ]
+    .filter(Boolean)
+    .join('\n\n');
+};
+
 /**
  * Builds the NotebookLM prompt. Returns one part when it fits within NOTEBOOKLM_CHAR_LIMIT,
  * otherwise several parts: the first carries the rules, the rest continue the plan.

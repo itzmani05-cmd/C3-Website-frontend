@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import type { FormEvent } from 'react';
 import { BookOpen, ChevronDown, ChevronRight, GraduationCap, ListTree, Pencil, Plus, Tag, Trash2 } from 'lucide-react';
+import PageHeader from '../components/ui/PageHeader';
 import { toast } from 'react-toastify';
 import api from '../api';
 import { useModal } from '../components/ui';
@@ -131,20 +132,11 @@ export default function ManageExams() {
 
   return (
     <div className="mx-auto w-full max-w-5xl xl:max-w-6xl 2xl:max-w-7xl">
-      <div className="mb-6 flex flex-wrap items-center justify-between gap-4">
-        <div className="flex items-center gap-3.5">
-          <span className="flex size-11 shrink-0 items-center justify-center rounded-2xl bg-brand-100 text-brand-600">
-            <GraduationCap className="size-5" />
-          </span>
-          <div>
-            <h1 className="font-heading text-2xl font-bold text-slate-900">Manage Exams</h1>
-            <p className="mt-0.5 text-sm text-slate-500">Add exams, then manage each exam's units, topics, and subtopics</p>
-          </div>
-        </div>
-        <Button onClick={() => setIsAdding(true)} icon={<Plus className="size-4" />}>
-          Add Exam
+      <PageHeader title="Manage Exams" description="Add exams, then manage each exam's units, topics, and subtopics" actions={<>
+<Button onClick={() => setIsAdding(true)} icon={<Plus className="size-4" />}>
+          Add exam
         </Button>
-      </div>
+</>} />
 
       {!loading && exams.length > 0 && (
         <div className="mb-6 grid grid-cols-1 gap-3 sm:grid-cols-3">
@@ -252,7 +244,7 @@ export default function ManageExams() {
                       </Button>
                       <Button
                         size="sm"
-                        variant="danger"
+                        variant="dangerSubtle"
                         onClick={() => handleDeleteExam(exam._id, exam.name)}
                         aria-label={`Delete ${exam.name}`}
                       >
@@ -647,7 +639,7 @@ function SubtopicRow({ subtopic, isEditing, editName, onEditNameChange, onStartE
             <Button size="sm" variant="secondary" onClick={onStartEdit} aria-label={`Edit ${subtopic.name}`}>
               <Pencil className="size-3" />
             </Button>
-            <Button size="sm" variant="danger" onClick={onDelete} aria-label={`Delete ${subtopic.name}`}>
+            <Button size="sm" variant="dangerSubtle" onClick={onDelete} aria-label={`Delete ${subtopic.name}`}>
               <Trash2 className="size-3" />
             </Button>
           </div>

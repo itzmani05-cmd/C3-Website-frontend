@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
-import { ArrowLeft, BookOpen, Check, Copy, ExternalLink, GraduationCap, Plus, Search, Sparkles, Trash2 } from 'lucide-react';
+import { ArrowLeft, BookOpen, Check, Copy, ExternalLink, GraduationCap, Plus, Search, Sparkles, Trash2, Trophy } from 'lucide-react';
+import PageHeader from '../components/ui/PageHeader';
 import { toast } from 'react-toastify';
 import api from '../api';
 import Button from '../components/ui/Button';
@@ -10,23 +11,28 @@ import EmptyState from '../components/ui/EmptyState';
 import { Input, Select, Textarea } from '../components/ui/Field';
 import { LoadingState } from '../components/ui/Spinner';
 import {
+  DAILY_CHALLENGE_MAX_QUESTIONS,
   DIFFICULTY_LABELS,
   LANGUAGE_LABELS,
   MAX_QUESTION_COUNT,
   NOTEBOOKLM_CHAR_LIMIT,
   QUESTION_TYPE_LABELS,
+  buildDailyChallengePrompt,
   buildNotebookPrompts,
   createRow,
   totalMarks,
   totalQuestions,
 } from '../lib/promptBuilder';
-import type { PagePlanRow, PromptConfig, PromptDifficulty, PromptLanguage, PromptQuestionType } from '../lib/promptBuilder';
+import type { DailyChallengePromptConfig, PagePlanRow, PromptConfig, PromptDifficulty, PromptLanguage, PromptQuestionType } from '../lib/promptBuilder';
 import type { Exam } from '../types/models';
 
 const NOTEBOOKLM_URL = 'https://notebooklm.google.com/';
 const STORAGE_KEY = 'promptLibrary.questionNoConfig';
+const DAILY_STORAGE_KEY = 'promptLibrary.dailyChallengeConfig';
 
 type FormState = Omit<PromptConfig, 'examName'>;
+type DailyFormState = Omit<DailyChallengePromptConfig, 'examName'>;
+type PromptKind = 'bank' | 'daily';
 
 const PAGE_REGEX = /^(\d+)(?:\s*[-–]\s*(\d+))?$/;
 
@@ -39,22 +45,33 @@ const DEFAULT_FORM: FormState = {
   extraInstructions: '',
 };
 
+const DEFAULT_DAILY_FORM: DailyFormState = {
+  bookName: '',
+  chapter: '',
+  pages: '',
+  questionCount: DAILY_CHALLENGE_MAX_QUESTIONS,
+  difficulty: 'mixed',
+  language: 'english',
+  types: ['single'],
+  extraInstructions: '',
+};
+
 const PLAN_CONTROL_CLASSES =
   'w-full rounded-md border border-slate-200 bg-white px-2.5 py-1.5 text-xs text-slate-900 placeholder:text-slate-400 focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500/30';
 
 const PLAN_GRID = 'grid grid-cols-[2.25rem_5rem_6rem_minmax(0,1fr)_4.5rem_2rem] gap-2';
 
-const loadSavedForms = (): Record<string, FormState> => {
+const loadSavedForms = <T,>(key = STORAGE_KEY): Record<string, T> => {
   try {
-    return JSON.parse(localStorage.getItem(STORAGE_KEY) || '{}');
+    return JSON.parse(localStorage.getItem(key) || '{}');
   } catch {
     return {};
   }
 };
 
-const saveForm = (examId: string, form: FormState) => {
+const saveForm = <T,>(examId: string, form: T, key = STORAGE_KEY) => {
   try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify({ ...loadSavedForms(), [examId]: form }));
+    localStorage.setItem(key, JSON.stringify({ ...loadSavedForms<T>(key), [examId]: form }));
   } catch {
     // Storage unavailable; the prompt still works without remembered values.
   }
@@ -84,7 +101,9 @@ export default function PromptLibrary() {
   const [search, setSearch] = useState('');
 
   const [activeExam, setActiveExam] = useState<Exam | null>(null);
+  const [kind, setKind] = useState<PromptKind>('bank');
   const [form, setForm] = useState<FormState>(DEFAULT_FORM);
+  const [dailyForm, setDailyForm] = useState<DailyFormState>(DEFAULT_DAILY_FORM);
   const [formError, setFormError] = useState('');
   const [prompts, setPrompts] = useState<string[]>([]);
   const [copiedPart, setCopiedPart] = useState<number | null>(null);
@@ -109,10 +128,12 @@ export default function PromptLibrary() {
     return term ? exams.filter((ex) => ex.name.toLowerCase().includes(term)) : exams;
   }, [exams, search]);
 
-  const openExam = (exam: Exam) => {
+  const openExam = (exam: Exam, nextKind: PromptKind) => {
     setActiveExam(exam);
-    const saved: FormState = { ...DEFAULT_FORM, ...loadSavedForms()[exam._id] };
+    setKind(nextKind);
+    const saved: FormState = { ...DEFAULT_FORM, ...loadSavedForms<FormState>()[exam._id] };
     setForm({ ...saved, pagePlan: saved.pagePlan?.length ? saved.pagePlan : [createRow()] });
+    setDailyForm({ ...DEFAULT_DAILY_FORM, ...loadSavedForms<DailyFormState>(DAILY_STORAGE_KEY)[exam._id] });
     setFormError('');
     setPrompts([]);
     setCopiedPart(null);
@@ -122,6 +143,19 @@ export default function PromptLibrary() {
 
   const updateForm = <K extends keyof FormState>(key: K, value: FormState[K]) => {
     setForm((prev) => ({ ...prev, [key]: value }));
+    setFormError('');
+  };
+
+  const updateDailyForm = <K extends keyof DailyFormState>(key: K, value: DailyFormState[K]) => {
+    setDailyForm((prev) => ({ ...prev, [key]: value }));
+    setFormError('');
+  };
+
+  const toggleDailyType = (type: PromptQuestionType) => {
+    setDailyForm((prev) => {
+      const types = prev.types.includes(type) ? prev.types.filter((t) => t !== type) : [...prev.types, type];
+      return { ...prev, types };
+    });
     setFormError('');
   };
 
@@ -150,8 +184,39 @@ export default function PromptLibrary() {
     setFormError('');
   };
 
+  const handleGenerateDaily = () => {
+    if (!activeExam) return;
+    if (!dailyForm.bookName.trim()) {
+      setFormError('Please enter the book name.');
+      return;
+    }
+    const pages = dailyForm.pages.trim();
+    const pageMatch = pages ? pages.match(PAGE_REGEX) : null;
+    if (pages && (!pageMatch || Number(pageMatch[1]) < 1 || Number(pageMatch[1]) > Number(pageMatch[2] ?? pageMatch[1]))) {
+      setFormError('PDF pages must be a number like 45 or a range like 45-52.');
+      return;
+    }
+    const count = Number(dailyForm.questionCount);
+    if (!Number.isInteger(count) || count < 1 || count > DAILY_CHALLENGE_MAX_QUESTIONS) {
+      setFormError(`Number of questions must be between 1 and ${DAILY_CHALLENGE_MAX_QUESTIONS}.`);
+      return;
+    }
+    if (dailyForm.types.length === 0) {
+      setFormError('Pick at least one question type.');
+      return;
+    }
+
+    saveForm(activeExam._id, dailyForm, DAILY_STORAGE_KEY);
+    setPrompts([buildDailyChallengePrompt({ ...dailyForm, questionCount: count, examName: activeExam.name })]);
+    setCopiedPart(null);
+  };
+
   const handleGenerate = () => {
     if (!activeExam) return;
+    if (kind === 'daily') {
+      handleGenerateDaily();
+      return;
+    }
     if (!form.bookName.trim()) {
       setFormError('Please enter the book name.');
       return;
@@ -204,15 +269,7 @@ export default function PromptLibrary() {
   };
 
   const pageHeader = (
-    <div className="mb-6 flex items-center gap-3.5">
-      <span className="flex size-11 shrink-0 items-center justify-center rounded-2xl bg-brand-100 text-brand-600">
-        <Sparkles className="size-5" />
-      </span>
-      <div>
-        <h1 className="font-heading text-2xl font-bold text-slate-900">Prompt Library</h1>
-        <p className="mt-0.5 text-sm text-slate-500">Generate NotebookLM prompts that return questions in Extractor-ready format</p>
-      </div>
-    </div>
+    <PageHeader title="Prompt Library" description="Generate NotebookLM prompts that return questions in Extractor-ready format" />
   );
 
   if (loading) {
@@ -243,7 +300,9 @@ export default function PromptLibrary() {
       </span>
       <div className="leading-tight">
         <p className="text-sm font-semibold text-slate-900">{activeExam.name}</p>
-        <p className="text-xs font-normal text-slate-400">{prompts.length ? 'Your prompt is ready' : 'Prompt details'}</p>
+        <p className="text-xs font-normal text-slate-400">
+          {kind === 'daily' ? 'Daily Challenge prompt' : 'Question bank prompt'} · {prompts.length ? 'ready to copy' : 'details'}
+        </p>
       </div>
     </div>
   );
@@ -287,7 +346,7 @@ export default function PromptLibrary() {
           {[
             ['Generate', 'Pick an exam, enter the book, then add a row for each question: its PDF page, its question number on that page (e.g. 1.1), type and marks.'],
             ['Paste in NotebookLM', 'Upload the book as a source in NotebookLM and paste the copied prompt in the chat. Long plans are split into parts — paste them one by one.'],
-            ['Extract', 'Copy NotebookLM’s answer into the Extractor tab — it is already in the right format.'],
+            ['Extract', 'Copy NotebookLM’s answer into the Extractor tab — or, for a Daily Challenge prompt, into the question picker on the Daily Challenge tab.'],
           ].map(([title, text], idx) => (
             <li key={title} className="flex gap-3 rounded-xl bg-slate-50 p-3">
               <span className="flex size-7 shrink-0 items-center justify-center rounded-lg bg-brand-100 text-xs font-bold text-brand-700">
@@ -331,7 +390,7 @@ export default function PromptLibrary() {
           ) : (
             <div className="flex flex-col gap-3">
               {filteredExams.map((exam, idx) => {
-                const saved = loadSavedForms()[exam._id];
+                const saved = loadSavedForms<FormState>()[exam._id];
                 return (
                   <Card key={exam._id} className="flex flex-wrap items-center justify-between gap-4 p-5 transition-shadow hover:shadow-soft-md">
                     <div className="flex min-w-0 items-center gap-3.5">
@@ -346,9 +405,14 @@ export default function PromptLibrary() {
                         </p>
                       </div>
                     </div>
-                    <Button icon={<Sparkles className="size-4" />} onClick={() => openExam(exam)}>
-                      Create prompt
-                    </Button>
+                    <div className="flex flex-wrap gap-2">
+                      <Button variant="secondary" icon={<Trophy className="size-4" />} onClick={() => openExam(exam, 'daily')}>
+                        Daily Challenge prompt
+                      </Button>
+                      <Button icon={<Sparkles className="size-4" />} onClick={() => openExam(exam, 'bank')}>
+                        Question bank prompt
+                      </Button>
+                    </div>
                   </Card>
                 );
               })}
@@ -361,12 +425,36 @@ export default function PromptLibrary() {
         {prompts.length ? (
           <div className="flex flex-col gap-3">
             <div className="flex flex-wrap items-center gap-2 text-xs text-slate-500">
-              <span className="rounded-full bg-brand-100 px-2.5 py-1 font-semibold text-brand-700">{form.bookName}</span>
-              {form.chapter && <span className="rounded-full bg-slate-100 px-2.5 py-1 font-semibold text-slate-600">{form.chapter}</span>}
-              <span className="rounded-full bg-slate-100 px-2.5 py-1 font-semibold text-slate-600">{planQuestions} questions</span>
-              <span className="rounded-full bg-slate-100 px-2.5 py-1 font-semibold text-slate-600">{planMarks} marks</span>
-              <span className="rounded-full bg-slate-100 px-2.5 py-1 font-semibold text-slate-600">{DIFFICULTY_LABELS[form.difficulty]}</span>
-              <span className="rounded-full bg-slate-100 px-2.5 py-1 font-semibold text-slate-600">{LANGUAGE_LABELS[form.language]}</span>
+              {(kind === 'daily'
+                ? [
+                    dailyForm.bookName,
+                    dailyForm.chapter,
+                    dailyForm.pages && `PDF pages ${dailyForm.pages}`,
+                    `${dailyForm.questionCount} questions`,
+                    DIFFICULTY_LABELS[dailyForm.difficulty],
+                    LANGUAGE_LABELS[dailyForm.language],
+                  ]
+                : [
+                    form.bookName,
+                    form.chapter,
+                    `${planQuestions} questions`,
+                    `${planMarks} marks`,
+                    DIFFICULTY_LABELS[form.difficulty],
+                    LANGUAGE_LABELS[form.language],
+                  ]
+              )
+                .filter(Boolean)
+                .map((chip, idx) => (
+                  <span
+                    key={idx}
+                    className={[
+                      'rounded-full px-2.5 py-1 font-semibold',
+                      idx === 0 ? 'bg-brand-100 text-brand-700' : 'bg-slate-100 text-slate-600',
+                    ].join(' ')}
+                  >
+                    {chip}
+                  </span>
+                ))}
             </div>
             {prompts.length > 1 && (
               <p className="rounded-xl border border-brand-200 bg-brand-50 px-4 py-3 text-xs font-medium text-brand-700">
@@ -397,8 +485,109 @@ export default function PromptLibrary() {
               ))}
             </div>
             <p className="text-xs text-slate-400">
-              Tip: upload the book as a source in NotebookLM first. If NotebookLM stops midway, reply “continue” and paste the rest into the Extractor too.
+              {kind === 'daily'
+                ? 'Tip: upload the book as a source in NotebookLM first, then paste the answer into the question picker on the Daily Challenge tab and click Extract.'
+                : 'Tip: upload the book as a source in NotebookLM first. If NotebookLM stops midway, reply “continue” and paste the rest into the Extractor too.'}
             </p>
+          </div>
+        ) : kind === 'daily' ? (
+          <div className="flex flex-col gap-4">
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+              <Input
+                label="Book name *"
+                value={dailyForm.bookName}
+                onChange={(e) => updateDailyForm('bookName', e.target.value)}
+                placeholder="e.g. Strength of Materials"
+                autoFocus
+              />
+              <Input
+                label="Chapter / topic (optional)"
+                value={dailyForm.chapter}
+                onChange={(e) => updateDailyForm('chapter', e.target.value)}
+                placeholder="e.g. Shear force and bending moment"
+              />
+            </div>
+
+            <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
+              <Input
+                label="PDF pages (optional)"
+                value={dailyForm.pages}
+                onChange={(e) => updateDailyForm('pages', e.target.value)}
+                placeholder="e.g. 45-52"
+              />
+              <Select
+                label="Questions"
+                value={String(dailyForm.questionCount)}
+                onChange={(e) => updateDailyForm('questionCount', Number(e.target.value))}
+              >
+                {Array.from({ length: DAILY_CHALLENGE_MAX_QUESTIONS }, (_, i) => i + 1).map((n) => (
+                  <option key={n} value={n}>
+                    {n}
+                  </option>
+                ))}
+              </Select>
+              <Select
+                label="Difficulty"
+                value={dailyForm.difficulty}
+                onChange={(e) => updateDailyForm('difficulty', e.target.value as PromptDifficulty)}
+              >
+                {(Object.keys(DIFFICULTY_LABELS) as PromptDifficulty[]).map((key) => (
+                  <option key={key} value={key}>
+                    {DIFFICULTY_LABELS[key]}
+                  </option>
+                ))}
+              </Select>
+              <Select
+                label="Language"
+                value={dailyForm.language}
+                onChange={(e) => updateDailyForm('language', e.target.value as PromptLanguage)}
+              >
+                {(Object.keys(LANGUAGE_LABELS) as PromptLanguage[]).map((key) => (
+                  <option key={key} value={key}>
+                    {LANGUAGE_LABELS[key]}
+                  </option>
+                ))}
+              </Select>
+            </div>
+
+            <div>
+              <p className="mb-1.5 text-sm font-medium text-slate-700">Question types</p>
+              <div className="flex flex-wrap gap-2">
+                {(Object.keys(QUESTION_TYPE_LABELS) as PromptQuestionType[]).map((type) => {
+                  const active = dailyForm.types.includes(type);
+                  return (
+                    <button
+                      key={type}
+                      type="button"
+                      aria-pressed={active}
+                      onClick={() => toggleDailyType(type)}
+                      className={[
+                        'flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs font-medium transition-colors',
+                        active
+                          ? 'border-brand-500 bg-brand-50 text-brand-700'
+                          : 'border-slate-200 bg-white text-slate-600 hover:border-slate-300',
+                      ].join(' ')}
+                    >
+                      {active && <Check className="size-3.5" />}
+                      {QUESTION_TYPE_LABELS[type]}
+                    </button>
+                  );
+                })}
+              </div>
+              <p className="mt-1.5 text-xs text-slate-400">
+                A Daily Challenge holds up to {DAILY_CHALLENGE_MAX_QUESTIONS} questions. Pick several types to get a mix.
+              </p>
+            </div>
+
+            <Textarea
+              label="Additional instructions (optional)"
+              value={dailyForm.extraInstructions}
+              onChange={(e) => updateDailyForm('extraInstructions', e.target.value)}
+              rows={3}
+              placeholder="e.g. Focus on formulas students often confuse"
+            />
+
+            {formError && <p className="text-sm font-medium text-danger-600">{formError}</p>}
           </div>
         ) : (
           <div className="flex flex-col gap-4">

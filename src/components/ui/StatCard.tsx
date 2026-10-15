@@ -5,9 +5,9 @@ export type StatCardTone = 'brand' | 'success' | 'danger' | 'warning' | 'neutral
 
 const TONE_CLASSES: Record<StatCardTone, { icon: string; value: string }> = {
   brand: { icon: 'bg-brand-50 text-brand-600', value: 'text-slate-900' },
-  success: { icon: 'bg-success-soft text-success-600', value: 'text-success-600' },
-  danger: { icon: 'bg-danger-soft text-danger-600', value: 'text-danger-600' },
-  warning: { icon: 'bg-warning-soft text-warning-text', value: 'text-warning-text' },
+  success: { icon: 'bg-success-soft text-success-600', value: 'text-slate-900' },
+  danger: { icon: 'bg-danger-soft text-danger-600', value: 'text-slate-900' },
+  warning: { icon: 'bg-warning-soft text-warning-text', value: 'text-slate-900' },
   neutral: { icon: 'bg-slate-100 text-slate-500', value: 'text-slate-900' },
 };
 
@@ -25,8 +25,8 @@ export default function StatCard({ icon, value, label, tone = 'brand', className
     <Card className={['flex items-center gap-3 px-4 py-3.5', className].join(' ')}>
       <span className={['flex size-9 shrink-0 items-center justify-center rounded-lg', toneClasses.icon].join(' ')}>{icon}</span>
       <div className="min-w-0">
-        <p className={['font-heading text-lg font-bold leading-tight', toneClasses.value].join(' ')}>{value}</p>
-        <p className="truncate text-xs text-slate-500">{label}</p>
+        <p className="truncate text-xs font-medium text-slate-500">{label}</p>
+        <p className={['mt-0.5 text-lg font-semibold leading-tight tabular-nums', toneClasses.value].join(' ')}>{value}</p>
       </div>
     </Card>
   );

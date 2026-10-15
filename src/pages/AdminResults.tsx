@@ -1,4 +1,6 @@
 import { useEffect, useState } from 'react';
+import { formatDateTime } from '../lib/helpers';
+import PageHeader from '../components/ui/PageHeader';
 import {
   ArrowLeft,
   CheckCircle2,
@@ -198,7 +200,7 @@ export default function AdminResults() {
       r.correctCount,
       r.wrongCount,
       r.unansweredCount,
-      r.submittedAt ? new Date(r.submittedAt).toLocaleString() : '',
+      r.submittedAt ? formatDateTime(r.submittedAt) : '',
     ]);
     const csv = [header, ...rows].map((row) => row.map(cell).join(',')).join('\r\n');
     const blob = new Blob(['\ufeff' + csv], { type: 'text/csv;charset=utf-8' });
@@ -213,20 +215,11 @@ export default function AdminResults() {
   if (!selectedTest) {
     return (
       <div className="mx-auto w-full max-w-5xl xl:max-w-6xl 2xl:max-w-7xl">
-        <div className="mb-6 flex flex-wrap items-center justify-between gap-4">
-          <div className="flex items-center gap-3.5">
-            <span className="flex size-11 shrink-0 items-center justify-center rounded-2xl bg-brand-100 text-brand-600">
-              <FileCheck2 className="size-5" />
-            </span>
-            <div>
-              <h1 className="font-heading text-2xl font-bold text-slate-900">Student Assessment Results</h1>
-              <p className="mt-0.5 text-sm text-slate-500">Select a test to review student performance for that assessment.</p>
-            </div>
-          </div>
-          <Button variant="secondary" size="sm" onClick={fetchTestsSummary} icon={<RotateCcw className="size-3.5" />}>
+        <PageHeader title="Results" description="Review student performance by test." actions={<>
+<Button variant="secondary" size="sm" onClick={fetchTestsSummary} icon={<RotateCcw className="size-3.5" />}>
             Refresh
           </Button>
-        </div>
+</>} />
 
         {!summaryLoading && testsSummary.length > 0 && (
           <div className="mb-6 grid grid-cols-2 gap-3 sm:grid-cols-3">
@@ -275,14 +268,14 @@ export default function AdminResults() {
                   onKeyDown={(e) => {
                     if (e.key === 'Enter') handleSelectTest(test);
                   }}
-                  className="cursor-pointer p-5 transition-all hover:-translate-y-0.5 hover:shadow-[0_12px_28px_rgba(15,23,42,0.1)]"
+                  className="cursor-pointer p-5 transition-all hover:shadow-soft-md"
                 >
                   <div className="mb-2 flex items-start justify-between gap-2">
                     <h3 className="text-base font-semibold text-slate-900">{test.testName}</h3>
                     <ChevronRight className="size-4 shrink-0 text-slate-400" />
                   </div>
                   <p className="mb-4 text-xs text-slate-400">
-                    Last submission: {test.lastSubmittedAt ? new Date(test.lastSubmittedAt).toLocaleString() : 'N/A'}
+                    Last submission: {test.lastSubmittedAt ? formatDateTime(test.lastSubmittedAt) : 'N/A'}
                   </p>
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-1.5 text-sm text-slate-600">
@@ -312,15 +305,7 @@ export default function AdminResults() {
         <span className="font-medium text-slate-500">{selectedTest.testName}</span>
       </div>
 
-      <div className="mb-6 flex items-center gap-3.5">
-        <span className="flex size-11 shrink-0 items-center justify-center rounded-2xl bg-brand-100 text-brand-600">
-          <FileCheck2 className="size-5" />
-        </span>
-        <div>
-          <h1 className="font-heading text-2xl font-bold text-slate-900">{selectedTest.testName}</h1>
-          <p className="mt-0.5 text-sm text-slate-500">Track and review student performances for this test.</p>
-        </div>
-      </div>
+      <PageHeader title={selectedTest.testName} description="Scores and submissions for this test." />
 
       <div className="mb-6 flex flex-wrap items-center justify-between gap-4">
         <Input
@@ -393,19 +378,19 @@ export default function AdminResults() {
                     <td className="px-5 py-4">
                       <Badge variant={pctBadgeVariant(pct)}>{pct}%</Badge>
                     </td>
-                    <td className="px-5 py-4 text-slate-500">{result.submittedAt ? new Date(result.submittedAt).toLocaleString() : 'N/A'}</td>
+                    <td className="px-5 py-4 text-slate-500">{result.submittedAt ? formatDateTime(result.submittedAt) : 'N/A'}</td>
                     <td className="px-5 py-4">
                       <div className="flex flex-wrap gap-2">
                         <Button size="sm" variant="secondary" onClick={() => handleViewDetails(result._id)} icon={<Eye className="size-3.5" />}>
-                          View Attempt
+                          View attempt
                         </Button>
                         <Button
                           size="sm"
-                          variant="danger"
+                          variant="dangerSubtle"
                           onClick={() => handleDelete(result._id, result.studentEmail, result.testName)}
                           icon={<Trash2 className="size-3.5" />}
                         >
-                          Allow Retake
+                          Allow retake
                         </Button>
                       </div>
                     </td>
@@ -473,7 +458,7 @@ export default function AdminResults() {
             <p className="mb-5 text-xs text-slate-500">
               Submitted at:{' '}
               <strong className="font-semibold text-slate-700">
-                {detailData.studentExam.submittedAt ? new Date(detailData.studentExam.submittedAt).toLocaleString() : 'N/A'}
+                {detailData.studentExam.submittedAt ? formatDateTime(detailData.studentExam.submittedAt) : 'N/A'}
               </strong>
             </p>
 

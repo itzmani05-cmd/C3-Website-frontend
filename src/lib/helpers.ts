@@ -98,3 +98,12 @@ export const formatCorrectAnswerLabel = (value: string | string[] | null | undef
   if (Array.isArray(value)) return value.filter(Boolean).map((v) => v.toString().toUpperCase()).join(', ');
   return (value ?? '').toString().toUpperCase();
 };
+
+const DATE_OPTS: Intl.DateTimeFormatOptions = { day: 'numeric', month: 'short', year: 'numeric' };
+
+/** "4 Oct 2026" in the viewer's locale. */
+export const formatDate = (value: string | number | Date): string => new Date(value).toLocaleDateString(undefined, DATE_OPTS);
+
+/** "4 Oct 2026, 4:45 pm" in the viewer's locale. */
+export const formatDateTime = (value: string | number | Date): string =>
+  new Date(value).toLocaleString(undefined, { ...DATE_OPTS, hour: 'numeric', minute: '2-digit' });

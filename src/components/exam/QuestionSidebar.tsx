@@ -1,4 +1,4 @@
-import { ArrowLeft, Check, Send, TriangleAlert, CheckCircle2 } from 'lucide-react';
+import { ArrowLeft, Check, Send } from 'lucide-react';
 import type { ReactNode } from 'react';
 import type { ExamQuestion } from '../../types/models';
 
@@ -9,7 +9,6 @@ interface QuestionSidebarProps {
   visitedQuestions: Set<string>;
   markedForReview: Set<string>;
   activeQuestionIndex: number;
-  selectedTestName: string;
   onNavigate: (index: number) => void;
   onSubmitClick: () => void;
   onExitClick: () => void;
@@ -77,13 +76,10 @@ export default function QuestionSidebar({
   visitedQuestions,
   markedForReview,
   activeQuestionIndex,
-  selectedTestName,
   onNavigate,
   onSubmitClick,
   onExitClick,
 }: QuestionSidebarProps) {
-  const answeredCount = Object.keys(answers).length;
-  const unansweredCount = questions.length - answeredCount;
 
   const questionStatuses = questions.map((q) => getStatus(!!answers[q._id], visitedQuestions.has(q._id), markedForReview.has(q._id)));
   const statusCounts = questionStatuses.reduce(

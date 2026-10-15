@@ -1,4 +1,5 @@
 import { ArrowLeft, Calendar, CheckCircle2, Info, Trophy, TriangleAlert, XCircle } from 'lucide-react';
+import { formatDate } from '../../lib/helpers';
 import QuestionRenderer from '../QuestionRenderer';
 import { isAnswerCorrect, toOptionKeys } from '../../lib/grading';
 import type { ExamQuestion, OptionKey } from '../../types/models';
@@ -89,7 +90,7 @@ export default function ExamResultPage({
                 <p className="mt-1 text-sm text-white/80">{studentEmail}</p>
 
                 <div className="mt-6">
-                  <div className="font-heading text-5xl font-extrabold">{percentage}%</div>
+                  <div className="font-heading text-5xl font-bold">{percentage}%</div>
                   <div className="mt-1 text-sm text-white/80">{scoreLabel}</div>
                   <span className={['mt-3 inline-flex items-center rounded-full px-3 py-1 text-xs font-bold', tier.className].join(' ')}>{tier.label}</span>
                 </div>
@@ -111,7 +112,7 @@ export default function ExamResultPage({
                   <StatPill
                     icon={<Calendar className="size-4" />}
                     label="Submitted"
-                    value={submittedAt ? new Date(submittedAt).toLocaleDateString() : new Date().toLocaleDateString()}
+                    value={submittedAt ? formatDate(submittedAt) : formatDate(new Date())}
                     tone="brand"
                   />
                 </div>

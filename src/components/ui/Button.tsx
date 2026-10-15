@@ -2,7 +2,7 @@ import { forwardRef } from 'react';
 import type { ButtonHTMLAttributes, ReactNode } from 'react';
 import { Loader2 } from 'lucide-react';
 
-export type ButtonVariant = 'primary' | 'secondary' | 'danger' | 'ghost';
+export type ButtonVariant = 'primary' | 'secondary' | 'danger' | 'dangerSubtle' | 'ghost';
 export type ButtonSize = 'sm' | 'md';
 
 interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
@@ -14,17 +14,19 @@ interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
 
 const VARIANT_CLASSES: Record<ButtonVariant, string> = {
   primary:
-    'bg-brand-600 text-white shadow-[0_10px_20px_-8px_rgba(79,70,229,0.55)] hover:bg-brand-700 focus-visible:ring-brand-500',
+    'bg-brand-600 text-white shadow-sm hover:bg-brand-700 focus-visible:ring-brand-500',
   secondary:
-    'bg-white text-slate-700 border border-slate-200 hover:bg-slate-50 focus-visible:ring-slate-400',
+    'bg-white text-slate-700 border border-slate-200 shadow-xs hover:bg-slate-50 hover:border-slate-300 focus-visible:ring-slate-400',
   danger:
-    'bg-danger-600 text-white shadow-[0_10px_20px_-8px_rgba(220,38,38,0.5)] hover:bg-danger-700 focus-visible:ring-danger-500',
+    'bg-danger-600 text-white shadow-sm hover:bg-danger-700 focus-visible:ring-danger-500',
+  dangerSubtle:
+    'bg-white text-danger-600 border border-slate-200 hover:border-danger-500/40 hover:bg-danger-soft/60 focus-visible:ring-danger-500',
   ghost: 'bg-transparent text-slate-600 hover:bg-slate-100 focus-visible:ring-slate-400',
 };
 
 const SIZE_CLASSES: Record<ButtonSize, string> = {
   sm: 'px-3 py-1.5 text-xs gap-1.5',
-  md: 'px-4 py-2.5 text-sm gap-2',
+  md: 'px-4 py-2 text-sm gap-2',
 };
 
 const Button = forwardRef<HTMLButtonElement, ButtonProps>(function Button(

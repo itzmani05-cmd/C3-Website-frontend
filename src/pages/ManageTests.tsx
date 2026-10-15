@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import type { FormEvent } from 'react';
 import { ChevronDown, ChevronRight, ClipboardList, GraduationCap, Pencil, Plus, Trash2 } from 'lucide-react';
+import PageHeader from '../components/ui/PageHeader';
 import { toast } from 'react-toastify';
 import api from '../api';
 import { useModal } from '../components/ui';
@@ -76,17 +77,7 @@ export default function ManageTests() {
 
   return (
     <div className="mx-auto w-full max-w-5xl xl:max-w-6xl 2xl:max-w-7xl">
-      <div className="mb-6 flex flex-wrap items-center justify-between gap-4">
-        <div className="flex items-center gap-3.5">
-          <span className="flex size-11 shrink-0 items-center justify-center rounded-2xl bg-brand-100 text-brand-600">
-            <ClipboardList className="size-5" />
-          </span>
-          <div>
-            <h1 className="font-heading text-2xl font-bold text-slate-900">Manage Tests</h1>
-            <p className="mt-0.5 text-sm text-slate-500">Pick an exam to add, edit, and publish its tests</p>
-          </div>
-        </div>
-      </div>
+      <PageHeader title="Manage Tests" description="Pick an exam to add, edit, and publish its tests" />
 
       {!loading && exams.length > 0 && (
         <div className="mb-6 grid grid-cols-1 gap-3 sm:grid-cols-3">
@@ -422,7 +413,7 @@ function ExamTests({ examId, onChanged }: ExamTestsProps) {
                     </Button>
                     <Button
                       size="sm"
-                      variant="danger"
+                      variant="dangerSubtle"
                       onClick={() => handleDeleteTest(test._id, test.name)}
                       aria-label={`Delete ${test.name}`}
                     >

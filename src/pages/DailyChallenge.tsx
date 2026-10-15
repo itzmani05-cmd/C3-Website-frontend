@@ -1,4 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
+import { formatDateTime, formatDate } from '../lib/helpers';
+import PageHeader from '../components/ui/PageHeader';
 import {
   ArrowLeft,
   BarChart3,
@@ -11,7 +13,6 @@ import {
   Plus,
   Search,
   Trash2,
-  Trophy,
   TriangleAlert,
   Users,
 } from 'lucide-react';
@@ -87,7 +88,6 @@ export default function DailyChallengeAdmin() {
   const { showConfirm } = useModal();
 
   const [view, setView] = useState<View>('dashboard');
-  const [selectedId, setSelectedId] = useState<string | null>(null);
   const [editingId, setEditingId] = useState<string | null>(null);
 
   const [exams, setExams] = useState<Exam[]>([]);
@@ -218,13 +218,11 @@ export default function DailyChallengeAdmin() {
   };
 
   const goToPreview = (id: string) => {
-    setSelectedId(id);
     setView('preview');
     loadDetail(id);
   };
 
   const goToAnalytics = (id: string) => {
-    setSelectedId(id);
     setView('analytics');
     setStudentListTab('attempted');
     setStudentSearch('');
@@ -280,7 +278,7 @@ export default function DailyChallengeAdmin() {
   const handlePublish = async () => {
     if (!detail) return;
     const confirmed = await showConfirm(
-      `Publish this Daily Challenge?\n\nDate: ${new Date(detail.startAt).toLocaleString()}\nQuestions: ${detail.questionIds.length}\nMaximum Attempts: ${detail.maxAttempts}\n\nStudents will be able to attempt it once it goes live.`,
+      `Publish this Daily Challenge?\n\nDate: ${formatDateTime(detail.startAt)}\nQuestions: ${detail.questionIds.length}\nMaximum Attempts: ${detail.maxAttempts}\n\nStudents will be able to attempt it once it goes live.`,
       { title: 'Publish Daily Challenge?', confirmText: 'Confirm Publish', variant: 'warning' }
     );
     if (!confirmed) return;
@@ -352,15 +350,7 @@ export default function DailyChallengeAdmin() {
   };
 
   const pageHeader = (
-    <div className="mb-6 flex items-center gap-3.5">
-      <span className="flex size-11 shrink-0 items-center justify-center rounded-2xl bg-brand-100 text-brand-600">
-        <Trophy className="size-5" />
-      </span>
-      <div>
-        <h1 className="font-heading text-2xl font-bold text-slate-900">C3 Daily Challenge</h1>
-        <p className="mt-0.5 text-sm text-slate-500">Curate the 5-question daily challenge for the mobile app</p>
-      </div>
-    </div>
+    <PageHeader title="Daily Challenge" description="Curate the 5-question daily challenge for the mobile app" />
   );
 
   const backToDashboard = () => {
@@ -398,10 +388,10 @@ export default function DailyChallengeAdmin() {
           </div>
           <div className="flex gap-2">
             <Button variant="secondary" size="sm" onClick={goToAll} disabled={!examId}>
-              All Challenges
+              All challenges
             </Button>
             <Button size="sm" icon={<Plus className="size-4" />} onClick={goToCreate} disabled={!examId}>
-              Create Daily Challenge
+              Create challenge
             </Button>
           </div>
         </div>
@@ -442,10 +432,10 @@ export default function DailyChallengeAdmin() {
                   </div>
                   <div className="flex gap-2">
                     <Button size="sm" variant="secondary" icon={<Eye className="size-3.5" />} onClick={() => goToPreview(dashboard.today!._id)}>
-                      View Challenge
+                      View challenge
                     </Button>
                     <Button size="sm" variant="secondary" icon={<BarChart3 className="size-3.5" />} onClick={() => goToAnalytics(dashboard.today!._id)}>
-                      View Analytics
+                      View analytics
                     </Button>
                   </div>
                 </div>
@@ -656,7 +646,7 @@ export default function DailyChallengeAdmin() {
               )}
               {detail.status !== 'draft' && (
                 <Button variant="secondary" icon={<BarChart3 className="size-4" />} onClick={() => goToAnalytics(detail._id)}>
-                  View Analytics
+                  View analytics
                 </Button>
               )}
             </div>
@@ -673,7 +663,7 @@ export default function DailyChallengeAdmin() {
         <div className="mb-6 flex flex-wrap items-center justify-between gap-3">
           <h2 className="font-heading text-xl font-bold text-slate-900">All Daily Challenges</h2>
           <Button size="sm" icon={<Plus className="size-4" />} onClick={goToCreate}>
-            Create Daily Challenge
+            Create challenge
           </Button>
         </div>
 
@@ -696,7 +686,7 @@ export default function DailyChallengeAdmin() {
               <tbody>
                 {challengesPage.pageItems.map((c) => (
                   <tr key={c._id} className="border-b border-slate-100 last:border-0 hover:bg-slate-50">
-                    <td className="px-4 py-3 font-medium text-slate-800">{new Date(c.startAt).toLocaleDateString()}</td>
+                    <td className="px-4 py-3 font-medium text-slate-800">{formatDate(c.startAt)}</td>
                     <td className="max-w-[220px] truncate px-4 py-3 text-slate-600">{c.title}</td>
                     <td className="px-4 py-3 text-slate-600">{c.questionIds.length}</td>
                     <td className="px-4 py-3">
@@ -747,7 +737,7 @@ export default function DailyChallengeAdmin() {
                             </Button>
                           )}
                           {c.status === 'draft' && (
-                            <Button size="sm" variant="danger" onClick={() => handleDelete(c._id)} aria-label="Delete">
+                            <Button size="sm" variant="dangerSubtle" onClick={() => handleDelete(c._id)} aria-label="Delete">
                               <Trash2 className="size-3.5" />
                             </Button>
                           )}
@@ -855,7 +845,7 @@ export default function DailyChallengeAdmin() {
                             </td>
                             <td className="px-3 py-2 text-slate-600">{s.attemptsUsed}</td>
                             <td className="px-3 py-2 text-slate-600">{s.submitted ? `${s.bestPercentage}%` : '—'}</td>
-                            <td className="px-3 py-2 text-slate-600">{s.lastAttemptAt ? new Date(s.lastAttemptAt).toLocaleString() : '—'}</td>
+                            <td className="px-3 py-2 text-slate-600">{s.lastAttemptAt ? formatDateTime(s.lastAttemptAt) : '—'}</td>
                             <td className="px-3 py-2">
                               <Badge variant={s.submitted ? 'success' : 'neutral'}>{s.submitted ? 'Completed' : 'In Progress'}</Badge>
                             </td>

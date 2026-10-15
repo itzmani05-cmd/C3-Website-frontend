@@ -130,7 +130,7 @@ export default function CurriculumTreeNode({
             <Button size="sm" onClick={onAddChild} aria-label={addChildLabel}>
               <Plus className="size-3.5" />
             </Button>
-            <Button size="sm" variant="danger" onClick={onDelete} aria-label={`Delete ${name}`}>
+            <Button size="sm" variant="dangerSubtle" onClick={onDelete} aria-label={`Delete ${name}`}>
               <Trash2 className="size-3.5" />
             </Button>
           </div>
