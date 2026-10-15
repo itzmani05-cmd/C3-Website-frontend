@@ -5,6 +5,7 @@ import {
   ClipboardList,
   Crown,
   Download,
+  Library,
   FileCheck2,
   GraduationCap,
   Lightbulb,
@@ -25,12 +26,13 @@ import ManageTests from './ManageTests';
 import DailyChallengeAdmin from './DailyChallenge';
 import ManageStudents from './ManageStudents';
 import AdminResults from './AdminResults';
+import QuestionBank from './QuestionBank';
 
 interface AdminPanelProps {
   onLogout: () => void;
 }
 
-type TabKey = 'ai' | 'prompts' | 'pdf' | 'fix' | 'exams' | 'tests' | 'dailyChallenge' | 'students' | 'results';
+type TabKey = 'ai' | 'prompts' | 'pdf' | 'fix' | 'bank' | 'exams' | 'tests' | 'dailyChallenge' | 'students' | 'results';
 type Section = 'Content' | 'Management';
 
 const TABS: { key: TabKey; label: string; icon: ComponentType<{ className?: string }>; Component: ComponentType; section: Section }[] = [
@@ -38,6 +40,7 @@ const TABS: { key: TabKey; label: string; icon: ComponentType<{ className?: stri
   { key: 'prompts', label: 'Prompts', icon: Sparkles, Component: PromptLibrary, section: 'Content' },
   { key: 'pdf', label: 'PDF Download', icon: Download, Component: PdfDownload, section: 'Content' },
   { key: 'fix', label: 'Question Fix', icon: Wrench, Component: QuestionFix, section: 'Content' },
+  { key: 'bank', label: 'Question Bank', icon: Library, Component: QuestionBank, section: 'Content' },
   { key: 'exams', label: 'Manage Exams', icon: GraduationCap, Component: ManageExams, section: 'Management' },
   { key: 'tests', label: 'Manage Tests', icon: ClipboardList, Component: ManageTests, section: 'Management' },
   { key: 'dailyChallenge', label: 'Daily Challenge', icon: Trophy, Component: DailyChallengeAdmin, section: 'Management' },
