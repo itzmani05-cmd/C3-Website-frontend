@@ -69,11 +69,11 @@ export default function InstructionsModal({ test, onConfirm, onCancel }: Instruc
 
 function Fact({ icon, label, value }: { icon: ReactNode; label: string; value: string }) {
   return (
-    <div className="flex flex-col items-center gap-1 rounded-xl bg-slate-50 py-3">
-      <span className="flex items-center gap-1.5 text-xs font-semibold text-slate-500">
+    <div className="flex flex-col items-center gap-1 rounded-lg border border-slate-200 bg-slate-50 px-1 py-3 text-center">
+      <span className="flex items-center gap-1.5 text-[11px] font-medium text-slate-500 sm:text-xs">
         {icon} {label}
       </span>
-      <strong className="text-lg font-bold text-slate-900">{value}</strong>
+      <strong className="text-lg font-semibold tabular-nums text-slate-900">{value}</strong>
     </div>
   );
 }

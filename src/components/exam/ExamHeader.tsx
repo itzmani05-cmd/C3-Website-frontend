@@ -1,4 +1,4 @@
-import { Calculator, CheckCircle2, Clock, FileEdit, RefreshCw, Wifi } from 'lucide-react';
+import { Calculator, CheckCircle2, Clock, RefreshCw, Wifi } from 'lucide-react';
 
 interface ExamHeaderProps {
   selectedTestName: string;
@@ -36,16 +36,16 @@ export default function ExamHeader({
   const SyncIcon = !online ? Wifi : syncing || hasUnsynced ? RefreshCw : CheckCircle2;
 
   return (
-    <header className="sticky top-0 z-20 flex flex-wrap items-center justify-between gap-3 border-b border-slate-200 bg-white px-4 py-3 sm:px-6 lg:px-8">
+    <header className="sticky top-0 z-20 flex items-center justify-between gap-3 border-b border-slate-200 bg-white/95 px-4 py-2.5 backdrop-blur sm:px-6 sm:py-3 lg:px-8">
       <div className="flex min-w-0 items-center gap-3">
-        <FileEdit className="size-[22px] shrink-0 text-brand-600" />
+        <img src="/C3AppLogo-128.png" alt="" className="hidden size-8 shrink-0 object-contain sm:block" />
         <div className="min-w-0">
-          <h1 className="truncate text-base font-bold text-slate-900">{selectedTestName}</h1>
+          <h1 className="truncate text-sm font-semibold text-slate-900 sm:text-base">{selectedTestName}</h1>
           <span className="block truncate text-xs text-slate-500">{studentEmail}</span>
         </div>
       </div>
 
-      <div className="flex flex-wrap items-center gap-2 sm:gap-3">
+      <div className="flex shrink-0 items-center gap-2 sm:gap-3">
         <button
           type="button"
           onClick={onToggleCalculator}
@@ -71,8 +71,8 @@ export default function ExamHeader({
 
         <div
           className={[
-            'inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-bold',
-            isTimeCritical ? 'bg-danger-soft text-danger-600' : 'bg-slate-100 text-slate-700',
+            'inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-sm font-semibold tabular-nums ring-1 ring-inset',
+            isTimeCritical ? 'bg-danger-50 text-danger-700 ring-danger-600/20' : 'bg-slate-50 text-slate-800 ring-slate-300',
           ].join(' ')}
         >
           <Clock className="size-3.5" />

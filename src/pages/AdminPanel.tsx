@@ -1,17 +1,17 @@
-import { useState } from 'react';
+import { lazy, Suspense, useEffect, useState } from 'react';
 import type { ComponentType } from 'react';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { AnimatePresence, motion } from 'framer-motion';
 import {
-  ClipboardList,
+  ChevronRight,
   Download,
-  Library,
   FileCheck2,
   GraduationCap,
+  ClipboardList,
   Lightbulb,
+  Library,
   LogOut,
   Menu,
-  PanelLeftClose,
-  PanelLeftOpen,
   ShieldCheck,
   Sparkles,
   Trophy,
@@ -19,168 +19,168 @@ import {
   Wrench,
   X,
 } from 'lucide-react';
-import AIGenerator from './AIGenerator';
-import PromptLibrary from './PromptLibrary';
-import PdfDownload from './PdfDownload';
-import QuestionFix from './QuestionFix';
-import ManageExams from './ManageExams';
-import ManageTests from './ManageTests';
-import DailyChallengeAdmin from './DailyChallenge';
-import ManageStudents from './ManageStudents';
-import AdminResults from './AdminResults';
-import QuestionBank from './QuestionBank';
+import { AppFooter, LoadingState } from '../components/ui';
+
+// Each tab is downloaded the first time it is opened.
+const AIGenerator = lazy(() => import('./AIGenerator'));
+const PromptLibrary = lazy(() => import('./PromptLibrary'));
+const PdfDownload = lazy(() => import('./PdfDownload'));
+const QuestionFix = lazy(() => import('./QuestionFix'));
+const ManageExams = lazy(() => import('./ManageExams'));
+const ManageTests = lazy(() => import('./ManageTests'));
+const DailyChallengeAdmin = lazy(() => import('./DailyChallenge'));
+const ManageStudents = lazy(() => import('./ManageStudents'));
+const AdminResults = lazy(() => import('./AdminResults'));
+const QuestionBank = lazy(() => import('./QuestionBank'));
 
 interface AdminPanelProps {
   onLogout: () => void;
 }
 
-type TabKey = 'ai' | 'prompts' | 'pdf' | 'fix' | 'bank' | 'exams' | 'tests' | 'dailyChallenge' | 'students' | 'results';
-type Section = 'Content' | 'Management';
+type Section = 'Content tools' | 'Management';
 
-interface TabDef {
-  key: TabKey;
+interface Tab {
+  /** URL segment: /admin/<slug>. */
+  slug: string;
   label: string;
-  description: string;
   icon: ComponentType<{ className?: string }>;
   Component: ComponentType;
   section: Section;
 }
 
-const TABS: TabDef[] = [
-  { key: 'ai', label: 'Extractor', description: 'Extract questions from source material with AI.', icon: Lightbulb, Component: AIGenerator, section: 'Content' },
-  { key: 'prompts', label: 'Prompts', description: 'Maintain reusable prompt templates.', icon: Sparkles, Component: PromptLibrary, section: 'Content' },
-  { key: 'pdf', label: 'PDF Download', description: 'Generate printable question papers and answer keys.', icon: Download, Component: PdfDownload, section: 'Content' },
-  { key: 'fix', label: 'Question Fix', description: 'Review and correct flagged questions.', icon: Wrench, Component: QuestionFix, section: 'Content' },
-  { key: 'bank', label: 'Question Bank', description: 'Browse and organise the full question library.', icon: Library, Component: QuestionBank, section: 'Content' },
-  { key: 'exams', label: 'Manage Exams', description: 'Create and configure exams.', icon: GraduationCap, Component: ManageExams, section: 'Management' },
-  { key: 'tests', label: 'Manage Tests', description: 'Schedule and publish tests for students.', icon: ClipboardList, Component: ManageTests, section: 'Management' },
-  { key: 'dailyChallenge', label: 'Daily Challenge', description: 'Set up the daily challenge questions.', icon: Trophy, Component: DailyChallengeAdmin, section: 'Management' },
-  { key: 'students', label: 'Manage Students', description: 'Manage student accounts and access.', icon: Users, Component: ManageStudents, section: 'Management' },
-  { key: 'results', label: 'Results', description: 'Review student performance and attempts.', icon: FileCheck2, Component: AdminResults, section: 'Management' },
+const TABS: Tab[] = [
+  { slug: 'exams', label: 'Manage Exams', icon: GraduationCap, Component: ManageExams, section: 'Management' },
+  { slug: 'tests', label: 'Manage Tests', icon: ClipboardList, Component: ManageTests, section: 'Management' },
+  { slug: 'daily-challenge', label: 'Daily Challenge', icon: Trophy, Component: DailyChallengeAdmin, section: 'Management' },
+  { slug: 'question-bank', label: 'Question Bank', icon: Library, Component: QuestionBank, section: 'Management' },
+  { slug: 'students', label: 'Manage Students', icon: Users, Component: ManageStudents, section: 'Management' },
+  { slug: 'results', label: 'Results', icon: FileCheck2, Component: AdminResults, section: 'Management' },
+  { slug: 'extractor', label: 'Extractor', icon: Lightbulb, Component: AIGenerator, section: 'Content tools' },
+  { slug: 'prompts', label: 'Prompts', icon: Sparkles, Component: PromptLibrary, section: 'Content tools' },
+  { slug: 'pdf', label: 'PDF Download', icon: Download, Component: PdfDownload, section: 'Content tools' },
+  { slug: 'question-fix', label: 'Question Fix', icon: Wrench, Component: QuestionFix, section: 'Content tools' },
 ];
 
-const SECTIONS: { key: Section; label: string }[] = [
-  { key: 'Content', label: 'Content Tools' },
-  { key: 'Management', label: 'Management' },
-];
+const SECTIONS: Section[] = ['Management', 'Content tools'];
 
 export default function AdminPanel({ onLogout }: AdminPanelProps) {
-  const [activeTab, setActiveTab] = useState<TabKey>('ai');
+  const location = useLocation();
+  const navigate = useNavigate();
   const [mobileOpen, setMobileOpen] = useState(false);
-  const [collapsed, setCollapsed] = useState(false);
 
-  const active = TABS.find((t) => t.key === activeTab) ?? TABS[0];
-  const ActiveComponent = active.Component;
+  // The active page lives in the URL so refresh and the back button keep it.
+  const slug = location.pathname.split('/')[2] || '';
+  const activeTab = TABS.find((t) => t.slug === slug) ?? TABS[0];
+  const ActiveComponent = activeTab.Component;
 
-  const renderSidebar = (compact: boolean) => (
-    <>
-      <div className={['flex h-16 shrink-0 items-center gap-3 border-b border-white/10', compact ? 'justify-center px-2' : 'px-5'].join(' ')}>
-        <span className="flex size-9 shrink-0 items-center justify-center rounded-xl bg-white ring-1 ring-sky/40">
-          <img src="/C3AppLogo-128.png" alt="C³" className="size-6 object-contain" />
-        </span>
-        {!compact && (
-          <div className="min-w-0 flex-1 leading-tight">
-            <h2 className="font-heading truncate text-[15px] font-semibold text-white">C³ Institute</h2>
-            <p className="truncate text-xs text-sky/70">Admin Console</p>
-          </div>
-        )}
+  useEffect(() => {
+    if (slug !== activeTab.slug) navigate(`/admin/${activeTab.slug}`, { replace: true });
+  }, [slug, activeTab.slug, navigate]);
+
+  useEffect(() => {
+    document.title = `${activeTab.label} · C³ Institute Admin`;
+  }, [activeTab.label]);
+
+  useEffect(() => {
+    if (!mobileOpen) return;
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    const onKeyDown = (e: KeyboardEvent) => e.key === 'Escape' && setMobileOpen(false);
+    window.addEventListener('keydown', onKeyDown);
+    return () => {
+      document.body.style.overflow = previousOverflow;
+      window.removeEventListener('keydown', onKeyDown);
+    };
+  }, [mobileOpen]);
+
+  const goTo = (tab: Tab) => {
+    navigate(`/admin/${tab.slug}`);
+    setMobileOpen(false);
+  };
+
+  const brand = (
+    <div className="flex h-14 shrink-0 items-center gap-2.5 border-b border-white/10 px-4">
+      <span className="flex size-8 items-center justify-center rounded-md bg-white">
+        <img src="/C3AppLogo-128.png" alt="" className="size-6 object-contain" />
+      </span>
+      <div className="min-w-0 leading-tight">
+        <p className="truncate font-heading text-sm font-bold text-white">C³ Institute</p>
+        <p className="truncate text-[11px] text-slate-400">Admin console</p>
       </div>
+    </div>
+  );
 
-      <nav aria-label="Admin navigation" className="no-scrollbar flex flex-1 flex-col gap-6 overflow-y-auto px-3 py-5">
-        {SECTIONS.map((section, index) => (
-          <div key={section.key} className="flex flex-col gap-1">
-            {compact ? (
-              index > 0 && <div className="mx-3 mb-2 border-t border-white/10" />
-            ) : (
-              <p className="px-3 pb-1.5 text-[11px] font-semibold uppercase tracking-[0.08em] text-periwinkle">{section.label}</p>
-            )}
-            {TABS.filter((tab) => tab.section === section.key).map(({ key, label, icon: Icon }) => {
-              const isActive = activeTab === key;
+  const nav = (
+    <nav className="flex flex-1 flex-col gap-5 overflow-y-auto px-2.5 py-4" aria-label="Admin">
+      {SECTIONS.map((section) => (
+        <div key={section}>
+          <p className="px-2.5 pb-1.5 text-[10px] font-semibold uppercase tracking-[0.08em] text-slate-500">{section}</p>
+          <ul className="flex flex-col gap-px">
+            {TABS.filter((tab) => tab.section === section).map((tab) => {
+              const isActive = tab.slug === activeTab.slug;
+              const Icon = tab.icon;
               return (
-                <button
-                  key={key}
-                  type="button"
-                  title={compact ? label : undefined}
-                  aria-label={compact ? label : undefined}
-                  aria-current={isActive ? 'page' : undefined}
-                  onClick={() => {
-                    setActiveTab(key);
-                    setMobileOpen(false);
-                  }}
-                  className={[
-                    'group relative flex items-center gap-3 rounded-lg py-2 text-left text-[13.5px] font-medium outline-none transition-colors focus-visible:ring-2 focus-visible:ring-periwinkle',
-                    compact ? 'justify-center px-2' : 'px-3',
-                    isActive ? 'bg-royal text-white shadow-soft-sm' : 'text-sky/80 hover:bg-white/10 hover:text-white',
-                  ].join(' ')}
-                >
-                  {isActive && !compact && <span className="absolute inset-y-1.5 left-0 w-[3px] rounded-r-full bg-sky" />}
-                  <span
+                <li key={tab.slug}>
+                  <button
+                    type="button"
+                    onClick={() => goTo(tab)}
+                    aria-current={isActive ? 'page' : undefined}
                     className={[
-                      'flex size-7 shrink-0 items-center justify-center rounded-md transition-colors',
-                      isActive ? 'bg-white/15 text-white' : 'text-periwinkle group-hover:text-sky',
+                      'group relative flex h-8 w-full items-center gap-2.5 rounded-md px-2.5 text-left text-[13px] font-medium transition-colors',
+                      isActive ? 'bg-white/10 text-white' : 'text-slate-400 hover:bg-white/5 hover:text-slate-100',
                     ].join(' ')}
                   >
-                    <Icon className="size-[17px]" />
-                  </span>
-                  {!compact && <span className="truncate">{label}</span>}
-                </button>
+                    {isActive && <span className="absolute inset-y-1.5 left-0 w-0.5 rounded-full bg-brand-400" aria-hidden="true" />}
+                    <Icon
+                      className={[
+                        'size-4 shrink-0',
+                        isActive ? 'text-brand-300' : 'text-slate-500 group-hover:text-slate-300',
+                      ].join(' ')}
+                    />
+                    <span className="truncate">{tab.label}</span>
+                  </button>
+                </li>
               );
             })}
-          </div>
-        ))}
-      </nav>
+          </ul>
+        </div>
+      ))}
+    </nav>
+  );
 
-      <div className="shrink-0 border-t border-white/10 p-3">
-        {compact ? (
-          <div className="flex flex-col items-center gap-2">
-            <div className="flex size-9 items-center justify-center rounded-full bg-white/10 text-sky ring-1 ring-white/15" title="Administrator">
-              <ShieldCheck className="size-4" />
-            </div>
-            <button
-              type="button"
-              onClick={onLogout}
-              title="Sign out"
-              aria-label="Sign out"
-              className="flex size-9 items-center justify-center rounded-lg text-sky/80 transition-colors hover:bg-white/10 hover:text-white"
-            >
-              <LogOut className="size-[18px]" />
-            </button>
-          </div>
-        ) : (
-          <div className="flex items-center gap-3 rounded-xl border border-white/10 bg-white/5 p-2.5">
-            <div className="flex size-9 shrink-0 items-center justify-center rounded-full bg-white/10 text-sky ring-1 ring-white/15">
-              <ShieldCheck className="size-4" />
-            </div>
-            <div className="flex min-w-0 flex-1 flex-col leading-tight">
-              <span className="truncate text-sm font-semibold text-white">Administrator</span>
-              <span className="truncate text-xs text-sky/70">Full access</span>
-            </div>
-            <button
-              type="button"
-              onClick={onLogout}
-              title="Sign out"
-              aria-label="Sign out"
-              className="flex size-8 shrink-0 items-center justify-center rounded-lg text-sky/80 transition-colors hover:bg-white/10 hover:text-white"
-            >
-              <LogOut className="size-[17px]" />
-            </button>
-          </div>
-        )}
+  const account = (
+    <div className="shrink-0 border-t border-white/10 p-2.5">
+      <div className="flex items-center gap-2.5 rounded-md px-1.5 py-1.5">
+        <span className="flex size-8 shrink-0 items-center justify-center rounded-full bg-brand-600 text-white">
+          <ShieldCheck className="size-4" />
+        </span>
+        <div className="min-w-0 flex-1 leading-tight">
+          <p className="truncate text-[13px] font-semibold text-white">Administrator</p>
+          <p className="truncate text-[11px] text-slate-400">Full access</p>
+        </div>
+        <button
+          type="button"
+          onClick={onLogout}
+          aria-label="Sign out"
+          title="Sign out"
+          className="rounded-md p-2 text-slate-400 transition-colors hover:bg-white/10 hover:text-white"
+        >
+          <LogOut className="size-[18px]" />
+        </button>
       </div>
-    </>
+    </div>
   );
 
   return (
-    <div className="admin-theme flex h-screen overflow-hidden bg-slate-50 text-slate-900">
-      <aside
-        className={[
-          'hidden shrink-0 flex-col bg-navy transition-[width] duration-200 md:flex',
-          collapsed ? 'w-[72px]' : 'w-64',
-        ].join(' ')}
-      >
-        {renderSidebar(collapsed)}
+    <div className="flex h-screen overflow-hidden bg-[#f4f5f7]">
+      {/* Desktop sidebar */}
+      <aside className="hidden w-60 shrink-0 flex-col bg-ink-900 lg:flex">
+        {brand}
+        {nav}
+        {account}
       </aside>
 
+      {/* Mobile / tablet drawer */}
       <AnimatePresence>
         {mobileOpen && (
           <>
@@ -189,59 +189,65 @@ export default function AdminPanel({ onLogout }: AdminPanelProps) {
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
               onClick={() => setMobileOpen(false)}
-              className="fixed inset-0 z-40 bg-navy/60 md:hidden"
+              className="fixed inset-0 z-40 bg-slate-900/40 backdrop-blur-[2px] lg:hidden"
             />
             <motion.aside
               initial={{ x: '-100%' }}
               animate={{ x: 0 }}
               exit={{ x: '-100%' }}
-              transition={{ duration: 0.25, ease: [0.16, 1, 0.3, 1] }}
-              className="fixed inset-y-0 left-0 z-50 flex w-64 flex-col bg-navy shadow-2xl md:hidden"
+              transition={{ duration: 0.22, ease: [0.16, 1, 0.3, 1] }}
+              role="dialog"
+              aria-modal="true"
+              aria-label="Navigation"
+              className="fixed inset-y-0 left-0 z-50 flex w-[min(16rem,85vw)] flex-col bg-ink-900 shadow-soft-lg lg:hidden"
             >
               <button
                 type="button"
                 onClick={() => setMobileOpen(false)}
                 aria-label="Close menu"
-                className="absolute right-3 top-4 rounded-lg p-1.5 text-sky/70 transition-colors hover:bg-white/10 hover:text-white"
+                className="absolute right-2.5 top-3 rounded-md p-1.5 text-slate-400 transition-colors hover:bg-white/10 hover:text-white"
               >
                 <X className="size-5" />
               </button>
-              {renderSidebar(false)}
+              {brand}
+              {nav}
+              {account}
             </motion.aside>
           </>
         )}
       </AnimatePresence>
 
       <div className="flex min-w-0 flex-1 flex-col">
-        <header className="flex h-16 shrink-0 items-center gap-3 border-b border-slate-200 bg-white px-4 sm:px-6 lg:px-8">
+        <header className="flex h-14 shrink-0 items-center gap-3 border-b border-slate-200 bg-white px-4 sm:px-6 lg:px-8">
           <button
             type="button"
             onClick={() => setMobileOpen(true)}
             aria-label="Open menu"
-            className="rounded-lg p-2 text-slate-600 transition-colors hover:bg-slate-100 md:hidden"
+            className="-ml-1.5 rounded-lg p-2 text-slate-600 transition-colors hover:bg-slate-100 lg:hidden"
           >
             <Menu className="size-5" />
           </button>
-          <button
-            type="button"
-            onClick={() => setCollapsed((c) => !c)}
-            aria-label={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
-            className="hidden rounded-lg p-2 text-slate-500 transition-colors hover:bg-slate-100 hover:text-slate-800 md:block"
-          >
-            {collapsed ? <PanelLeftOpen className="size-5" /> : <PanelLeftClose className="size-5" />}
-          </button>
-          <div className="mx-1 hidden h-6 w-px bg-slate-200 md:block" />
-          <div className="min-w-0 leading-tight">
-            <p className="truncate text-xs text-slate-500">
-              {active.section === 'Content' ? 'Content Tools' : 'Management'} <span className="mx-1 text-slate-300">/</span>
-              <span className="font-medium text-slate-700">{active.label}</span>
-            </p>
-            <p className="hidden truncate text-xs text-slate-400 sm:block">{active.description}</p>
+          <img src="/C3AppLogo-128.png" alt="" className="size-7 rounded-md object-contain lg:hidden" />
+          <nav aria-label="Breadcrumb" className="flex min-w-0 items-center gap-1.5 text-[13px]">
+            <span className="hidden text-slate-500 sm:inline">Admin</span>
+            <ChevronRight className="hidden size-3.5 shrink-0 text-slate-300 sm:block" />
+            <span className="hidden text-slate-500 sm:inline">{activeTab.section}</span>
+            <ChevronRight className="hidden size-3.5 shrink-0 text-slate-300 sm:block" />
+            <span className="truncate font-medium text-slate-900">{activeTab.label}</span>
+          </nav>
+          <div className="ml-auto flex items-center gap-2">
+            <span className="hidden text-xs text-slate-500 md:inline">Signed in as Administrator</span>
+            <span className="flex size-7 items-center justify-center rounded-full bg-ink-900 text-[11px] font-bold text-white">A</span>
           </div>
         </header>
 
-        <main className="flex-1 overflow-y-auto overflow-x-hidden px-4 py-6 sm:px-6 lg:px-8 xl:px-10 2xl:px-14">
-          <ActiveComponent />
+        <main className="flex flex-1 flex-col overflow-y-auto overflow-x-hidden px-4 pt-6 sm:px-6 lg:px-8 lg:pt-7">
+          <div className="flex-1 pb-8">
+            <Suspense fallback={<LoadingState message={`Loading ${activeTab.label}...`} />}>
+              <ActiveComponent key={activeTab.slug} />
+            </Suspense>
+          </div>
+          <AppFooter area="Admin console" className="-mx-4 sm:-mx-6 lg:-mx-8" />
         </main>
       </div>
     </div>

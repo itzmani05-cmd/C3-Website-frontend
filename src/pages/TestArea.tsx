@@ -559,7 +559,7 @@ export default function TestArea({ onLogout }: TestAreaProps) {
       )}
 
       <div className="flex flex-col lg:min-h-0 lg:flex-1 lg:flex-row">
-        <main className="lg:min-h-0 lg:flex-1 lg:overflow-y-auto">
+        <main className="pb-24 lg:min-h-0 lg:flex-1 lg:overflow-y-auto lg:pb-0">
           <QuestionCard
             question={currentQuestion}
             questionIndex={activeQuestionIndex}

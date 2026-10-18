@@ -17,7 +17,8 @@ import {
 } from 'lucide-react';
 import api from '../api';
 import { toast } from 'react-toastify';
-import { MathText, Pagination, useModal, usePagination } from '../components/ui';
+import { Pagination, useModal, usePagination } from '../components/ui';
+import MathText from '../components/ui/MathText';
 import Button from '../components/ui/Button';
 import Card from '../components/ui/Card';
 import StatCard from '../components/ui/StatCard';

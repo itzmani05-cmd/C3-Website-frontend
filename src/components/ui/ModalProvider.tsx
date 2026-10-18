@@ -146,12 +146,12 @@ export function ModalProvider({ children }: { children: ReactNode }) {
             <div className="mt-6 flex w-full items-center justify-center gap-3">
               {modalState.type === 'confirm' && (
                 <>
-                  <Button variant="secondary" className="w-full" onClick={() => close(false)}>
+                  <Button variant="secondary" className="min-w-0 flex-1" onClick={() => close(false)}>
                     {modalState.cancelText}
                   </Button>
                   <Button
                     variant={modalState.variant === 'error' ? 'danger' : 'primary'}
-                    className="w-full"
+                    className="min-w-0 flex-1"
                     autoFocus
                     onClick={() => close(true)}
                   >
@@ -161,10 +161,10 @@ export function ModalProvider({ children }: { children: ReactNode }) {
               )}
               {modalState.type === 'prompt' && (
                 <>
-                  <Button variant="secondary" className="w-full" onClick={() => close(null)}>
+                  <Button variant="secondary" className="min-w-0 flex-1" onClick={() => close(null)}>
                     {modalState.cancelText}
                   </Button>
-                  <Button variant="primary" className="w-full" onClick={() => close(promptValue)}>
+                  <Button variant="primary" className="min-w-0 flex-1" onClick={() => close(promptValue)}>
                     {modalState.confirmText}
                   </Button>
                 </>

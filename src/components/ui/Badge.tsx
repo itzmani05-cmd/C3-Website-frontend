@@ -3,12 +3,12 @@ import type { ReactNode } from 'react';
 export type BadgeVariant = 'success' | 'danger' | 'warning' | 'info' | 'neutral' | 'brand';
 
 const VARIANT_CLASSES: Record<BadgeVariant, string> = {
-  success: 'bg-success-soft text-success-600',
-  danger: 'bg-danger-soft text-danger-600',
-  warning: 'bg-warning-soft text-warning-text',
-  info: 'bg-blue-50 text-info-600',
-  neutral: 'bg-slate-100 text-slate-600',
-  brand: 'bg-brand-100 text-brand-700',
+  success: 'bg-success-50 text-success-700 ring-success-600/20',
+  danger: 'bg-danger-50 text-danger-700 ring-danger-600/20',
+  warning: 'bg-warning-soft/60 text-warning-text ring-warning-500/30',
+  info: 'bg-brand-50 text-brand-700 ring-brand-600/20',
+  neutral: 'bg-slate-50 text-slate-600 ring-slate-500/20',
+  brand: 'bg-brand-50 text-brand-700 ring-brand-600/20',
 };
 
 interface BadgeProps {
@@ -21,7 +21,7 @@ export default function Badge({ variant = 'neutral', children, className = '' }:
   return (
     <span
       className={[
-        'inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-xs font-semibold',
+        'inline-flex items-center gap-1 whitespace-nowrap rounded-md px-2 py-0.5 text-xs font-medium ring-1 ring-inset',
         VARIANT_CLASSES[variant],
         className,
       ].join(' ')}

@@ -2,7 +2,7 @@ import { forwardRef, useId } from 'react';
 import type { InputHTMLAttributes, ReactNode, SelectHTMLAttributes, TextareaHTMLAttributes } from 'react';
 
 const CONTROL_CLASSES =
-  'w-full rounded-lg border border-slate-200 bg-white px-3.5 py-2.5 text-sm text-slate-900 placeholder:text-slate-400 transition-colors focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500/30 disabled:cursor-not-allowed disabled:bg-slate-50';
+  'w-full min-h-9 rounded-md border border-slate-300 bg-white px-3 py-1.5 text-sm text-slate-900 placeholder:text-slate-400 transition-colors hover:border-slate-400 focus:border-brand-600 focus:outline-none focus:ring-3 focus:ring-brand-600/15 disabled:cursor-not-allowed disabled:bg-slate-50 disabled:text-slate-500';
 
 interface FieldWrapperProps {
   label?: string;
@@ -16,7 +16,7 @@ function FieldWrapper({ label, htmlFor, error, children, className = '' }: Field
   return (
     <div className={className}>
       {label && (
-        <label htmlFor={htmlFor} className="mb-1.5 block text-sm font-medium text-slate-700">
+        <label htmlFor={htmlFor} className="mb-1 block text-[13px] font-medium text-slate-700">
           {label}
         </label>
       )}

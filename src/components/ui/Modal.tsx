@@ -80,7 +80,7 @@ export default function Modal({
     <AnimatePresence>
       {open && (
         <motion.div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 p-4 backdrop-blur-[2px]"
+          className="fixed inset-0 z-50 flex items-end justify-center bg-slate-900/50 backdrop-blur-[2px] sm:items-center sm:p-4"
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
@@ -95,7 +95,7 @@ export default function Modal({
             aria-modal="true"
             aria-label={typeof title === 'string' ? title : undefined}
             className={[
-              'flex max-h-[85vh] w-full flex-col overflow-hidden rounded-2xl bg-white shadow-soft-lg',
+              'flex max-h-[92dvh] w-full flex-col overflow-hidden rounded-t-2xl bg-white pb-[env(safe-area-inset-bottom)] shadow-soft-lg sm:max-h-[85dvh] sm:rounded-2xl sm:pb-0',
               SIZE_CLASSES[size],
             ].join(' ')}
             initial={{ opacity: 0, scale: 0.96, y: 12 }}
@@ -104,22 +104,27 @@ export default function Modal({
             transition={{ duration: 0.2, ease: [0.16, 1, 0.3, 1] }}
           >
             {(title || showCloseButton) && (
-              <div className="flex shrink-0 items-center justify-between border-b border-slate-100 px-6 py-4">
-                <div className="text-base font-semibold text-slate-900">{title}</div>
+              <div className="flex shrink-0 items-center justify-between gap-3 border-b border-slate-100 px-4 py-3.5 sm:px-6 sm:py-4">
+                <div className="min-w-0 flex-1 break-words text-base font-semibold text-slate-900">{title}</div>
                 {showCloseButton && (
                   <button
                     type="button"
                     onClick={onClose}
                     aria-label="Close dialog"
-                    className="inline-flex items-center justify-center rounded-lg p-1.5 text-slate-400 transition-colors hover:bg-slate-100 hover:text-slate-600"
+                    className="inline-flex shrink-0 items-center justify-center rounded-lg p-1.5 text-slate-400 transition-colors hover:bg-slate-100 hover:text-slate-600"
                   >
                     <X className="size-4" />
                   </button>
                 )}
               </div>
             )}
-            <div className="scrollbar-thin overflow-y-auto px-6 py-5">{children}</div>
-            {footer && <div className="flex shrink-0 items-center justify-end gap-3 border-t border-slate-100 px-6 py-4">{footer}</div>}
+            <div className="scrollbar-thin min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 py-4 sm:px-6 sm:py-5">{children}</div>
+            {/* On phones the footer buttons stack full width (primary action on top); from sm up they sit in a row on the right. */}
+            {footer && (
+              <div className="flex shrink-0 flex-col-reverse gap-2 border-t border-slate-100 bg-slate-50/60 px-4 py-3.5 max-sm:*:w-full sm:flex-row sm:flex-wrap sm:items-center sm:justify-end sm:gap-3 sm:px-6 sm:py-4">
+                {footer}
+              </div>
+            )}
           </motion.div>
         </motion.div>
       )}

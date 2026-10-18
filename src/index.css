@@ -1,29 +1,39 @@
 @import "tailwindcss";
 
 @theme {
-  /* Admin palette */
-  --color-navy: #091540;
-  --color-royal: #1B2CC1;
-  --color-periwinkle: #7692FF;
-  --color-sky: #ABD2FA;
-
   --font-sans: "Inter", ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
-  --font-heading: "Poppins", "Inter", ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+  /* Headings in Plus Jakarta Sans, body text in Inter (both loaded in index.html). */
+  --font-heading: "Plus Jakarta Sans", "Inter", ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
 
-  --color-brand-50: #eef2ff;
-  --color-brand-100: #e0e7ff;
-  --color-brand-500: #6366f1;
-  --color-brand-600: #4f46e5;
-  --color-brand-700: #4338ca;
+  /* Brand: the C3 logo blue. */
+  --color-brand-50: #eff6ff;
+  --color-brand-100: #dbeafe;
+  --color-brand-200: #bfdbfe;
+  --color-brand-300: #93c5fd;
+  --color-brand-400: #60a5fa;
+  --color-brand-500: #3b82f6;
+  --color-brand-600: #2563eb;
+  --color-brand-700: #1d4ed8;
+  --color-brand-800: #1e40af;
+  --color-brand-900: #1e3a8a;
 
+  /* Accent: "marked for review" in the exam palette. */
   --color-accent-500: #8b5cf6;
   --color-accent-600: #7c3aed;
   --color-accent-700: #6d28d9;
 
+  --color-success-50: #ecfdf5;
+  --color-success-100: #d1fae5;
+  --color-success-400: #34d399;
   --color-success-500: #10b981;
   --color-success-600: #059669;
+  --color-success-700: #047857;
   --color-success-soft: #d1fae5;
 
+  --color-danger-50: #fef2f2;
+  --color-danger-200: #fecaca;
+  --color-danger-300: #fca5a5;
+  --color-danger-400: #f87171;
   --color-danger-500: #ef4444;
   --color-danger-600: #dc2626;
   --color-danger-700: #b91c1c;
@@ -36,13 +46,22 @@
   --color-info-500: #3b82f6;
   --color-info-600: #2563eb;
 
-  --shadow-soft-sm: 0 1px 2px rgba(15, 23, 42, 0.06);
-  --shadow-soft-md: 0 12px 28px rgba(15, 23, 42, 0.08);
-  --shadow-soft-lg: 0 24px 60px rgba(15, 23, 42, 0.14);
+  /* Ink: the navy of the app shell (sidebar, login panel). */
+  --color-ink-700: #1e2a44;
+  --color-ink-800: #141d33;
+  --color-ink-900: #0d1426;
+  --color-ink-950: #080d1a;
 
-  --radius-xl: 14px;
-  --radius-2xl: 20px;
-  --radius-3xl: 28px;
+  /* Enterprise look: hairline borders, barely-there shadows, sharp corners. */
+  --shadow-soft-sm: 0 1px 2px rgba(15, 23, 42, 0.04);
+  --shadow-soft-md: 0 2px 6px -1px rgba(15, 23, 42, 0.08), 0 1px 2px rgba(15, 23, 42, 0.04);
+  --shadow-soft-lg: 0 16px 32px -12px rgba(15, 23, 42, 0.22);
+
+  --radius-md: 5px;
+  --radius-lg: 6px;
+  --radius-xl: 8px;
+  --radius-2xl: 8px;
+  --radius-3xl: 10px;
 }
 
 @layer base {
@@ -57,43 +76,16 @@
   }
 
   html {
-    scroll-behavior: smooth;
+    -webkit-text-size-adjust: 100%;
   }
 
   body {
     font-family: var(--font-sans);
-    background: #f3f6fb;
+    font-feature-settings: "cv11", "ss01";
+    background: #f4f5f7;
     color: #0f172a;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
-    text-rendering: optimizeLegibility;
-  }
-
-  ::selection {
-    background: color-mix(in srgb, var(--color-brand-500) 28%, white);
-  }
-
-  :focus-visible {
-    outline: 2px solid var(--color-brand-500);
-    outline-offset: 2px;
-  }
-
-  h1,
-  h2,
-  h3 {
-    letter-spacing: -0.015em;
-  }
-
-  @media (prefers-reduced-motion: reduce) {
-    html {
-      scroll-behavior: auto;
-    }
-    *,
-    *::before,
-    *::after {
-      animation-duration: 0.01ms !important;
-      transition-duration: 0.01ms !important;
-    }
   }
 
   h1,
@@ -103,39 +95,50 @@
   h5,
   h6 {
     font-family: var(--font-heading);
+    letter-spacing: -0.015em;
+  }
+
+  ::selection {
+    background: var(--color-brand-100);
+    color: var(--color-brand-900);
+  }
+
+  :focus-visible {
+    outline: 2px solid var(--color-brand-500);
+    outline-offset: 2px;
+  }
+
+  /* Keep iOS from zooming into inputs on focus. */
+  @media (max-width: 639px) {
+    input,
+    select,
+    textarea {
+      font-size: 16px !important;
+    }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+      animation-duration: 0.01ms !important;
+      transition-duration: 0.01ms !important;
+    }
   }
 }
 
-/* Admin console theme: remaps the shared brand/neutral tokens to the admin palette. */
-.admin-theme {
-  --admin-bg: color-mix(in srgb, var(--color-sky) 12%, white);
-
-  --color-brand-50: color-mix(in srgb, var(--color-sky) 22%, white);
-  --color-brand-100: color-mix(in srgb, var(--color-sky) 50%, white);
-  --color-brand-500: var(--color-periwinkle);
-  --color-brand-600: var(--color-royal);
-  --color-brand-700: color-mix(in srgb, var(--color-royal) 75%, var(--color-navy));
-
-  --color-accent-500: var(--color-periwinkle);
-  --color-accent-600: var(--color-royal);
-  --color-accent-700: color-mix(in srgb, var(--color-royal) 75%, var(--color-navy));
-
-  --color-info-500: var(--color-periwinkle);
-  --color-info-600: var(--color-royal);
-
-  --color-slate-50: var(--admin-bg);
-  --color-slate-100: color-mix(in srgb, var(--color-sky) 24%, white);
-  --color-slate-200: color-mix(in srgb, var(--color-sky) 48%, white);
-  --color-slate-300: color-mix(in srgb, var(--color-sky) 75%, white);
-  --color-slate-400: color-mix(in srgb, var(--color-navy) 45%, white);
-  --color-slate-500: color-mix(in srgb, var(--color-navy) 62%, white);
-  --color-slate-600: color-mix(in srgb, var(--color-navy) 75%, white);
-  --color-slate-700: color-mix(in srgb, var(--color-navy) 88%, white);
-  --color-slate-800: var(--color-navy);
-  --color-slate-900: var(--color-navy);
-}
-
 @layer utilities {
+  /* Skeleton placeholders: soft grey with a light sweep. */
+  .skeleton {
+    background: linear-gradient(90deg, #eef0f3 0%, #e2e6eb 40%, #eef0f3 80%);
+    background-size: 200% 100%;
+    animation: skeleton-sweep 1.4s ease-in-out infinite;
+  }
+  /* Indeterminate progress bar for full-screen loads. */
+  .loading-bar {
+    animation: loading-slide 1.1s ease-in-out infinite;
+  }
+  /* Scrollable, but with the scrollbar hidden. */
   .no-scrollbar {
     scrollbar-width: none;
   }
@@ -153,11 +156,9 @@
     background-color: #cbd5e1;
     border-radius: 9999px;
   }
-  .scrollbar-thin::-webkit-scrollbar-thumb:hover {
-    background-color: #94a3b8;
-  }
 }
 
+/* C3 print rules: the PDF page hides everything except .assessment-document. */
 @media print {
   body * {
     visibility: hidden;
@@ -179,4 +180,14 @@
   .page-break-before {
     break-before: page;
   }
+}
+
+@keyframes skeleton-sweep {
+  from { background-position: 100% 0; }
+  to { background-position: -100% 0; }
+}
+
+@keyframes loading-slide {
+  from { transform: translateX(-100%); }
+  to { transform: translateX(300%); }
 }

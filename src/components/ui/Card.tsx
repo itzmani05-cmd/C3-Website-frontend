@@ -4,7 +4,7 @@ export default function Card({ className = '', children, ...rest }: HTMLAttribut
   return (
     <div
       className={[
-        'rounded-2xl border border-slate-200/80 bg-white shadow-soft-sm transition-shadow duration-200 hover:shadow-soft-md',
+        'rounded-lg border border-slate-200 bg-white',
         className,
       ].join(' ')}
       {...rest}

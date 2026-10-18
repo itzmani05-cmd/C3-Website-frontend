@@ -1,13 +1,18 @@
-import { useEffect, useState } from 'react';
+import { lazy, Suspense, useEffect, useState } from 'react';
 import { Navigate, Route, Routes, useLocation, useNavigate } from 'react-router-dom';
 import Login from './pages/Login';
-import AdminPanel from './pages/AdminPanel';
-import TestArea from './pages/TestArea';
+import { LoadingState } from './components/ui/Spinner';
 import type { Role } from './types/models';
 
+// Admins and students each download only their own screens; the login page ships without either.
+const AdminPanel = lazy(() => import('./pages/AdminPanel'));
+const TestArea = lazy(() => import('./pages/TestArea'));
+
 export default function App() {
-  const [isLoggedIn, setIsLoggedIn] = useState(false);
-  const [userRole, setUserRole] = useState<Role>('student');
+  // Read the saved login on the very first render. Starting as "logged out" bounced every refresh through /login,
+  // which dropped the address's query string (selected tab, topic, filters, page).
+  const [isLoggedIn, setIsLoggedIn] = useState(() => !!(localStorage.getItem('token') && localStorage.getItem('role')));
+  const [userRole, setUserRole] = useState<Role>(() => (localStorage.getItem('role') as Role | null) ?? 'student');
   const navigate = useNavigate();
   const location = useLocation();
 
@@ -42,6 +47,7 @@ export default function App() {
   };
 
   return (
+    <Suspense fallback={<LoadingState message="Loading..." />}>
     <Routes>
       <Route
         path="/login"
@@ -98,5 +104,6 @@ export default function App() {
 
       <Route path="*" element={<Navigate to="/login" replace />} />
     </Routes>
+    </Suspense>
   );
 }
