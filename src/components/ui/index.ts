@@ -14,3 +14,4 @@ export { ModalProvider, useModal } from './ModalProvider';
 export type { ModalVariant } from './ModalProvider';
 export { default as ImageUploadField } from './ImageUploadField';
 export { default as Pagination, usePagination } from './Pagination';
+export { default as MathText } from './MathText';

@@ -52,12 +52,12 @@ export default function Login({ onLogin }: LoginProps) {
   };
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-[radial-gradient(circle_at_top_left,rgba(79,70,229,0.08),transparent_32%),radial-gradient(circle_at_bottom_right,rgba(124,58,237,0.08),transparent_32%)] bg-slate-50 px-6 py-10">
+    <div className="flex min-h-screen items-center justify-center bg-[radial-gradient(circle_at_top_left,rgba(79,70,229,0.16),transparent_38%),radial-gradient(circle_at_bottom_right,rgba(124,58,237,0.16),transparent_38%)] bg-slate-50 px-4 py-10 sm:px-6">
       <motion.div
         initial={{ opacity: 0, y: 24 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.5, ease: [0.16, 1, 0.3, 1] }}
-        className="w-full max-w-[400px] rounded-3xl border border-slate-100 bg-white p-8 shadow-[0_24px_60px_rgba(15,23,42,0.08)] sm:p-10"
+        className="w-full max-w-[400px] rounded-3xl border border-white/60 bg-white/90 p-7 shadow-[0_24px_60px_rgba(15,23,42,0.12)] ring-1 ring-slate-900/5 backdrop-blur sm:p-10"
       >
         <div className="mb-7 flex justify-center">
           <div className="inline-flex items-center gap-2.5 rounded-xl border border-slate-200 bg-slate-50 px-4.5 py-2.5">

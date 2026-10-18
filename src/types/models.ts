@@ -77,6 +77,8 @@ export interface Question {
   correct_answer: CorrectAnswer | '';
   explanation: string;
   explanationImage: string | null;
+  year?: number | null;
+  source?: string;
   status: QuestionStatus;
   is_published: boolean;
   timestamp?: string;

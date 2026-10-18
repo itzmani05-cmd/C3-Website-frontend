@@ -6,7 +6,7 @@ import { detectQuestionType, formatCorrectAnswerLabel } from '../lib/helpers';
 import QuestionForm from '../components/QuestionForm';
 import type { QuestionFormValue } from '../components/QuestionForm';
 import PageHeader from '../components/ui/PageHeader';
-import { Pagination, useModal, usePagination } from '../components/ui';
+import { MathText, Pagination, useModal, usePagination } from '../components/ui';
 import Button from '../components/ui/Button';
 import Card from '../components/ui/Card';
 import { Select } from '../components/ui/Field';
@@ -18,6 +18,8 @@ import type { CurriculumTree, Exam } from '../types/models';
 
 interface BankQuestion extends QuestionFormValue {
   _id: string;
+  year?: number | null;
+  source?: string;
 }
 
 const initialFormState: QuestionFormValue = {
@@ -366,10 +368,15 @@ export default function QuestionBank() {
                     <div className="flex items-center gap-2.5 overflow-hidden">
                       <span className="shrink-0 font-bold text-brand-600">Q{questionsPage.startIndex + idx + 1}.</span>
                       <span className="truncate font-semibold text-slate-800">
-                        {(q.question || '').length > 100 ? `${(q.question || '').substring(0, 100)}...` : q.question}
+                        <MathText className="whitespace-nowrap!">{(q.question || '').replace(/\s*\n+\s*/g, ' ')}</MathText>
                       </span>
                     </div>
                     <div className="flex shrink-0 items-center gap-3.5">
+                      {q.year ? (
+                        <span className="rounded-full bg-slate-200/70 px-2.5 py-1 text-xs font-semibold text-slate-600" title={q.source || undefined}>
+                          {q.year}
+                        </span>
+                      ) : null}
                       <span className="rounded-full bg-brand-100 px-2.5 py-1 text-xs font-bold text-brand-700">
                         Ans: {formatCorrectAnswerLabel(q.correct_answer)}
                       </span>
@@ -389,6 +396,17 @@ export default function QuestionBank() {
 
                   {expandedId === q._id && (
                     <div className="border-t border-slate-100 p-6">
+                      <div className="mb-5 rounded-xl border border-slate-200 bg-slate-50 p-4 text-sm text-slate-800">
+                        <p className="mb-1 text-xs font-bold uppercase tracking-wide text-slate-500">
+                          Preview{q.source ? ` · ${q.source}` : ''}
+                        </p>
+                        <MathText>{q.question}</MathText>
+                        {q.explanation && (
+                          <p className="mt-3 border-t border-slate-200 pt-3 text-slate-600">
+                            <MathText>{q.explanation}</MathText>
+                          </p>
+                        )}
+                      </div>
                       <QuestionForm
                         question={q}
                         onChange={(updated) => setQuestions(questions.map((item) => (item._id === q._id ? { ...item, ...updated } : item)))}

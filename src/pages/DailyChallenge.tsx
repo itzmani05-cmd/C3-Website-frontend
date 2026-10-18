@@ -17,7 +17,7 @@ import {
 } from 'lucide-react';
 import api from '../api';
 import { toast } from 'react-toastify';
-import { Pagination, useModal, usePagination } from '../components/ui';
+import { MathText, Pagination, useModal, usePagination } from '../components/ui';
 import Button from '../components/ui/Button';
 import Card from '../components/ui/Card';
 import StatCard from '../components/ui/StatCard';
@@ -632,14 +632,14 @@ export default function DailyChallengeAdmin() {
                                 isCorrect ? 'border-success-500/40 bg-success-soft/40 text-success-700' : 'border-slate-200 text-slate-700',
                               ].join(' ')}
                             >
-                              <span className="font-bold">{key.toUpperCase()}.</span> {text}
+                              <span className="font-bold">{key.toUpperCase()}.</span> <MathText>{text}</MathText>
                               {isCorrect && <CheckCircle2 className="ml-auto size-3.5 shrink-0" />}
                             </div>
                           );
                         })}
                       </div>
                     )}
-                    {q.explanation && <p className="mt-3 rounded-lg bg-slate-50 p-3 text-xs text-slate-600">{q.explanation}</p>}
+                    {q.explanation && <p className="mt-3 rounded-lg bg-slate-50 p-3 text-xs text-slate-600"><MathText>{q.explanation}</MathText></p>}
                   </Card>
                 );
               })}

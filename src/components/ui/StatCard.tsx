@@ -22,8 +22,8 @@ interface StatCardProps {
 export default function StatCard({ icon, value, label, tone = 'brand', className = '' }: StatCardProps) {
   const toneClasses = TONE_CLASSES[tone];
   return (
-    <Card className={['flex items-center gap-3 px-4 py-3.5', className].join(' ')}>
-      <span className={['flex size-9 shrink-0 items-center justify-center rounded-lg', toneClasses.icon].join(' ')}>{icon}</span>
+    <Card className={['flex items-center gap-3.5 px-4 py-4', className].join(' ')}>
+      <span className={['flex size-10 shrink-0 items-center justify-center rounded-xl', toneClasses.icon].join(' ')}>{icon}</span>
       <div className="min-w-0">
         <p className={['font-heading text-lg font-bold leading-tight', toneClasses.value].join(' ')}>{value}</p>
         <p className="truncate text-xs text-slate-500">{label}</p>

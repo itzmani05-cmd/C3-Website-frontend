@@ -8,6 +8,7 @@ import Card from '../components/ui/Card';
 import { Input, Select, Textarea } from '../components/ui/Field';
 import { LoadingState, Spinner } from '../components/ui/Spinner';
 import type { CurriculumTree, Exam, ExamQuestion, OptionKey, Test } from '../types/models';
+import MathText from '../components/ui/MathText';
 
 type SourceMode = null | 'units' | 'test';
 type AnswerDisplay = 'none' | 'each' | 'end-key' | 'end-explanations';
@@ -658,7 +659,7 @@ export default function PdfDownload() {
                       className="mt-0.5 accent-brand-600"
                     />
                     <span className="font-semibold text-slate-500">{index + 1}.</span>
-                    <span className="text-slate-700">{q.question}</span>
+                    <span className="text-slate-700"><MathText>{q.question}</MathText></span>
                   </label>
                 ))}
               </div>
@@ -765,7 +766,7 @@ export default function PdfDownload() {
                         <span className="answer-badge font-bold">Correct Answer: {formatCorrectAnswerLabel(q.correct_answer)}</span>
                         {q.explanation && (
                           <div className="explanation-text-box mt-1 text-xs text-slate-500">
-                            <strong>Explanation:</strong> {q.explanation}
+                            <strong>Explanation:</strong> <MathText>{q.explanation}</MathText>
                             {q.explanationImage && (
                               <div className="mt-1">
                                 <img src={getImagePreview(q.explanationImage) ?? undefined} alt="Explanation" className="max-h-40 rounded-md border border-slate-200" />
@@ -802,7 +803,7 @@ export default function PdfDownload() {
                         </div>
                         {q.explanation ? (
                           <div className="ex-content text-sm">
-                            <strong>Explanation:</strong> {q.explanation}
+                            <strong>Explanation:</strong> <MathText>{q.explanation}</MathText>
                             {q.explanationImage && (
                               <div className="mt-1">
                                 <img src={getImagePreview(q.explanationImage) ?? undefined} alt={`Explanation ${index + 1}`} className="max-h-40 rounded-md border border-slate-200" />

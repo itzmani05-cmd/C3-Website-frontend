@@ -15,7 +15,7 @@ import {
 } from 'lucide-react';
 import { toast } from 'react-toastify';
 import api from '../api';
-import { Pagination, useModal, usePagination } from '../components/ui';
+import { MathText, Pagination, useModal, usePagination } from '../components/ui';
 import Button from '../components/ui/Button';
 import Card from '../components/ui/Card';
 import StatCard from '../components/ui/StatCard';
@@ -502,7 +502,7 @@ export default function AdminResults() {
                       </Badge>
                     </div>
 
-                    <p className="mb-3 text-sm font-medium text-slate-800">{q.question}</p>
+                    <p className="mb-3 text-sm font-medium text-slate-800"><MathText>{q.question}</MathText></p>
                     {q.questionImage && (
                       <img src={q.questionImage} alt={`Question ${idx + 1}`} className="mb-3 max-h-64 rounded-lg border border-slate-100 object-contain" />
                     )}
@@ -535,7 +535,7 @@ export default function AdminResults() {
                               {key.toUpperCase()}
                             </div>
                             <div className="flex-1">
-                              {optText && <p className="text-sm text-slate-700">{optText}</p>}
+                              {optText && <p className="text-sm text-slate-700"><MathText>{optText}</MathText></p>}
                               {optImg && <img src={optImg} alt={`Option ${key.toUpperCase()}`} className="mt-1.5 max-h-32 rounded-md border border-slate-100" />}
                             </div>
                             {tag && (
@@ -557,7 +557,7 @@ export default function AdminResults() {
                     {(q.explanation || q.explanationImage) && (
                       <div className="mt-3 rounded-lg bg-slate-50 p-3.5">
                         <h5 className="mb-1 text-xs font-semibold text-slate-600">Explanation:</h5>
-                        {q.explanation && <p className="text-sm text-slate-600">{q.explanation}</p>}
+                        {q.explanation && <p className="text-sm text-slate-600"><MathText>{q.explanation}</MathText></p>}
                         {q.explanationImage && <img src={q.explanationImage} alt="Explanation Graphics" className="mt-2 max-h-64 rounded-lg" />}
                       </div>
                     )}

@@ -2,6 +2,7 @@ import { ArrowLeft, Calendar, CheckCircle2, Info, Trophy, TriangleAlert, XCircle
 import QuestionRenderer from '../QuestionRenderer';
 import { isAnswerCorrect, toOptionKeys } from '../../lib/grading';
 import type { ExamQuestion, OptionKey } from '../../types/models';
+import MathText from '../ui/MathText';
 
 interface ExamResultPageProps {
   selectedTestName: string;
@@ -229,7 +230,7 @@ export default function ExamResultPage({
                                   {key.toUpperCase()}
                                 </div>
                                 <div className="flex-1">
-                                  {optText && <p className="text-sm text-slate-700">{optText}</p>}
+                                  {optText && <p className="text-sm text-slate-700"><MathText>{optText}</MathText></p>}
                                   {optImg && <img src={optImg} alt={`Option ${key.toUpperCase()}`} className="mt-1.5 max-h-32 rounded-md border border-slate-100" />}
                                 </div>
                                 {tag && (
@@ -248,7 +249,7 @@ export default function ExamResultPage({
                             <h4 className="mb-1 flex items-center gap-1.5 text-xs font-semibold text-slate-600">
                               <Info className="size-3.5" /> Explanation:
                             </h4>
-                            {q.explanation && <p className="text-sm text-slate-600">{q.explanation}</p>}
+                            {q.explanation && <p className="text-sm text-slate-600"><MathText>{q.explanation}</MathText></p>}
                             {q.explanationImage && <img src={q.explanationImage} alt="Explanation Media" className="mt-2 max-h-64 rounded-lg" />}
                           </div>
                         )}

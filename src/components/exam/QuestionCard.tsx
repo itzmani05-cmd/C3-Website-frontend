@@ -2,6 +2,7 @@ import { Bookmark, ChevronLeft, ChevronRight, Eraser, TriangleAlert } from 'luci
 import QuestionRenderer from '../QuestionRenderer';
 import { toOptionKeys } from '../../lib/grading';
 import type { ExamQuestion } from '../../types/models';
+import MathText from '../ui/MathText';
 
 interface QuestionCardProps {
   question: ExamQuestion | undefined;
@@ -142,7 +143,7 @@ export default function QuestionCard({
                     {key.toUpperCase()}
                   </div>
                   <div className="flex-1 text-sm text-slate-800">
-                    {text}
+                    <MathText>{text}</MathText>
                     {optionImage && <img src={optionImage} alt={`Option ${key}`} className="mt-2 max-h-40 rounded-md border border-slate-100" />}
                   </div>
                 </div>

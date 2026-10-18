@@ -1,6 +1,12 @@
 @import "tailwindcss";
 
 @theme {
+  /* Admin palette */
+  --color-navy: #091540;
+  --color-royal: #1B2CC1;
+  --color-periwinkle: #7692FF;
+  --color-sky: #ABD2FA;
+
   --font-sans: "Inter", ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
   --font-heading: "Poppins", "Inter", ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
 
@@ -50,11 +56,44 @@
     height: 100%;
   }
 
+  html {
+    scroll-behavior: smooth;
+  }
+
   body {
     font-family: var(--font-sans);
     background: #f3f6fb;
     color: #0f172a;
     -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    text-rendering: optimizeLegibility;
+  }
+
+  ::selection {
+    background: color-mix(in srgb, var(--color-brand-500) 28%, white);
+  }
+
+  :focus-visible {
+    outline: 2px solid var(--color-brand-500);
+    outline-offset: 2px;
+  }
+
+  h1,
+  h2,
+  h3 {
+    letter-spacing: -0.015em;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    html {
+      scroll-behavior: auto;
+    }
+    *,
+    *::before,
+    *::after {
+      animation-duration: 0.01ms !important;
+      transition-duration: 0.01ms !important;
+    }
   }
 
   h1,
@@ -67,7 +106,42 @@
   }
 }
 
+/* Admin console theme: remaps the shared brand/neutral tokens to the admin palette. */
+.admin-theme {
+  --admin-bg: color-mix(in srgb, var(--color-sky) 12%, white);
+
+  --color-brand-50: color-mix(in srgb, var(--color-sky) 22%, white);
+  --color-brand-100: color-mix(in srgb, var(--color-sky) 50%, white);
+  --color-brand-500: var(--color-periwinkle);
+  --color-brand-600: var(--color-royal);
+  --color-brand-700: color-mix(in srgb, var(--color-royal) 75%, var(--color-navy));
+
+  --color-accent-500: var(--color-periwinkle);
+  --color-accent-600: var(--color-royal);
+  --color-accent-700: color-mix(in srgb, var(--color-royal) 75%, var(--color-navy));
+
+  --color-info-500: var(--color-periwinkle);
+  --color-info-600: var(--color-royal);
+
+  --color-slate-50: var(--admin-bg);
+  --color-slate-100: color-mix(in srgb, var(--color-sky) 24%, white);
+  --color-slate-200: color-mix(in srgb, var(--color-sky) 48%, white);
+  --color-slate-300: color-mix(in srgb, var(--color-sky) 75%, white);
+  --color-slate-400: color-mix(in srgb, var(--color-navy) 45%, white);
+  --color-slate-500: color-mix(in srgb, var(--color-navy) 62%, white);
+  --color-slate-600: color-mix(in srgb, var(--color-navy) 75%, white);
+  --color-slate-700: color-mix(in srgb, var(--color-navy) 88%, white);
+  --color-slate-800: var(--color-navy);
+  --color-slate-900: var(--color-navy);
+}
+
 @layer utilities {
+  .no-scrollbar {
+    scrollbar-width: none;
+  }
+  .no-scrollbar::-webkit-scrollbar {
+    display: none;
+  }
   .scrollbar-thin::-webkit-scrollbar {
     width: 8px;
     height: 8px;
@@ -78,6 +152,9 @@
   .scrollbar-thin::-webkit-scrollbar-thumb {
     background-color: #cbd5e1;
     border-radius: 9999px;
+  }
+  .scrollbar-thin::-webkit-scrollbar-thumb:hover {
+    background-color: #94a3b8;
   }
 }
 

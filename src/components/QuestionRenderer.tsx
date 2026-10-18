@@ -1,3 +1,5 @@
+import MathText from './ui/MathText';
+
 const cleanListLine = (line: string): string => {
   const match = line.match(/^[A-Za-z0-9]+[.)]\s*(\(.+\))$/);
   return match ? match[1] : line;
@@ -100,7 +102,7 @@ export default function QuestionRenderer({ question }: QuestionRendererProps) {
     if (parsed) {
       return (
         <div>
-          <p className="mb-2 whitespace-pre-wrap text-sm text-slate-800">{parsed.prompt}</p>
+          <p className="mb-2 whitespace-pre-wrap text-sm text-slate-800"><MathText>{parsed.prompt}</MathText></p>
           <div className="overflow-x-auto">
             <table className="w-full min-w-[420px] border-collapse overflow-hidden rounded-lg border border-slate-200 text-sm">
               <tbody>
@@ -109,7 +111,7 @@ export default function QuestionRenderer({ question }: QuestionRendererProps) {
                     <div className="mb-1.5 text-xs font-bold uppercase tracking-wide text-slate-500">List I</div>
                     {parsed.listI.map((item, idx) => (
                       <div key={idx} className="py-0.5 text-slate-700">
-                        {item}
+                        <MathText>{item}</MathText>
                       </div>
                     ))}
                   </td>
@@ -117,7 +119,7 @@ export default function QuestionRenderer({ question }: QuestionRendererProps) {
                     <div className="mb-1.5 text-xs font-bold uppercase tracking-wide text-slate-500">List II</div>
                     {parsed.listII.map((item, idx) => (
                       <div key={idx} className="py-0.5 text-slate-700">
-                        {item}
+                        <MathText>{item}</MathText>
                       </div>
                     ))}
                   </td>
@@ -135,15 +137,15 @@ export default function QuestionRenderer({ question }: QuestionRendererProps) {
     if (parsed) {
       return (
         <div>
-          {parsed.header && <p className="mb-1.5 whitespace-pre-wrap text-sm text-slate-800">{parsed.header}</p>}
+          {parsed.header && <p className="mb-1.5 whitespace-pre-wrap text-sm text-slate-800"><MathText>{parsed.header}</MathText></p>}
           <div className="flex flex-col gap-1.5 rounded-lg bg-slate-50 p-3 text-sm text-slate-700">
-            <div className="whitespace-pre-wrap">{parsed.assertion}</div>
-            <div className="whitespace-pre-wrap">{parsed.reason}</div>
+            <div className="whitespace-pre-wrap"><MathText>{parsed.assertion}</MathText></div>
+            <div className="whitespace-pre-wrap"><MathText>{parsed.reason}</MathText></div>
           </div>
         </div>
       );
     }
   }
 
-  return <p className="whitespace-pre-wrap text-sm text-slate-800">{question.question}</p>;
+  return <p className="whitespace-pre-wrap text-sm text-slate-800"><MathText>{question.question}</MathText></p>;
 }

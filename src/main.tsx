@@ -6,6 +6,7 @@ import { ModalProvider } from './components/ui';
 import App from './App';
 import './index.css';
 import 'react-toastify/dist/ReactToastify.css';
+import 'katex/dist/katex.min.css';
 
 const rootEl = document.getElementById('root');
 if (!rootEl) throw new Error('Root element #root not found');
