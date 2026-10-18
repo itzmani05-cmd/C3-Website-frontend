@@ -180,7 +180,7 @@ export default function TestArea({ onLogout }: TestAreaProps) {
     if (Object.keys(unsyncedAnswers).length === 0 || !examStarted) return;
     if (syncTimeoutRef.current) clearTimeout(syncTimeoutRef.current);
     syncTimeoutRef.current = setTimeout(() => {
-      if (navigator.onLine) syncAnswersWithBackend(answers, unsyncedAnswers);
+      if (navigator.onLine) syncAnswersWithBackend(unsyncedAnswers);
     }, 3000);
     return () => {
       if (syncTimeoutRef.current) clearTimeout(syncTimeoutRef.current);
@@ -289,7 +289,7 @@ export default function TestArea({ onLogout }: TestAreaProps) {
         setExamStarted(true);
 
         if (Object.keys(localUnsynced).length > 0 && navigator.onLine) {
-          syncAnswersWithBackend(mergedAnswers, localUnsynced, tId);
+          syncAnswersWithBackend(localUnsynced, tId);
         }
       } else {
         setAnswers(data.answers || {});
@@ -304,7 +304,6 @@ export default function TestArea({ onLogout }: TestAreaProps) {
   };
 
   const syncAnswersWithBackend = async (
-    currentAnswers: Record<string, string>,
     pendingSync: Record<string, string | null>,
     tId: string = selectedTestId
   ) => {
@@ -339,14 +338,14 @@ export default function TestArea({ onLogout }: TestAreaProps) {
   const forceImmediateSync = async () => {
     if (syncTimeoutRef.current) clearTimeout(syncTimeoutRef.current);
     if (Object.keys(unsyncedAnswers).length > 0) {
-      await syncAnswersWithBackend(answers, unsyncedAnswers);
+      await syncAnswersWithBackend(unsyncedAnswers);
     }
   };
 
   const refreshExamStatus = async () => {
     if (!navigator.onLine || submitted) return;
     try {
-      if (Object.keys(unsyncedAnswers).length > 0) await syncAnswersWithBackend(answers, unsyncedAnswers);
+      if (Object.keys(unsyncedAnswers).length > 0) await syncAnswersWithBackend(unsyncedAnswers);
       const { data } = await api.get('/api/exam/status', { ...getApiConfig(), params: { testId: selectedTestId } });
       setSubmitted(data.submitted);
       setRemainingTime(data.remainingTime);

@@ -11,6 +11,8 @@ interface FilterBarProps {
   /** Number of questions matching, shown next to the chips. */
   total?: number;
   loading?: boolean;
+  /** Shown at the start of the row, before the search box (e.g. the topic name). */
+  leading?: ReactNode;
   /** Extra controls shown to the right of the Filters button (e.g. an actions menu). */
   actions?: ReactNode;
 }
@@ -19,7 +21,7 @@ const toggleIn = (list: string[], value: string) => (list.includes(value) ? list
 
 const CHECK = 'flex cursor-pointer items-center gap-2 rounded-lg border px-3 py-2 text-sm transition-colors';
 
-export default function FilterBar({ filters, onChange, total, loading, actions }: FilterBarProps) {
+export default function FilterBar({ filters, onChange, total, loading, leading, actions }: FilterBarProps) {
   const [panelOpen, setPanelOpen] = useState(false);
   const [text, setText] = useState(filters.q);
   const latest = useRef(filters);
@@ -45,28 +47,34 @@ export default function FilterBar({ filters, onChange, total, loading, actions }
   return (
     <div className="mb-4 flex flex-col gap-3">
       <div className="flex flex-wrap items-center gap-2">
-        <div className="min-w-[220px] flex-1">
+        {leading}
+        <div className="min-w-[180px] flex-1">
           <Input
             aria-label="Search questions"
-            placeholder="Search question text, options, explanation or paper…"
+            placeholder="Search here anything.."
             value={text}
             onChange={(e) => setText(e.target.value)}
             leadingIcon={<Search className="size-4" />}
           />
         </div>
-        <button
-          type="button"
-          aria-expanded={panelOpen}
-          onClick={() => setPanelOpen((v) => !v)}
-          className={[
-            'inline-flex items-center gap-2 rounded-lg border px-3.5 py-2.5 text-sm font-semibold transition-colors',
-            panelOpen || advancedCount ? 'border-brand-500 bg-brand-50 text-brand-700' : 'border-slate-200 bg-white text-slate-700 hover:bg-slate-50',
-          ].join(' ')}
-        >
-          <SlidersHorizontal className="size-4" /> Filters
-          {advancedCount > 0 && <span className="rounded-full bg-brand-600 px-1.5 text-[11px] font-bold text-white">{advancedCount}</span>}
-        </button>
-        {actions}
+        {/* Filters and the actions menu stay together: they never wrap onto separate lines. */}
+        <div className="ml-auto flex shrink-0 items-center gap-2">
+          <button
+            type="button"
+            aria-label="Filters"
+            title="Filters"
+            aria-expanded={panelOpen}
+            onClick={() => setPanelOpen((v) => !v)}
+            className={[
+              'inline-flex items-center gap-2 rounded-lg border px-3.5 py-2.5 text-sm font-semibold transition-colors',
+              panelOpen || advancedCount ? 'border-brand-500 bg-brand-50 text-brand-700' : 'border-slate-200 bg-white text-slate-700 hover:bg-slate-50',
+            ].join(' ')}
+          >
+            <SlidersHorizontal className="size-4" />
+            {advancedCount > 0 && <span className="rounded-full bg-brand-600 px-1.5 text-[11px] font-bold text-white">{advancedCount}</span>}
+          </button>
+          {actions}
+        </div>
       </div>
 
       {panelOpen && (

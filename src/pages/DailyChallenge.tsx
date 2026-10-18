@@ -88,7 +88,6 @@ export default function DailyChallengeAdmin() {
   const { showConfirm } = useModal();
 
   const [view, setView] = useState<View>('dashboard');
-  const [selectedId, setSelectedId] = useState<string | null>(null);
   const [editingId, setEditingId] = useState<string | null>(null);
 
   const [exams, setExams] = useState<Exam[]>([]);
@@ -219,13 +218,11 @@ export default function DailyChallengeAdmin() {
   };
 
   const goToPreview = (id: string) => {
-    setSelectedId(id);
     setView('preview');
     loadDetail(id);
   };
 
   const goToAnalytics = (id: string) => {
-    setSelectedId(id);
     setView('analytics');
     setStudentListTab('attempted');
     setStudentSearch('');

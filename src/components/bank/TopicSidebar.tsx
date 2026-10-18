@@ -46,7 +46,7 @@ export default function TopicSidebar({ curriculum, counts, selectedTopicId, onSe
                 onClick={() => toggle(unit._id)}
                 className="flex min-w-0 flex-1 items-center justify-between gap-2 rounded-lg py-1 pr-2 text-left text-sm font-semibold text-slate-700 hover:text-slate-900"
               >
-                <span className="truncate">{unit.name}</span>
+                <span className="flex min-w-0 flex-1 items-center justify-between gap-2 rounded-lg py-1 pr-2 text-left text-xs font-semibold text-slate-700 hover:text-slate-900">{unit.name}</span>
                 <span className="shrink-0 rounded-full bg-slate-100 px-2 py-0.5 text-[11px] font-bold text-slate-500">{total}</span>
               </button>
             </div>
@@ -65,7 +65,9 @@ export default function TopicSidebar({ curriculum, counts, selectedTopicId, onSe
                           active ? 'bg-brand-600 font-semibold text-white shadow-soft-sm' : 'text-slate-600 hover:bg-slate-100',
                         ].join(' ')}
                       >
-                        <span className="truncate">{topic.name}</span>
+                        <span className="flex min-w-0 flex-1 items-center justify-between gap-2 rounded-lg px-2.5 py-1 text-left text-xs transition-colors">
+                          {topic.name}
+                        </span>
                         <span
                           className={[
                             'shrink-0 rounded-full px-1.5 py-0.5 text-[11px] font-bold',

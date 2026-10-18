@@ -114,16 +114,3 @@ export function LoadingState({ message = 'Loading...', variant = 'table', rows, 
 }
 
 /** Full-screen loader for app-level waits (e.g. opening the exam portal). */
-export function AppLoader({ message = 'Loading...' }: { message?: string }) {
-  return (
-    <div role="status" aria-live="polite" className="flex min-h-screen flex-col items-center justify-center gap-5 bg-[#f4f5f7] px-4">
-      <span className="flex size-14 items-center justify-center rounded-xl border border-slate-200 bg-white shadow-soft-sm">
-        <img src="/C3AppLogo-128.png" alt="" className="size-9 object-contain" />
-      </span>
-      <div className="h-1 w-40 overflow-hidden rounded-full bg-slate-200">
-        <span className="loading-bar block h-full w-1/3 rounded-full bg-brand-600" />
-      </div>
-      <p className="text-[13px] font-medium text-slate-500">{message}</p>
-    </div>
-  );
-}

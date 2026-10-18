@@ -35,7 +35,7 @@ export function reflowText(text: string): string {
   return out.join('\n');
 }
 
-export type MathPart ={ kind: 'text' | 'inline' | 'display' | 'bold'; value: string };
+type MathPart ={ kind: 'text' | 'inline' | 'display' | 'bold'; value: string };
 
 /** Splits text into plain runs, $inline$ / $$display$$ formulas and **bold** runs. Returns null if there is nothing special. */
 export function tokenizeMath(text: string): MathPart[] | null {

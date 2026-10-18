@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
-import { ChevronLeft, ChevronRight, ListTree, Plus, Trash2 } from 'lucide-react';
+import { ListTree, Plus, Trash2 } from 'lucide-react';
 import { toast } from 'react-toastify';
 import api from '../api';
 import { buildPayload, EMPTY_FILTERS, EMPTY_QUESTION, errorMessage, filtersFromSearch, filtersToSearchPatch, validateQuestion } from '../lib/bank';
@@ -14,7 +14,6 @@ import PageHeader from '../components/ui/PageHeader';
 import RowMenu from '../components/ui/RowMenu';
 import Card from '../components/ui/Card';
 import { Select } from '../components/ui/Field';
-import Badge from '../components/ui/Badge';
 import Banner from '../components/ui/Banner';
 import { LoadingState } from '../components/ui/Spinner';
 import EmptyState from '../components/ui/EmptyState';
@@ -125,10 +124,6 @@ export default function QuestionBank() {
     patch({ topic: id, page: null });
     scrollContentToTop(shellRef.current);
   };
-  const gotoTopic = (delta: number) => {
-    const next = flatTopics[topicIndex + delta];
-    if (next) selectTopic(next._id);
-  };
   const setFilters = useCallback((next: BankFilters) => patch({ ...filtersToSearchPatch(next), page: null }), [patch]);
   const setPage = useCallback(
     (p: number) => {
@@ -211,17 +206,6 @@ export default function QuestionBank() {
         </aside>
 
         <main className="min-w-0">
-          <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
-            <div className="flex min-w-0 items-center gap-1.5">
-              <button type="button" aria-label="Previous topic" disabled={topicIndex <= 0} onClick={() => gotoTopic(-1)} className="rounded-lg p-1.5 text-slate-500 hover:bg-slate-100 disabled:opacity-30"><ChevronLeft className="size-5" /></button>
-              <div className="min-w-0">
-                <p className="truncate text-xs text-slate-400">{selectedTopic?.unitName}</p>
-                <h2 className="flex items-center gap-2 text-lg font-semibold text-slate-900"><span className="truncate">{selectedTopic?.name ?? 'No topic selected'}</span> <Badge variant="brand">{counts[topicId] ?? 0}</Badge></h2>
-              </div>
-              <button type="button" aria-label="Next topic" disabled={topicIndex < 0 || topicIndex >= flatTopics.length - 1} onClick={() => gotoTopic(1)} className="rounded-lg p-1.5 text-slate-500 hover:bg-slate-100 disabled:opacity-30"><ChevronRight className="size-5" /></button>
-            </div>
-          </div>
-
           {!topicId ? (
             <EmptyState title="No topic selected." description="This exam has no topics yet. Add units and topics under Manage Exams first." />
           ) : (
@@ -230,6 +214,11 @@ export default function QuestionBank() {
                 filters={filters}
                 onChange={setFilters}
                 total={matching}
+                leading={
+                  <h2 className="max-w-full shrink-0 truncate text-xl font-semibold text-slate-900 sm:max-w-[18rem]" title={selectedTopic?.name}>
+                    {selectedTopic?.name}
+                  </h2>
+                }
                 actions={
                   <RowMenu
                     vertical

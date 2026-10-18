@@ -150,7 +150,7 @@ export function filtersToSearchPatch(f: BankFilters): Record<string, string | nu
 
 export const ANSWER_TYPE_LABEL: Record<string, string> = { single: 'Single', multiple: 'Multiple', numerical: 'Numerical' };
 
-export interface FilterChip {
+interface FilterChip {
   key: string;
   label: string;
   clear: (f: BankFilters) => BankFilters;

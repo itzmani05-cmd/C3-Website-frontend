@@ -10,7 +10,7 @@ import { useModal } from '../ui/ModalProvider';
 import Pagination from '../ui/Pagination';
 import BankRow from './BankRow';
 
-export const PAGE_SIZE = 20;
+const PAGE_SIZE = 20;
 
 interface QuestionListProps {
   scope: Scope;

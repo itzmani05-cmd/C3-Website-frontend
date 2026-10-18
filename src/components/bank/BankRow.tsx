@@ -105,9 +105,9 @@ function BankRow({ q, number, expanded, onToggle, onSave, onDelete }: BankRowPro
         >
           <span className="flex min-w-0 flex-1 items-start gap-2.5">
             <span className="shrink-0 font-bold text-brand-600">{number}.</span>
-            <span className="relative min-w-0 flex-1 overflow-y-hidden break-words font-medium text-slate-700">
-              <MathText>{q.question || ''}</MathText>
-            </span>
+            <span className="relative min-w-0 flex-1 overflow-y-hidden break-words text-sm font-medium text-slate-700">
+  <MathText>{q.question || ''}</MathText>
+</span>
           </span>
           <span className="flex shrink-0 flex-wrap items-center gap-1.5 md:pt-0.5">
             {q.answerType && <span className={[pill, 'bg-slate-200/70 text-slate-600'].join(' ')}>{TYPE_LABEL[q.answerType] ?? q.answerType}</span>}
