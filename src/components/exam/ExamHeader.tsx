@@ -1,4 +1,4 @@
-import { Calculator, CheckCircle2, RefreshCw, Wifi } from 'lucide-react';
+import { ArrowLeft, Calculator, CheckCircle2, RefreshCw, Wifi } from 'lucide-react';
 import ExamTimer from './ExamTimer';
 
 interface ExamHeaderProps {
@@ -12,6 +12,7 @@ interface ExamHeaderProps {
   onTimeUp: () => void;
   calculatorOpen: boolean;
   onToggleCalculator: () => void;
+  onExit: () => void;
 }
 
 export default function ExamHeader({
@@ -25,6 +26,7 @@ export default function ExamHeader({
   onTimeUp,
   calculatorOpen,
   onToggleCalculator,
+  onExit,
 }: ExamHeaderProps) {
   const hasUnsynced = Object.keys(unsyncedAnswers).length > 0;
 
@@ -48,6 +50,17 @@ export default function ExamHeader({
       </div>
 
       <div className="flex shrink-0 items-center gap-2 sm:gap-3">
+        <button
+          type="button"
+          onClick={onExit}
+          aria-label="Exit to tests"
+          className="inline-flex items-center gap-1.5 rounded-full border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-slate-600 transition-colors hover:bg-slate-50 hover:text-slate-900"
+        >
+          <ArrowLeft className="size-3.5" />
+          <span className="hidden sm:inline">Exit to tests</span>
+          <span className="sm:hidden">Exit</span>
+        </button>
+
         <button
           type="button"
           onClick={onToggleCalculator}

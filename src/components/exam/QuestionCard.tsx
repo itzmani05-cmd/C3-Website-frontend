@@ -54,47 +54,43 @@ export default function QuestionCard({
   };
 
   return (
-    <div className="mx-auto flex max-w-3xl flex-col gap-4 p-4 sm:gap-5 sm:p-8 2xl:max-w-4xl">
-      <div className="flex flex-wrap items-center justify-between gap-2">
+    <div className="mx-auto flex w-full max-w-6xl flex-col gap-4 p-4 sm:gap-5 sm:p-6 lg:px-8 2xl:max-w-7xl">
+      <header className="flex flex-wrap items-center justify-between gap-x-3 gap-y-2">
         <div className="flex flex-wrap items-center gap-2">
-          <span className="text-sm font-semibold text-slate-700">
-            Question {questionIndex + 1} of {totalQuestions}
-          </span>
-          {question.part && (
-            <span className="rounded-md bg-brand-50 px-2 py-0.5 text-xs font-medium text-brand-700 ring-1 ring-inset ring-brand-600/20">
-              {question.part}
-              {question.section ? ` · ${question.section}` : ''}
-            </span>
-          )}
           {typeof question.marks === 'number' && (
-            <span className="rounded-md bg-slate-50 px-2 py-0.5 text-xs font-medium text-slate-600 ring-1 ring-inset ring-slate-500/20">
-              {question.marks} mark{question.marks === 1 ? '' : 's'}
+            <span className="rounded-md bg-success-50 px-2.5 py-1 text-xs font-semibold text-success-700 ring-1 ring-inset ring-success-600/20">
+              +{question.marks} {question.marks === 1 ? 'mark' : 'marks'} for correct
             </span>
           )}
           {!!question.negativeMarks && (
-            <span className="flex items-center gap-1 rounded-md bg-danger-50 px-2 py-0.5 text-xs font-medium text-danger-700 ring-1 ring-inset ring-danger-600/20">
-              <TriangleAlert className="size-3" /> −{question.negativeMarks} for a wrong answer
+            <span className="rounded-md bg-danger-50 px-2.5 py-1 text-xs font-semibold text-danger-700 ring-1 ring-inset ring-danger-600/20">
+              −{question.negativeMarks} for wrong
             </span>
           )}
+          <span className="rounded-md bg-slate-100 px-2.5 py-1 text-xs font-medium text-slate-600">{question.type}</span>
         </div>
-        <div className="flex items-center gap-2">
-          <span className="rounded-md bg-slate-50 px-2 py-0.5 text-xs font-medium text-slate-500 ring-1 ring-inset ring-slate-500/20">{question.type}</span>
-          <button
-            onClick={onToggleMarkForReview}
-            aria-pressed={isMarkedForReview}
-            className={[
-              'flex min-h-9 items-center gap-1.5 rounded-md border px-3 py-1 text-xs font-medium transition-colors',
-              isMarkedForReview ? 'border-accent-600 bg-accent-500 text-white' : 'border-slate-200 bg-white text-slate-500 hover:border-accent-500 hover:text-accent-600',
-            ].join(' ')}
-          >
-            <Bookmark className="size-3.5" fill={isMarkedForReview ? 'currentColor' : 'none'} />
-            {isMarkedForReview ? 'Marked for Review' : 'Mark for Review'}
-          </button>
-        </div>
-      </div>
+        <button
+          onClick={onToggleMarkForReview}
+          aria-pressed={isMarkedForReview}
+          className={[
+            'flex min-h-9 items-center gap-1.5 rounded-lg border px-3 text-sm font-medium transition-colors',
+            isMarkedForReview ? 'border-accent-600 bg-accent-500 text-white' : 'border-slate-200 bg-white text-slate-600 hover:border-accent-500 hover:text-accent-600',
+          ].join(' ')}
+        >
+          <Bookmark className="size-4" fill={isMarkedForReview ? 'currentColor' : 'none'} />
+          {isMarkedForReview ? 'Marked for Review' : 'Mark for Review'}
+        </button>
+      </header>
 
       <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-soft-sm sm:p-6">
-        <QuestionRenderer question={question} />
+        <div className="flex items-start gap-3">
+          <span className="shrink-0 font-heading text-lg font-bold leading-snug text-brand-700" aria-label={`Question ${questionIndex + 1} of ${totalQuestions}`}>
+            {questionIndex + 1}.
+          </span>
+          <div className="min-w-0 flex-1">
+            <QuestionRenderer question={question} />
+          </div>
+        </div>
 
         {question.questionImage && (
           <div className="mt-4">

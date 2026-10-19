@@ -15,6 +15,8 @@ export interface FixableQuestion extends QuestionFormValue {
   part?: string;
   section?: string;
   marks?: number;
+  /** Set when the question was copied into this test from the Question Bank. */
+  bankQuestionId?: string | null;
 }
 
 const TYPE_LABEL: Record<string, string> = { single: 'MCQ', multiple: 'MSQ', numerical: 'NAT' };

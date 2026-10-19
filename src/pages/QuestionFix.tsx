@@ -1,11 +1,12 @@
 import { Fragment, useCallback, useEffect, useRef, useState } from 'react';
-import { FileDown, ListTree, Plus, Search, Trash2 } from 'lucide-react';
+import { FileDown, Library, ListTree, Plus, Search, Trash2 } from 'lucide-react';
 import { toast } from 'react-toastify';
 import api from '../api';
 import { detectQuestionType, formatCorrectAnswerLabel } from '../lib/helpers';
 import QuestionForm from '../components/QuestionForm';
 import FixRow from '../components/fix/FixRow';
 import type { FixableQuestion } from '../components/fix/FixRow';
+import AddFromBankDialog from '../components/fix/AddFromBankDialog';
 import BankPdfExport from '../components/bank/BankPdfExport';
 import type { PdfQuestion } from '../components/bank/BankPdfExport';
 import TopicSidebar from '../components/bank/TopicSidebar';
@@ -58,6 +59,7 @@ export default function QuestionFix() {
   const [search, setSearch] = useState('');
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [pdfOpen, setPdfOpen] = useState(false);
+  const [bankOpen, setBankOpen] = useState(false);
   const latestRequest = useRef(0);
   const [expandedId, setExpandedId] = useState<string | null>(null);
 
@@ -587,6 +589,7 @@ export default function QuestionFix() {
                 buttonClassName="inline-flex size-[42px] shrink-0 items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-600 transition-colors hover:bg-slate-50 hover:text-slate-900"
                 items={[
                   { label: isAdding ? 'Cancel add' : 'Add question', icon: Plus, onSelect: () => setIsAdding((v) => !v) },
+                  { label: 'Add from Question Bank', icon: Library, hidden: destinationMode !== 'test' || !selectedTest, onSelect: () => setBankOpen(true) },
                   { label: 'Download as PDF', icon: FileDown, hidden: visibleQuestions.length === 0, onSelect: () => setPdfOpen(true) },
                   { label: 'Delete all', icon: Trash2, danger: true, hidden: !canDeleteAll, onSelect: handleDeleteAllQuestions },
                 ]}
@@ -662,6 +665,21 @@ export default function QuestionFix() {
           )}
         </main>
       </div>
+
+      {selectedTest && (
+        <AddFromBankDialog
+          open={bankOpen}
+          onClose={() => setBankOpen(false)}
+          test={selectedTest}
+          examId={examId}
+          curriculum={curriculum}
+          existingBankIds={new Set(questions.map((q) => q.bankQuestionId).filter((id): id is string => !!id))}
+          countIn={(part, section) => questions.filter((q) => (q.part ?? '') === part && (q.section ?? '') === section).length}
+          onAdded={fetchQuestions}
+          initialPart={filterPart}
+          initialSection={filterSection}
+        />
+      )}
 
       <BankPdfExport
         open={pdfOpen}

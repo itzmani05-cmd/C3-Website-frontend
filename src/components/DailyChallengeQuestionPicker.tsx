@@ -1,11 +1,13 @@
-import { useEffect, useState } from 'react';
-import { ArrowDown, ArrowUp, Plus, Sparkles, X } from 'lucide-react';
+import { useEffect, useRef, useState } from 'react';
+import { ArrowDown, ArrowUp, Library, Plus, Sparkles, X } from 'lucide-react';
 import { toast } from 'react-toastify';
 import api from '../api';
 import { detectQuestionType } from '../lib/helpers';
 import { normalizeChatOutput, parseLineByLine, parseOneQuestionPerLine, parseQuestionBlock, splitQuestionBlocks } from '../lib/questionParser';
 import type { DraftQuestion } from '../lib/questionParser';
 import QuestionForm from './QuestionForm';
+import BankQuestionBrowser from './BankQuestionBrowser';
+import type { BankQuestionSummary } from '../lib/bank';
 import Card from './ui/Card';
 import Badge from './ui/Badge';
 import Button from './ui/Button';
@@ -32,6 +34,12 @@ export default function DailyChallengeQuestionPicker({ examId, selected, onChang
   const [subtopicId, setSubtopicId] = useState('');
 
   const [questionsById, setQuestionsById] = useState<Record<string, Question>>({});
+
+  // Questions are added either from the Question Bank or by extracting them from pasted text.
+  const [source, setSource] = useState<'bank' | 'extract'>('bank');
+  // Question Bank id -> the challenge copy made from it, so re-adding a question reuses its copy instead of duplicating it.
+  const bankCopies = useRef<Record<string, string>>({});
+  const [addingBankId, setAddingBankId] = useState<string | null>(null);
 
   const [pastedContent, setPastedContent] = useState('');
   const [drafts, setDrafts] = useState<DraftQuestion[]>([]);
@@ -88,6 +96,52 @@ export default function DailyChallengeQuestionPicker({ examId, selected, onChang
     [next[index], next[target]] = [next[target], next[index]];
     onChange(next);
   };
+
+  // A challenge holds copies of questions (like extracted ones), so adding from the bank saves an unpublished copy.
+  const addBankQuestion = async (item: BankQuestionSummary) => {
+    if (isFull) {
+      toast.warning('This challenge already has the maximum number of questions.');
+      return;
+    }
+    const existing = bankCopies.current[item._id];
+    if (existing) {
+      if (!selected.includes(existing)) onChange([...selected, existing]);
+      return;
+    }
+    setAddingBankId(item._id);
+    try {
+      // The list leaves images out, so fetch the whole question first.
+      const { data: full } = await api.get<BankQuestionSummary & Record<string, any>>(`/api/question-bank/${item._id}`);
+      const res = await api.post<Question>('/api/questions', {
+        unitId: full.unitId,
+        topicId: full.topicId || null,
+        subtopicId: null,
+        type: full.type ?? detectQuestionType(full.question),
+        answerType: full.answerType || 'single',
+        question: full.question,
+        questionImage: full.questionImage,
+        options: full.options,
+        optionImages: full.optionImages,
+        correct_answer: full.correct_answer,
+        explanation: full.explanation,
+        explanationImage: full.explanationImage,
+        status: 'accepted',
+        is_published: false,
+        bankQuestionId: item._id,
+      });
+      bankCopies.current[item._id] = res.data._id;
+      setQuestionsById((prev) => ({ ...prev, [res.data._id]: res.data }));
+      onChange([...selected, res.data._id]);
+      if (!full.explanation?.trim()) toast.warning('Added — but it needs an explanation before the challenge can be published.');
+      else toast.success('Added from the Question Bank.');
+    } catch (error: any) {
+      toast.error(error.response?.data?.message || 'Failed to add this question.');
+    } finally {
+      setAddingBankId(null);
+    }
+  };
+
+  const addedBankIds = new Set(Object.entries(bankCopies.current).filter(([, copyId]) => selected.includes(copyId)).map(([bankId]) => bankId));
 
   const handleExtract = () => {
     if (!pastedContent.trim()) {
@@ -189,7 +243,7 @@ export default function DailyChallengeQuestionPicker({ examId, selected, onChang
   return (
     <div className="flex flex-col gap-4">
       <div className="flex items-center justify-between">
-        <h4 className="text-sm font-semibold text-slate-900">Extract Questions</h4>
+        <h4 className="text-sm font-semibold text-slate-900">Challenge Questions</h4>
         <Badge variant={selected.length === max ? 'success' : 'brand'}>
           {selected.length} / {max} Questions Selected
         </Badge>
@@ -252,6 +306,44 @@ export default function DailyChallengeQuestionPicker({ examId, selected, onChang
         </Card>
       )}
 
+      <div role="tablist" aria-label="Where to add questions from" className="inline-flex self-start rounded-lg border border-slate-200 bg-slate-50 p-1">
+        {(
+          [
+            ['bank', 'From Question Bank', Library],
+            ['extract', 'Extract from text', Sparkles],
+          ] as const
+        ).map(([value, label, Icon]) => (
+          <button
+            key={value}
+            type="button"
+            role="tab"
+            aria-selected={source === value}
+            onClick={() => setSource(value)}
+            className={[
+              'inline-flex items-center gap-1.5 rounded-md px-3.5 py-1.5 text-sm font-semibold transition-colors',
+              source === value ? 'bg-white text-brand-700 shadow-soft-sm' : 'text-slate-500 hover:text-slate-700',
+            ].join(' ')}
+          >
+            <Icon className="size-3.5" /> {label}
+          </button>
+        ))}
+      </div>
+
+      {source === 'bank' && (
+        <Card className="p-4">
+          <BankQuestionBrowser
+            examId={examId}
+            curriculum={curriculum}
+            addedBankIds={addedBankIds}
+            isFull={isFull}
+            addingId={addingBankId}
+            onAdd={addBankQuestion}
+            fullMessage="This challenge already has its maximum number of questions. Remove one to add another."
+          />
+        </Card>
+      )}
+
+      {source === 'extract' && (
       <Card className="p-4">
         <div className="mb-4 grid grid-cols-1 gap-3 sm:grid-cols-3">
           <Select label="Unit" value={unitId} onChange={(e) => { setUnitId(e.target.value); setTopicId(''); setSubtopicId(''); }}>
@@ -402,6 +494,7 @@ export default function DailyChallengeQuestionPicker({ examId, selected, onChang
           )}
         </div>
       </Card>
+      )}
     </div>
   );
 }

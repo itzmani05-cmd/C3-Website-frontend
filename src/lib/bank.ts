@@ -44,6 +44,10 @@ export interface BankQuestionSummary {
   hasOptionImages?: boolean;
   hasExplanationImage?: boolean;
   hasExplanation?: boolean;
+  /** Set when the question was already used in a Daily Challenge (the latest one). */
+  usedInChallenge?: { challengeId: string; title: string; startAt: string; status: string; count: number };
+  /** Set when the question was already copied into a test (the latest one); `count` is how many tests use it. */
+  usedInTest?: { testId: string | null; testName: string; usedAt: string; count: number };
 }
 
 export interface QuestionPage {

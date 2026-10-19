@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import type { ReactNode } from 'react';
-import { ArrowLeft, Check, LayoutGrid, Send, X } from 'lucide-react';
+import { Check, LayoutGrid, Send, X } from 'lucide-react';
 import type { ExamQuestion } from '../../types/models';
 
 interface QuestionSidebarProps {
@@ -13,7 +13,6 @@ interface QuestionSidebarProps {
   selectedTestName: string;
   onNavigate: (index: number) => void;
   onSubmitClick: () => void;
-  onExitClick: () => void;
 }
 
 type QuestionStatus = 'answered' | 'not-answered' | 'not-visited' | 'marked' | 'answered-marked';
@@ -81,7 +80,6 @@ export default function QuestionSidebar({
   selectedTestName,
   onNavigate,
   onSubmitClick,
-  onExitClick,
 }: QuestionSidebarProps) {
 
   const questionStatuses = questions.map((q) => getStatus(!!answers[q._id], visitedQuestions.has(q._id), markedForReview.has(q._id)));
@@ -90,15 +88,14 @@ export default function QuestionSidebar({
     EMPTY_STATUS_COUNTS
   );
 
-  const questionGroups: { label: string | null; items: number[] }[] = [];
+  // When the test has parts, the palette shows only the current part (the tabs above the question switch parts);
+  // otherwise it lists every question. Either way the numbers are one plain grid, with no section headings.
+  const hasParts = questions.some((q) => q.part);
+  const activePart = questions[activeQuestionIndex]?.part;
+  const questionGroups: { label: string | null; items: number[] }[] = [{ label: null, items: [] }];
   questions.forEach((q, idx) => {
-    const label = q.part || null;
-    const lastGroup = questionGroups[questionGroups.length - 1];
-    if (lastGroup && lastGroup.label === label) {
-      lastGroup.items.push(idx);
-    } else {
-      questionGroups.push({ label, items: [idx] });
-    }
+    if (hasParts && q.part !== activePart) return;
+    questionGroups[0].items.push(idx);
   });
 
   // On phones and tablets the palette opens as a bottom sheet instead of pushing the question down.
@@ -128,7 +125,7 @@ export default function QuestionSidebar({
   );
 
   const palette = (
-    <div className="scrollbar-thin flex flex-col gap-4 overflow-y-auto lg:max-h-[420px]">
+    <div className="scrollbar-thin flex flex-col gap-4 overflow-y-auto overflow-x-hidden p-1 lg:max-h-[420px]">
       {questionGroups.map((group, groupIdx) => (
         <div key={groupIdx}>
           {group.label && <p className="mb-2 text-[11px] font-semibold uppercase tracking-wide text-slate-400">{group.label}</p>}
@@ -167,15 +164,6 @@ export default function QuestionSidebar({
     </div>
   );
 
-  const exitButton = (
-    <button
-      onClick={onExitClick}
-      className="flex min-h-10 items-center justify-center gap-1.5 rounded-lg border border-slate-300 text-sm font-medium text-slate-700 transition-colors hover:bg-slate-50"
-    >
-      <ArrowLeft className="size-3.5" /> Exit to tests
-    </button>
-  );
-
   const submitButton = (
     <button
       onClick={onSubmitClick}
@@ -190,7 +178,6 @@ export default function QuestionSidebar({
       {/* Desktop */}
       <aside className="scrollbar-thin hidden w-72 shrink-0 flex-col gap-4 overflow-y-auto border-l border-slate-200 bg-white p-4 lg:flex xl:w-80 2xl:w-96">
         {legend}
-        {exitButton}
         {palette}
         {submitButton}
       </aside>
@@ -227,7 +214,6 @@ export default function QuestionSidebar({
             </div>
             {legend}
             <div className="min-h-0 flex-1 overflow-y-auto">{palette}</div>
-            {exitButton}
           </div>
         </div>
       )}

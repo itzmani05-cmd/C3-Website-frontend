@@ -5,6 +5,7 @@ import { toast } from 'react-toastify';
 import api from '../api';
 import { getApiConfig, getEmailFromToken } from '../lib/examSession';
 import { LoadingState } from '../components/ui/Spinner';
+import SectionTabs from '../components/exam/SectionTabs';
 import ExamHeader from '../components/exam/ExamHeader';
 import QuestionSidebar from '../components/exam/QuestionSidebar';
 import QuestionCard from '../components/exam/QuestionCard';
@@ -516,7 +517,10 @@ export default function TestArea({ onLogout }: TestAreaProps) {
         onTimeUp={triggerAutoSubmit}
         calculatorOpen={showCalculator}
         onToggleCalculator={() => setShowCalculator((v) => !v)}
+        onExit={() => setShowExitModal(true)}
       />
+
+      <SectionTabs questions={questions} answers={answers} activeIndex={activeQuestionIndex} onNavigate={handleNavigateQuestion} />
 
       {!online && (
         <div className="flex items-center justify-center gap-1.5 bg-warning-soft px-4 py-2 text-center text-xs font-semibold text-warning-text">
@@ -551,7 +555,6 @@ export default function TestArea({ onLogout }: TestAreaProps) {
           selectedTestName={selectedTestName}
           onNavigate={handleNavigateQuestion}
           onSubmitClick={handleSubmitClick}
-          onExitClick={() => setShowExitModal(true)}
         />
       </div>
 
