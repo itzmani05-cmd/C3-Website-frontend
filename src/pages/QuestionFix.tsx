@@ -2,7 +2,7 @@ import { Fragment, useCallback, useEffect, useRef, useState } from 'react';
 import { FileDown, Library, ListTree, Plus, Search, Trash2 } from 'lucide-react';
 import { toast } from 'react-toastify';
 import api from '../api';
-import { detectQuestionType, formatCorrectAnswerLabel } from '../lib/helpers';
+import { detectQuestionType } from '../lib/helpers';
 import QuestionForm from '../components/QuestionForm';
 import FixRow from '../components/fix/FixRow';
 import type { FixableQuestion } from '../components/fix/FixRow';
@@ -181,29 +181,6 @@ export default function QuestionFix() {
 
   const handleModeChange = (mode: DestinationMode) => {
     setDestinationMode(mode);
-    setExpandedId(null);
-    setIsAdding(false);
-  };
-
-  const handleUnitChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
-    const newUnitId = e.target.value;
-    setUnitId(newUnitId);
-    const unit = curriculum.find((u) => u._id === newUnitId);
-    setTopicId(unit?.topics?.[0]?._id || '');
-    setSubtopicId('');
-    setExpandedId(null);
-    setIsAdding(false);
-  };
-
-  const handleTopicChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
-    setTopicId(e.target.value);
-    setSubtopicId('');
-    setExpandedId(null);
-    setIsAdding(false);
-  };
-
-  const handleSubtopicChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
-    setSubtopicId(e.target.value);
     setExpandedId(null);
     setIsAdding(false);
   };

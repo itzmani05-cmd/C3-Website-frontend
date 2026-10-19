@@ -1,5 +1,5 @@
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { BadgeCheck, ChevronDown, ChevronUp, FileWarning, History, Image as ImageIcon, Pencil } from 'lucide-react';
+import { BadgeCheck, ChevronDown, ChevronUp, FileWarning, Image as ImageIcon, Pencil } from 'lucide-react';
 import api from '../../api';
 import type { BankQuestion, BankQuestionSummary } from '../../lib/bank';
 import Button from '../ui/Button';
@@ -8,6 +8,7 @@ import MathText from '../ui/MathText';
 import { Spinner } from '../ui/Spinner';
 import { useModal } from '../ui/ModalProvider';
 import QuestionEditor from './QuestionEditor';
+import { UsageDots } from './UsageDots';
 import QuestionPreview from './QuestionPreview';
 
 const TYPE_LABEL: Record<string, string> = { single: 'MCQ', multiple: 'MSQ', numerical: 'NAT' };
@@ -91,7 +92,7 @@ function BankRow({ q, number, expanded, onToggle, onSave, onDelete }: BankRowPro
   const panelId = `qb-panel-${q._id}`;
 
   return (
-    <Card className={['relative overflow-hidden transition-shadow hover:shadow-soft-md', q.usedInChallenge || q.usedInTest ? 'border-l-4 border-l-danger-500' : ''].join(' ')}>
+    <Card className={['relative overflow-hidden transition-shadow hover:shadow-soft-md', ].join(' ')}>
       <div className="flex items-stretch bg-slate-50">
         <button
           type="button"
@@ -111,23 +112,8 @@ function BankRow({ q, number, expanded, onToggle, onSave, onDelete }: BankRowPro
           </span>
           <span className="flex shrink-0 flex-wrap items-center gap-1.5 md:pt-0.5">
             {q.answerType && <span className={[pill, 'bg-slate-200/70 text-slate-600'].join(' ')}>{TYPE_LABEL[q.answerType] ?? q.answerType}</span>}
-            {q.usedInChallenge && (
-              <span
-                className={[pill, 'bg-danger-soft text-danger-700'].join(' ')}
-                title={`Already used in the Daily Challenge "${q.usedInChallenge.title}"${q.usedInChallenge.count > 1 ? ` and ${q.usedInChallenge.count - 1} more` : ''}`}
-              >
-                <History className="size-3" /> Used {new Date(q.usedInChallenge.startAt).toLocaleDateString(undefined, { day: 'numeric', month: 'short', year: 'numeric' })}
-              </span>
-            )}
-            {q.usedInTest && (
-              <span
-                className={[pill, 'bg-danger-soft text-danger-700'].join(' ')}
-                title={`Already used in the test "${q.usedInTest.testName}"${q.usedInTest.count > 1 ? ` and ${q.usedInTest.count - 1} more` : ''}`}
-              >
-                <History className="size-3" /> In test: <span className="max-w-28 truncate">{q.usedInTest.testName}</span>
-              </span>
-            )}
-            {hasImage && <ImageIcon className="size-4 text-slate-400" aria-label="Has images" />}
+            <UsageDots usedInTest={q.usedInTest} usedInChallenge={q.usedInChallenge} />
+{hasImage && <ImageIcon className="size-4 text-slate-400" aria-label="Has images" />}
             {noExplanation && (
               <span className={[pill, 'bg-warning-soft text-warning-text'].join(' ')} title="No explanation yet">
                 <FileWarning className="size-3" /> 

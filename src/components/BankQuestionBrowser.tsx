@@ -1,9 +1,10 @@
 import { useEffect, useRef, useState } from 'react';
-import { Check, ChevronDown, ChevronUp, FileWarning, History, Image as ImageIcon, Plus, Search } from 'lucide-react';
+import { Check, ChevronDown, ChevronUp, FileWarning, Image as ImageIcon, Plus, Search } from 'lucide-react';
 import api from '../api';
 import { errorMessage } from '../lib/bank';
 import type { BankQuestion, BankQuestionSummary, QuestionPage } from '../lib/bank';
 import QuestionPreview from './bank/QuestionPreview';
+import { UsageDots } from './bank/UsageDots';
 import Button from './ui/Button';
 import EmptyState from './ui/EmptyState';
 import { Input, Select } from './ui/Field';
@@ -111,7 +112,7 @@ export default function BankQuestionBrowser({ examId, curriculum, addedBankIds, 
             return (
               <div
                 key={q._id}
-                className={['rounded-lg border bg-white', added ? 'border-success-500/50' : 'border-slate-200', q.usedInChallenge || q.usedInTest ? 'border-l-4 border-l-danger-500' : ''].join(' ')}
+                className={['relative overflow-hidden rounded-lg border bg-white', added ? 'border-success-500/50' : 'border-slate-200'].join(' ')}
               >
                 <div className="flex items-start gap-3 p-3">
                   <div className="min-w-0 flex-1">
@@ -122,25 +123,8 @@ export default function BankQuestionBrowser({ examId, curriculum, addedBankIds, 
                       {q.answerType && <span className={[pill, 'bg-slate-200/70 text-slate-600'].join(' ')}>{TYPE_LABEL[q.answerType] ?? q.answerType}</span>}
                       {q.year ? <span className={[pill, 'bg-slate-100 text-slate-500'].join(' ')}>{q.year}</span> : null}
                       {q.source ? <span className={[pill, 'max-w-48 truncate bg-slate-100 text-slate-500'].join(' ')}>{q.source}</span> : null}
-                      {q.usedInChallenge && (
-                        <span
-                          className={[pill, 'bg-danger-soft text-danger-700'].join(' ')}
-                          title={`Already used in "${q.usedInChallenge.title}"${q.usedInChallenge.count > 1 ? ` and ${q.usedInChallenge.count - 1} more` : ''}`}
-                        >
-                          <History className="size-3" /> Used {new Date(q.usedInChallenge.startAt).toLocaleDateString(undefined, { day: 'numeric', month: 'short', year: 'numeric' })}
-                          {q.usedInChallenge.count > 1 ? ` · ${q.usedInChallenge.count}×` : ''}
-                        </span>
-                      )}
-                      {q.usedInTest && (
-                        <span
-                          className={[pill, 'bg-danger-soft text-danger-700'].join(' ')}
-                          title={`Already used in the test "${q.usedInTest.testName}"${q.usedInTest.count > 1 ? ` and ${q.usedInTest.count - 1} more` : ''}`}
-                        >
-                          <History className="size-3" /> In test: <span className="max-w-32 truncate">{q.usedInTest.testName}</span>
-                          {q.usedInTest.count > 1 ? ` +${q.usedInTest.count - 1}` : ''}
-                        </span>
-                      )}
-                      {hasImage && <ImageIcon className="size-3.5 text-slate-400" aria-label="Has images" />}
+                      <UsageDots usedInTest={q.usedInTest} usedInChallenge={q.usedInChallenge} />
+{hasImage && <ImageIcon className="size-3.5 text-slate-400" aria-label="Has images" />}
                       {noExplanation && (
                         <span className={[pill, 'bg-warning-soft text-warning-text'].join(' ')} title="A challenge can't be published until every question has an explanation">
                           <FileWarning className="size-3" /> No explanation

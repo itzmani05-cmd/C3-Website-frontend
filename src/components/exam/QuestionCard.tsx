@@ -1,4 +1,4 @@
-import { Bookmark, ChevronLeft, ChevronRight, Eraser, TriangleAlert } from 'lucide-react';
+import { Bookmark, ChevronLeft, ChevronRight, Eraser } from 'lucide-react';
 import QuestionRenderer from '../QuestionRenderer';
 import MathText from '../ui/MathText';
 import { toOptionKeys } from '../../lib/grading';

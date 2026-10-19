@@ -1,7 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { useLocation, useNavigate, useParams } from 'react-router-dom';
 import { TriangleAlert } from 'lucide-react';
-import { toast } from 'react-toastify';
 import api from '../api';
 import { getApiConfig, getEmailFromToken } from '../lib/examSession';
 import { LoadingState } from '../components/ui/Spinner';

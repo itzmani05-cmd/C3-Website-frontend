@@ -1,6 +1,5 @@
 import { memo, useEffect, useState } from 'react';
 import { ChevronDown, ChevronUp, Image as ImageIcon, Pencil } from 'lucide-react';
-import { formatCorrectAnswerLabel } from '../../lib/helpers';
 import type { BankQuestion } from '../../lib/bank';
 import QuestionForm from '../QuestionForm';
 import type { QuestionFormValue } from '../QuestionForm';

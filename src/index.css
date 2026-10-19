@@ -154,45 +154,6 @@
   }
 }
 
-/* C3 print rules: the PDF page hides everything except .assessment-document. */
-@media print {
-  body * {
-    visibility: hidden;
-  }
-  .assessment-document,
-  .assessment-document * {
-    visibility: visible;
-  }
-  .assessment-document {
-    position: absolute;
-    inset: 0;
-    font-family: 'Times New Roman', Times, serif;
-    color: #000;
-  }
-  .doc-question-card,
-  .explanation-detail-item {
-    break-inside: avoid;
-  }
-  .page-break-before {
-    break-before: page;
-  }
-
-  /* C3 logo watermark: fixed elements repeat on every printed page. */
-  .pdf-watermark {
-    position: fixed;
-    top: 50%;
-    left: 50%;
-    z-index: -1;
-    width: 60%;
-    max-width: 440px;
-    transform: translate(-50%, -50%);
-    opacity: 0.08;
-    pointer-events: none;
-    -webkit-print-color-adjust: exact;
-    print-color-adjust: exact;
-  }
-}
-
 @keyframes skeleton-sweep {
   from { background-position: 100% 0; }
   to { background-position: -100% 0; }
