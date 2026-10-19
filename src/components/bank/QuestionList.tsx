@@ -74,6 +74,11 @@ export default function QuestionList({ scope, filters, page, onPageChange, onCle
       .get<QuestionPage>('/api/question-bank', { params: { ...scope, ...params, page, limit: PAGE_SIZE } })
       .then(({ data }) => {
         if (requestId !== latestRequest.current) return;
+        if (!data || !Array.isArray(data.items)) {
+          // An outdated backend answers in another shape: say so instead of crashing the page.
+          setError('The server sent an unexpected response. Make sure the backend is up to date.');
+          return;
+        }
         setItems(data.items);
         setTotal(data.total);
         setTotalPages(data.totalPages);
