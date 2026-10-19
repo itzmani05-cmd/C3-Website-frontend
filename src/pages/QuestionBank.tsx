@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { FileDown, ListTree, Plus, Trash2 } from 'lucide-react';
 import { toast } from 'react-toastify';
@@ -20,18 +20,6 @@ import { LoadingState } from '../components/ui/Spinner';
 import EmptyState from '../components/ui/EmptyState';
 import type { CurriculumTree, Exam } from '../types/models';
 
-/** The admin content area scrolls inside its own container (not the window): scroll the nearest one back to the top. */
-function scrollContentToTop(from: HTMLElement | null) {
-  for (let el = from?.parentElement ?? null; el; el = el.parentElement) {
-    const { overflowY } = getComputedStyle(el);
-    if ((overflowY === 'auto' || overflowY === 'scroll') && el.scrollHeight > el.clientHeight) {
-      el.scrollTo({ top: 0 });
-      return;
-    }
-  }
-  window.scrollTo({ top: 0 });
-}
-
 export default function QuestionBank() {
   const [sp, setSp] = useSearchParams();
 
@@ -49,7 +37,6 @@ export default function QuestionBank() {
   const [deletingAll, setDeletingAll] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [matching, setMatching] = useState<number | undefined>();
-  const shellRef = useRef<HTMLDivElement>(null);
 
   // ----- URL state: the selected exam/topic/page/filters live in the address, so a refresh keeps your place -----
 
@@ -124,13 +111,11 @@ export default function QuestionBank() {
     setIsAdding(false);
     setSidebarOpen(false);
     patch({ topic: id, page: null });
-    scrollContentToTop(shellRef.current);
   };
   const setFilters = useCallback((next: BankFilters) => patch({ ...filtersToSearchPatch(next), page: null }), [patch]);
   const setPage = useCallback(
     (p: number) => {
       patch({ page: p > 1 ? String(p) : null });
-      scrollContentToTop(shellRef.current);
     },
     [patch]
   );
@@ -186,7 +171,7 @@ export default function QuestionBank() {
   }
 
   return (
-    <div ref={shellRef} className={shell}>
+    <div className={shell}>
       {pageHeader}
 
       <div className="grid gap-6 lg:grid-cols-[280px_minmax(0,1fr)]">

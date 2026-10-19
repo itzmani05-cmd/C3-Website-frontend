@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { Fragment, useCallback, useEffect, useRef, useState } from 'react';
 import { FileDown, ListTree, Plus, Search, Trash2 } from 'lucide-react';
 import { toast } from 'react-toastify';
 import api from '../api';
@@ -436,6 +436,13 @@ export default function QuestionFix() {
     </button>
   );
 
+  // How many questions each part and each part-section holds in the current selection, for the group headings.
+  const sectionCounts = new Map<string, number>();
+  for (const q of visibleQuestions) {
+    if (q.part) sectionCounts.set(q.part, (sectionCounts.get(q.part) ?? 0) + 1);
+    if (q.section) sectionCounts.set(`${q.part ?? ''}||${q.section}`, (sectionCounts.get(`${q.part ?? ''}||${q.section}`) ?? 0) + 1);
+  }
+
   const questionsPage = usePagination(visibleQuestions, 10, [filterPart, filterSection, search, destinationMode, topicId, subtopicId, selectedTestId]);
 
   if (curriculumLoading) {
@@ -612,17 +619,38 @@ export default function QuestionFix() {
             />
           ) : (
             <div aria-busy={loading} className={['flex flex-col gap-4 transition-opacity', loading ? 'pointer-events-none opacity-60' : ''].join(' ')}>
-              {questionsPage.pageItems.map((q, idx) => (
-                <FixRow
-                  key={q._id}
-                  q={q}
-                  number={questionsPage.startIndex + idx + 1}
-                  expanded={expandedId === q._id}
-                  onToggle={(id) => setExpandedId((cur) => (cur === id ? null : id))}
-                  onSave={handleUpdateQuestion}
-                  onDelete={handleDeleteQuestion}
-                />
-              ))}
+              {questionsPage.pageItems.map((q, idx) => {
+                // Part and section are shown once as a heading above their questions, not repeated on every row.
+                const prev = questionsPage.pageItems[idx - 1];
+                const newPart = !!q.part && q.part !== prev?.part;
+                const newSection = !!q.section && (newPart || q.section !== prev?.section);
+                return (
+                  <Fragment key={q._id}>
+                    {newPart && (
+                      <div className={['flex items-center gap-3', idx > 0 ? 'mt-3' : ''].join(' ')}>
+                        <h3 className="shrink-0 text-sm font-bold uppercase tracking-wide text-slate-800">{q.part}</h3>
+                        <span className="h-px flex-1 bg-slate-300" />
+                        <span className="shrink-0 text-xs font-semibold text-slate-500">{sectionCounts.get(q.part ?? '') ?? 0} questions</span>
+                      </div>
+                    )}
+                    {newSection && (
+                      <p className="-mb-1 flex items-center gap-2 text-xs font-semibold text-brand-700">
+                        <span className="rounded-md bg-brand-50 px-2 py-1 ring-1 ring-inset ring-brand-600/15">{q.section}</span>
+                        <span className="text-slate-400">{sectionCounts.get(`${q.part ?? ''}||${q.section}`) ?? 0} questions</span>
+                      </p>
+                    )}
+                    <FixRow
+                      q={q}
+                      number={questionsPage.startIndex + idx + 1}
+                      expanded={expandedId === q._id}
+                      onToggle={(id) => setExpandedId((cur) => (cur === id ? null : id))}
+                      onSave={handleUpdateQuestion}
+                      onDelete={handleDeleteQuestion}
+                      showPlacement={false}
+                    />
+                  </Fragment>
+                );
+              })}
               <Pagination
                 page={questionsPage.page}
                 totalPages={questionsPage.totalPages}

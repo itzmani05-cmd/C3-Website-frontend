@@ -27,10 +27,12 @@ interface FixRowProps {
   onToggle: (id: string) => void;
   onSave: (id: string, draft: FixableQuestion) => Promise<boolean>;
   onDelete: (id: string) => void;
+  /** False when the list already shows the question's part and section as a heading above it. */
+  showPlacement?: boolean;
 }
 
 /** One question in the Question Fixer: a full-text row that expands to a preview, with an Edit button that opens the form. */
-function FixRow({ q, number, expanded, onToggle, onSave, onDelete }: FixRowProps) {
+function FixRow({ q, number, expanded, onToggle, onSave, onDelete, showPlacement = true }: FixRowProps) {
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState<FixableQuestion>(q);
   const [saving, setSaving] = useState(false);
@@ -91,7 +93,7 @@ function FixRow({ q, number, expanded, onToggle, onSave, onDelete }: FixRowProps
           </div>
         </span>
         <span className="flex shrink-0 flex-wrap items-center gap-1.5 md:pt-0.5">
-          {q.part && (
+          {showPlacement && q.part && (
             <span className={[pill, 'bg-slate-100 text-slate-500'].join(' ')}>
               {q.part}
               {q.section ? ` · ${q.section}` : ''} · {q.marks ?? 1} mark{(q.marks ?? 1) === 1 ? '' : 's'}

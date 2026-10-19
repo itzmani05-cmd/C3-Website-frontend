@@ -504,7 +504,7 @@ export default function TestArea({ onLogout }: TestAreaProps) {
   const markedCount = questions.filter((q) => markedForReview.has(q._id)).length;
 
   return (
-    <div className="flex min-h-screen flex-col bg-slate-50 lg:h-screen lg:overflow-hidden">
+    <div data-no-anchor className="flex min-h-screen flex-col bg-slate-50 lg:h-screen lg:overflow-hidden">
       <ExamHeader
         selectedTestName={selectedTestName}
         studentEmail={emailRef.current}

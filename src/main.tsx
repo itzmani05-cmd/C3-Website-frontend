@@ -5,10 +5,13 @@ import { LazyMotion } from 'framer-motion';
 import { ToastContainer } from 'react-toastify';
 import { ModalProvider } from './components/ui';
 import App from './App';
+import { installScrollAnchor } from './lib/scrollAnchor';
 import '@fontsource-variable/inter/wght.css';
 import '@fontsource-variable/plus-jakarta-sans/wght.css';
 import './index.css';
 import 'react-toastify/dist/ReactToastify.css';
+
+installScrollAnchor();
 
 const rootEl = document.getElementById('root');
 if (!rootEl) throw new Error('Root element #root not found');

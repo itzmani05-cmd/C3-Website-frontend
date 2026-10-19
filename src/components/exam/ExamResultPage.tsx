@@ -36,7 +36,7 @@ export default function ExamResultPage({ selectedTestName, studentEmail, questio
   const jumpTo = (idx: number) => document.getElementById(`result-question-${idx}`)?.scrollIntoView({ behavior: 'smooth', block: 'start' });
 
   return (
-    <div className="flex min-h-screen flex-col bg-slate-50">
+    <div data-no-anchor className="flex min-h-screen flex-col bg-slate-50">
       <div className="mx-auto w-full max-w-7xl flex-1 px-4 py-8 sm:px-6 lg:px-8">
         <div className="grid grid-cols-1 gap-6 lg:grid-cols-[380px_1fr] lg:items-start">
           <div className="flex flex-col gap-6 lg:sticky lg:top-8">
