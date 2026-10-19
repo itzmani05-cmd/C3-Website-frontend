@@ -78,7 +78,8 @@ export default function QuestionBank() {
   useEffect(() => {
     (async () => {
       try {
-        setExams((await api.get<Exam[]>('/api/questions/exams')).data || []);
+        const list = (await api.get<Exam[]>('/api/questions/exams')).data;
+        setExams(Array.isArray(list) ? list : []);
       } catch {
         setLoadError('Failed to load exams from server.');
       } finally {
@@ -94,7 +95,12 @@ export default function QuestionBank() {
     setCurriculumLoading(true);
     api
       .get<CurriculumTree>('/api/questions/curriculum', { params: { examId } })
-      .then((res) => !cancelled && setCurriculum(res.data || []))
+      .then((res) => {
+        if (cancelled) return;
+        // A stale or failing backend can answer with something that is not a curriculum tree.
+        const tree = Array.isArray(res.data) ? res.data : [];
+        setCurriculum(tree.map((u) => ({ ...u, topics: (u.topics ?? []).map((t) => ({ ...t, subtopics: t.subtopics ?? [] })) })));
+      })
       .catch(() => !cancelled && setLoadError('Failed to load curriculum from server.'))
       .finally(() => !cancelled && setCurriculumLoading(false));
     return () => {
