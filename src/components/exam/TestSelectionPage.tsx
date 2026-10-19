@@ -41,7 +41,7 @@ export default function TestSelectionPage({ availableTests, studentName, onStart
         </div>
       </header>
 
-      <main className="mx-auto w-full max-w-6xl flex-1 px-4 py-8 sm:px-6 sm:py-10 lg:px-8">
+      <main id="main" className="mx-auto w-full max-w-6xl flex-1 px-4 py-8 sm:px-6 sm:py-10 lg:px-8">
         <div className="mb-6 border-b border-slate-200 pb-5 sm:mb-8">
           <h1 className="text-xl font-semibold tracking-tight text-slate-900 sm:text-2xl">Your tests</h1>
           <p className="mt-1 text-sm text-slate-500">Welcome, {studentName}. Choose a test to begin or review your results.</p>

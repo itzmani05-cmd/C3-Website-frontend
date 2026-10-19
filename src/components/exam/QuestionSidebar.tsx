@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import type { ReactNode } from 'react';
 import { ArrowLeft, Check, LayoutGrid, Send, X } from 'lucide-react';
 import type { ExamQuestion } from '../../types/models';
@@ -103,8 +103,10 @@ export default function QuestionSidebar({
 
   // On phones and tablets the palette opens as a bottom sheet instead of pushing the question down.
   const [sheetOpen, setSheetOpen] = useState(false);
+  const sheetCloseRef = useRef<HTMLButtonElement>(null);
   useEffect(() => {
     if (!sheetOpen) return;
+    sheetCloseRef.current?.focus();
     const onKeyDown = (e: KeyboardEvent) => e.key === 'Escape' && setSheetOpen(false);
     window.addEventListener('keydown', onKeyDown);
     return () => window.removeEventListener('keydown', onKeyDown);
@@ -215,6 +217,7 @@ export default function QuestionSidebar({
             <div className="flex items-center justify-between">
               <p className="text-sm font-semibold text-slate-900">Question palette</p>
               <button
+                ref={sheetCloseRef}
                 onClick={() => setSheetOpen(false)}
                 aria-label="Close question palette"
                 className="rounded-lg p-1.5 text-slate-400 hover:bg-slate-100 hover:text-slate-700"

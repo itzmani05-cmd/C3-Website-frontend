@@ -3,7 +3,7 @@ import { useLocation, useNavigate, useParams } from 'react-router-dom';
 import { TriangleAlert } from 'lucide-react';
 import { toast } from 'react-toastify';
 import api from '../api';
-import { formatTime, getApiConfig, getEmailFromToken } from '../lib/examSession';
+import { getApiConfig, getEmailFromToken } from '../lib/examSession';
 import { LoadingState } from '../components/ui/Spinner';
 import ExamHeader from '../components/exam/ExamHeader';
 import QuestionSidebar from '../components/exam/QuestionSidebar';
@@ -33,7 +33,9 @@ export default function TestArea({ onLogout }: TestAreaProps) {
   const [questions, setQuestions] = useState<ExamQuestion[]>([]);
   const [answers, setAnswers] = useState<Record<string, string>>({});
   const [unsyncedAnswers, setUnsyncedAnswers] = useState<Record<string, string | null>>({});
-  const [remainingTime, setRemainingTime] = useState(0);
+  // The server's remaining time is stored as an end time; ExamTimer does the ticking so this page doesn't re-render every second.
+  const [deadline, setDeadline] = useState<number | null>(null);
+  const setRemainingTime = (secs: number) => setDeadline(Date.now() + secs * 1000);
   const [submitted, setSubmitted] = useState(false);
   const [submittedAt, setSubmittedAt] = useState<string | null>(null);
   const [resultScore, setResultScore] = useState<number | null>(null);
@@ -52,7 +54,6 @@ export default function TestArea({ onLogout }: TestAreaProps) {
   const emailRef = useRef('student');
   const tabIdRef = useRef('');
   const syncTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const timeWarningsShownRef = useRef<Set<number>>(new Set());
 
   const progressKey = (tId: string) => `c3_exam_progress_${emailRef.current}_${tId}`;
 
@@ -108,39 +109,6 @@ export default function TestArea({ onLogout }: TestAreaProps) {
       fetchTestsList();
     }
   }, [testId, studentEmail, location.pathname]);
-
-  useEffect(() => {
-    if (loading || submitted || remainingTime <= 0 || !examStarted) return;
-
-    const timer = setInterval(() => {
-      setRemainingTime((prev) => {
-        if (prev <= 1) {
-          clearInterval(timer);
-          triggerAutoSubmit();
-          return 0;
-        }
-        return prev - 1;
-      });
-    }, 1000);
-
-    return () => clearInterval(timer);
-  }, [loading, submitted, remainingTime, examStarted]);
-
-  useEffect(() => {
-    if (!examStarted || submitted || loading) return;
-    for (const threshold of [300, 60]) {
-      if (remainingTime > 0 && remainingTime <= threshold && !timeWarningsShownRef.current.has(threshold)) {
-        timeWarningsShownRef.current.add(threshold);
-        toast.warning(
-          threshold === 60
-            ? '1 minute left — your test will be submitted automatically.'
-            : '5 minutes left. Review any questions marked for review.',
-          { autoClose: 8000 }
-        );
-        break;
-      }
-    }
-  }, [remainingTime, examStarted, submitted, loading]);
 
   useEffect(() => {
     if (loading || submitted || !examStarted) return;
@@ -218,7 +186,6 @@ export default function TestArea({ onLogout }: TestAreaProps) {
     try {
       setLoading(true);
       setError('');
-      timeWarningsShownRef.current = new Set();
       const { data } = await api.post('/api/exam/start', { testId: tId }, getApiConfig());
 
       setQuestions(data.questions || []);
@@ -544,8 +511,9 @@ export default function TestArea({ onLogout }: TestAreaProps) {
         online={online}
         syncing={syncing}
         unsyncedAnswers={unsyncedAnswers}
-        remainingTime={remainingTime}
-        formatTime={formatTime}
+        deadline={deadline}
+        timerActive={examStarted && !submitted && !loading}
+        onTimeUp={triggerAutoSubmit}
         calculatorOpen={showCalculator}
         onToggleCalculator={() => setShowCalculator((v) => !v)}
       />
@@ -558,7 +526,7 @@ export default function TestArea({ onLogout }: TestAreaProps) {
       )}
 
       <div className="flex flex-col lg:min-h-0 lg:flex-1 lg:flex-row">
-        <main className="pb-24 lg:min-h-0 lg:flex-1 lg:overflow-y-auto lg:pb-0">
+        <main id="main" className="pb-24 lg:min-h-0 lg:flex-1 lg:overflow-y-auto lg:pb-0">
           <QuestionCard
             question={currentQuestion}
             questionIndex={activeQuestionIndex}

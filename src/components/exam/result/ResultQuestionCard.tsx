@@ -41,7 +41,7 @@ export default function ResultQuestionCard({ question: q, index, total, answer, 
 
       <div className="mb-3">
         <QuestionRenderer question={q} />
-        {q.questionImage && <img src={getImagePreview(q.questionImage) ?? undefined} alt={`Question ${index + 1}`} className="mt-2 max-h-64 rounded-lg border border-slate-100" />}
+        {q.questionImage && <img loading="lazy" decoding="async" src={getImagePreview(q.questionImage) ?? undefined} alt={`Question ${index + 1}`} className="mt-2 max-h-64 rounded-lg border border-slate-100" />}
       </div>
 
       <div className="flex flex-col gap-2">
@@ -54,7 +54,7 @@ export default function ResultQuestionCard({ question: q, index, total, answer, 
             <Info className="size-3.5" /> Explanation:
           </h4>
           {q.explanation && <p className="text-sm text-slate-600"><MathText>{q.explanation}</MathText></p>}
-          {q.explanationImage && <img src={getImagePreview(q.explanationImage) ?? undefined} alt="Explanation Media" className="mt-2 max-h-64 rounded-lg" />}
+          {q.explanationImage && <img loading="lazy" decoding="async" src={getImagePreview(q.explanationImage) ?? undefined} alt="Explanation Media" className="mt-2 max-h-64 rounded-lg" />}
         </div>
       )}
     </div>
@@ -98,7 +98,7 @@ function OptionRows({ question: q, answer }: { question: ExamQuestion; answer: s
             <div className="flex size-6 shrink-0 items-center justify-center rounded-md bg-slate-100 text-xs font-bold text-slate-600">{key.toUpperCase()}</div>
             <div className="flex-1">
               {text && <p className="text-sm text-slate-700"><MathText>{text}</MathText></p>}
-              {image && <img src={getImagePreview(image) ?? undefined} alt={`Option ${key.toUpperCase()}`} className="mt-1.5 max-h-32 rounded-md border border-slate-100" />}
+              {image && <img loading="lazy" decoding="async" src={getImagePreview(image) ?? undefined} alt={`Option ${key.toUpperCase()}`} className="mt-1.5 max-h-32 rounded-md border border-slate-100" />}
             </div>
             {tag && (
               <span className={['flex shrink-0 items-center gap-1 text-xs font-semibold', isCorrect ? 'text-success-600' : 'text-danger-600'].join(' ')}>

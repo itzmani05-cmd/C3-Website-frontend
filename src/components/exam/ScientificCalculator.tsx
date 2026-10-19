@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { AnimatePresence, motion } from 'framer-motion';
+import { AnimatePresence, m } from 'framer-motion';
 import { X } from 'lucide-react';
 
 interface ScientificCalculatorProps {
@@ -386,7 +386,7 @@ export default function ScientificCalculator({ open, onToggle }: ScientificCalcu
   return (
     <AnimatePresence>
       {open && (
-        <motion.div
+        <m.div
           role="dialog"
           aria-label="Scientific calculator"
           initial={{ opacity: 0, scale: 0.96, y: 16 }}
@@ -664,7 +664,7 @@ export default function ScientificCalculator({ open, onToggle }: ScientificCalcu
             {btn('+', () => startBinary('+'), 'add')}
           </div>
           </div>
-        </motion.div>
+        </m.div>
       )}
     </AnimatePresence>
   );

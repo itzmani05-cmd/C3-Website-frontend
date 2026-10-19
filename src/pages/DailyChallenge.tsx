@@ -28,6 +28,7 @@ import { Input, Select, Textarea } from '../components/ui/Field';
 import { LoadingState } from '../components/ui/Spinner';
 import EmptyState from '../components/ui/EmptyState';
 import QuestionRenderer from '../components/QuestionRenderer';
+import ChallengeCalendar from '../components/ChallengeCalendar';
 import DailyChallengeQuestionPicker from '../components/DailyChallengeQuestionPicker';
 import type {
   DailyChallenge,
@@ -182,8 +183,17 @@ export default function DailyChallengeAdmin() {
     loadDashboard();
   }, [loadDashboard]);
 
-  const goToCreate = () => {
-    setForm({ ...emptyForm, examId });
+  // The calendar needs every challenge of the exam, not just the recent ones the dashboard lists.
+  useEffect(() => {
+    loadAll();
+  }, [loadAll]);
+
+  const goToCreate = (date?: Date) => {
+    // A day picked on the calendar becomes the challenge's date (9:00 am), otherwise it starts now.
+    const startAt = date
+      ? `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}T09:00`
+      : nowDatetimeLocal();
+    setForm({ ...emptyForm, examId, startAt });
     setEditingId(null);
     setView('create');
   };
@@ -364,6 +374,7 @@ export default function DailyChallengeAdmin() {
   const backToDashboard = () => {
     setView('dashboard');
     loadDashboard();
+    loadAll();
   };
 
   const challengesPage = usePagination(allChallenges);
@@ -398,7 +409,7 @@ export default function DailyChallengeAdmin() {
             <Button variant="secondary" size="sm" onClick={goToAll} disabled={!examId}>
               All Challenges
             </Button>
-            <Button size="sm" icon={<Plus className="size-4" />} onClick={goToCreate} disabled={!examId}>
+            <Button size="sm" icon={<Plus className="size-4" />} onClick={() => goToCreate()} disabled={!examId}>
               Create Daily Challenge
             </Button>
           </div>
@@ -419,31 +430,47 @@ export default function DailyChallengeAdmin() {
               <StatCard icon={<CalendarClock className="size-4" />} value={dashboard?.upcoming.length ?? 0} label="Upcoming" tone="warning" />
             </div>
 
-            <Card className="mb-6 p-5">
-              <h3 className="mb-3 text-sm font-semibold uppercase tracking-wide text-slate-500">Today's Challenge</h3>
+            <div className="grid gap-6 md:grid-cols-2">
+            <Card className="h-full p-5">
+              <ChallengeCalendar
+                challenges={allChallenges}
+                onSelect={(c) => (c.status === 'published' || c.status === 'expired' ? goToAnalytics(c._id) : goToPreview(c._id))}
+                onCreate={goToCreate}
+              />
+            </Card>
+              <div className="flex min-w-0 flex-col gap-6">
+            <Card className="p-4">
+              <h3 className="mb-2 text-sm font-semibold uppercase tracking-wide text-slate-500">Today's Challenge</h3>
               {dashboard?.today ? (
-                <div className="flex flex-col gap-3">
-                  <div className="flex flex-wrap items-center justify-between gap-2">
-                    <div>
-                      <p className="font-heading text-lg font-bold text-slate-900">{new Date(dashboard.today.startAt).toLocaleDateString(undefined, { month: 'long', day: 'numeric', year: 'numeric' })}</p>
-                      <p className="text-sm text-slate-500">{dashboard.today.title}</p>
+                <div className="flex flex-col gap-2.5">
+                  <div className="flex items-center justify-between gap-2">
+                    <div className="min-w-0">
+                      <p className="font-heading text-base font-bold leading-tight text-slate-900">{new Date(dashboard.today.startAt).toLocaleDateString(undefined, { month: 'long', day: 'numeric', year: 'numeric' })}</p>
+                      <p className="truncate text-xs text-slate-500">{dashboard.today.title}</p>
                     </div>
-                    <Badge variant={STATUS_BADGE[dashboard.today.status]} className="capitalize">
+                    <Badge variant={STATUS_BADGE[dashboard.today.status]} className="shrink-0 capitalize">
                       {dashboard.today.status}
                     </Badge>
                   </div>
-                  <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-                    <StatTile label="Questions" value={dashboard.today.questionIds.length} compact />
-                    <StatTile label="Students Started" value={dashboard.todayStats?.studentsStarted ?? 0} compact />
-                    <StatTile label="Completed" value={dashboard.todayStats?.studentsCompleted ?? 0} compact />
-                    <StatTile label="Average Score" value={`${dashboard.todayStats?.averageScore ?? 0} / ${dashboard.today.questionIds.length}`} compact />
+                  <div className="grid grid-cols-4 divide-x divide-slate-200 rounded-lg border border-slate-200 bg-slate-50/60 py-1.5 text-center">
+                    {[
+                      ['Questions', dashboard.today.questionIds.length],
+                      ['Started', dashboard.todayStats?.studentsStarted ?? 0],
+                      ['Completed', dashboard.todayStats?.studentsCompleted ?? 0],
+                      ['Avg score', `${dashboard.todayStats?.averageScore ?? 0}/${dashboard.today.questionIds.length}`],
+                    ].map(([label, value]) => (
+                      <div key={label} className="px-1">
+                        <p className="font-heading text-base font-bold leading-tight text-slate-900">{value}</p>
+                        <p className="text-[11px] text-slate-500">{label}</p>
+                      </div>
+                    ))}
                   </div>
                   <div className="flex gap-2">
                     <Button size="sm" variant="secondary" icon={<Eye className="size-3.5" />} onClick={() => goToPreview(dashboard.today!._id)}>
-                      View Challenge
+                      View
                     </Button>
                     <Button size="sm" variant="secondary" icon={<BarChart3 className="size-3.5" />} onClick={() => goToAnalytics(dashboard.today!._id)}>
-                      View Analytics
+                      Analytics
                     </Button>
                   </div>
                 </div>
@@ -452,7 +479,7 @@ export default function DailyChallengeAdmin() {
               )}
             </Card>
 
-            <Card className="mb-6 p-5">
+            <Card className="p-5">
               <h3 className="mb-3 text-sm font-semibold uppercase tracking-wide text-slate-500">Upcoming</h3>
               {dashboard?.upcoming.length ? (
                 <div className="flex flex-col gap-2">
@@ -465,18 +492,8 @@ export default function DailyChallengeAdmin() {
               )}
             </Card>
 
-            <Card className="p-5">
-              <h3 className="mb-3 text-sm font-semibold uppercase tracking-wide text-slate-500">Recent Challenges</h3>
-              {dashboard?.recent.length ? (
-                <div className="flex flex-col gap-2">
-                  {dashboard.recent.map((c) => (
-                    <ChallengeRow key={c._id} challenge={c} onView={() => goToAnalytics(c._id)} />
-                  ))}
-                </div>
-              ) : (
-                <p className="py-4 text-center text-sm text-slate-400">No published or expired challenges yet.</p>
-              )}
-            </Card>
+              </div>
+            </div>
           </>
         )}
       </div>
@@ -670,7 +687,7 @@ export default function DailyChallengeAdmin() {
         <BackBar label="Back to Dashboard" onClick={backToDashboard} />
         <div className="mb-6 flex flex-wrap items-center justify-between gap-3">
           <h2 className="font-heading text-xl font-bold text-slate-900">All Daily Challenges</h2>
-          <Button size="sm" icon={<Plus className="size-4" />} onClick={goToCreate}>
+          <Button size="sm" icon={<Plus className="size-4" />} onClick={() => goToCreate()}>
             Create Daily Challenge
           </Button>
         </div>

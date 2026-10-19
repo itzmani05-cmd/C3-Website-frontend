@@ -228,7 +228,7 @@ export default function PromptLibrary() {
     return (
       <div className="mx-auto w-full max-w-5xl xl:max-w-6xl 2xl:max-w-7xl">
         {pageHeader}
-        <Banner variant="error" message={error} />
+        <Banner variant="error" message={error} onRetry={() => window.location.reload()} />
       </div>
     );
   }

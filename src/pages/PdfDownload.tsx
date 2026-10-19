@@ -686,6 +686,7 @@ export default function PdfDownload() {
           ) : (
             <div className="overflow-x-auto">
             <div className="assessment-document">
+              <img src="/C3AppLogo.png" alt="" aria-hidden="true" className="pdf-watermark hidden print:block" />
               <div className="document-header mb-6 border-b-2 border-double border-slate-900 pb-4 text-center">
                 <h1 className="doc-title text-xl font-bold uppercase tracking-tight">{examTitle}</h1>
                 <p className="doc-subtitle mt-1 text-sm italic text-slate-600">{examSubtitle}</p>
@@ -735,7 +736,7 @@ export default function PdfDownload() {
                         <QuestionRenderer question={q} />
                         {q.questionImage && (
                           <div className="mt-2">
-                            <img src={getImagePreview(q.questionImage) ?? undefined} alt={`Question ${index + 1}`} className="max-h-56 rounded-md border border-slate-200 object-contain" />
+                            <img loading="lazy" decoding="async" src={getImagePreview(q.questionImage) ?? undefined} alt={`Question ${index + 1}`} className="max-h-56 rounded-md border border-slate-200 object-contain" />
                           </div>
                         )}
                       </span>
@@ -753,7 +754,7 @@ export default function PdfDownload() {
                             {hasText && <span className="option-text">{q.options[opt]}</span>}
                             {imgUrl && (
                               <div className="mt-1">
-                                <img src={getImagePreview(imgUrl) ?? undefined} alt={`Option ${opt.toUpperCase()}`} className="max-h-32 rounded-md border border-slate-200" />
+                                <img loading="lazy" decoding="async" src={getImagePreview(imgUrl) ?? undefined} alt={`Option ${opt.toUpperCase()}`} className="max-h-32 rounded-md border border-slate-200" />
                               </div>
                             )}
                           </div>
@@ -769,7 +770,7 @@ export default function PdfDownload() {
                             <strong>Explanation:</strong> <MathText>{q.explanation}</MathText>
                             {q.explanationImage && (
                               <div className="mt-1">
-                                <img src={getImagePreview(q.explanationImage) ?? undefined} alt="Explanation" className="max-h-40 rounded-md border border-slate-200" />
+                                <img loading="lazy" decoding="async" src={getImagePreview(q.explanationImage) ?? undefined} alt="Explanation" className="max-h-40 rounded-md border border-slate-200" />
                               </div>
                             )}
                           </div>
@@ -806,7 +807,7 @@ export default function PdfDownload() {
                             <strong>Explanation:</strong> <MathText>{q.explanation}</MathText>
                             {q.explanationImage && (
                               <div className="mt-1">
-                                <img src={getImagePreview(q.explanationImage) ?? undefined} alt={`Explanation ${index + 1}`} className="max-h-40 rounded-md border border-slate-200" />
+                                <img loading="lazy" decoding="async" src={getImagePreview(q.explanationImage) ?? undefined} alt={`Explanation ${index + 1}`} className="max-h-40 rounded-md border border-slate-200" />
                               </div>
                             )}
                           </div>

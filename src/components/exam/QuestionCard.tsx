@@ -83,7 +83,7 @@ export default function QuestionCard({
             onClick={onToggleMarkForReview}
             aria-pressed={isMarkedForReview}
             className={[
-              'flex items-center gap-1.5 rounded-md border px-2.5 py-1 text-xs font-medium transition-colors',
+              'flex min-h-9 items-center gap-1.5 rounded-md border px-3 py-1 text-xs font-medium transition-colors',
               isMarkedForReview ? 'border-accent-600 bg-accent-500 text-white' : 'border-slate-200 bg-white text-slate-500 hover:border-accent-500 hover:text-accent-600',
             ].join(' ')}
           >
@@ -98,7 +98,7 @@ export default function QuestionCard({
 
         {question.questionImage && (
           <div className="mt-4">
-            <img src={question.questionImage} alt={`Question ${questionIndex + 1}`} className="max-h-72 rounded-lg border border-slate-100 object-contain" />
+            <img loading="lazy" decoding="async" src={question.questionImage} alt={`Question ${questionIndex + 1}`} className="max-h-72 rounded-lg border border-slate-100 object-contain" />
           </div>
         )}
 
@@ -132,7 +132,7 @@ export default function QuestionCard({
                   role={isMultiple ? 'checkbox' : 'radio'}
                   aria-checked={isSelected}
                   className={[
-                    'flex w-full items-start gap-3 rounded-lg border px-3.5 py-3 text-left transition-colors sm:px-4',
+                    'flex min-h-12 w-full items-start gap-3 rounded-lg border px-3.5 py-3 text-left transition-colors sm:px-4',
                     isSelected ? 'border-brand-600 bg-brand-50 ring-1 ring-brand-600' : 'border-slate-300 bg-white hover:border-brand-400 hover:bg-slate-50',
                   ].join(' ')}
                 >
@@ -147,7 +147,7 @@ export default function QuestionCard({
                   </div>
                   <div className="flex-1 text-sm text-slate-800">
                     <MathText>{text}</MathText>
-                    {optionImage && <img src={optionImage} alt={`Option ${key}`} className="mt-2 max-h-40 rounded-md border border-slate-100" />}
+                    {optionImage && <img loading="lazy" decoding="async" src={optionImage} alt={`Option ${key}`} className="mt-2 max-h-40 rounded-md border border-slate-100" />}
                   </div>
                 </button>
               );
@@ -156,11 +156,11 @@ export default function QuestionCard({
         )}
       </div>
 
-      <div className="flex items-center justify-between gap-2 sm:gap-3">
+      <div className="max-lg:sticky max-lg:bottom-[4.75rem] max-lg:z-20 max-sm:-mx-4 max-lg:border-t max-lg:border-slate-200 max-lg:bg-slate-50/95 max-lg:px-4 max-lg:py-2 max-lg:backdrop-blur flex items-center justify-between gap-2 sm:gap-3">
         <button
           disabled={questionIndex === 0}
           onClick={onPrev}
-          className="flex min-h-10 items-center gap-1.5 rounded-lg border border-slate-300 bg-white px-3 text-sm font-medium text-slate-700 transition-colors hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50 sm:px-4"
+          className="flex min-h-11 items-center gap-1.5 rounded-lg border border-slate-300 bg-white px-3 text-sm font-medium text-slate-700 transition-colors hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50 sm:px-4"
         >
           <ChevronLeft className="size-4" /> <span className="hidden sm:inline">Previous</span><span className="sm:hidden">Prev</span>
         </button>
@@ -168,7 +168,7 @@ export default function QuestionCard({
         {selectedAnswer && (
           <button
             onClick={() => onClearSelection(question._id)}
-            className="flex min-h-10 items-center gap-1.5 rounded-lg border border-danger-200 bg-white px-3 text-sm font-medium text-danger-600 transition-colors hover:bg-danger-50 sm:px-4"
+            className="flex min-h-11 items-center gap-1.5 rounded-lg border border-danger-200 bg-white px-3 text-sm font-medium text-danger-600 transition-colors hover:bg-danger-50 sm:px-4"
           >
             <Eraser className="size-4" /> Clear<span className="hidden sm:inline"> answer</span>
           </button>
@@ -177,7 +177,7 @@ export default function QuestionCard({
         <button
           disabled={questionIndex === totalQuestions - 1}
           onClick={onNext}
-          className="ml-auto flex min-h-10 items-center gap-1.5 rounded-lg bg-brand-600 px-3 text-sm font-medium text-white shadow-soft-sm transition-colors hover:bg-brand-700 disabled:cursor-not-allowed disabled:opacity-50 sm:px-4"
+          className="ml-auto flex min-h-11 items-center gap-1.5 rounded-lg bg-brand-600 px-3 text-sm font-medium text-white shadow-soft-sm transition-colors hover:bg-brand-700 disabled:cursor-not-allowed disabled:opacity-50 sm:px-4"
         >
           Next<span className="hidden sm:inline"> question</span> <ChevronRight className="size-4" />
         </button>

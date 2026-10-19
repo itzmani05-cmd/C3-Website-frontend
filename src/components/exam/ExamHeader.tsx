@@ -1,4 +1,5 @@
-import { Calculator, CheckCircle2, Clock, RefreshCw, Wifi } from 'lucide-react';
+import { Calculator, CheckCircle2, RefreshCw, Wifi } from 'lucide-react';
+import ExamTimer from './ExamTimer';
 
 interface ExamHeaderProps {
   selectedTestName: string;
@@ -6,8 +7,9 @@ interface ExamHeaderProps {
   online: boolean;
   syncing: boolean;
   unsyncedAnswers: Record<string, string | null>;
-  remainingTime: number;
-  formatTime: (secs: number) => string;
+  deadline: number | null;
+  timerActive: boolean;
+  onTimeUp: () => void;
   calculatorOpen: boolean;
   onToggleCalculator: () => void;
 }
@@ -18,12 +20,12 @@ export default function ExamHeader({
   online,
   syncing,
   unsyncedAnswers,
-  remainingTime,
-  formatTime,
+  deadline,
+  timerActive,
+  onTimeUp,
   calculatorOpen,
   onToggleCalculator,
 }: ExamHeaderProps) {
-  const isTimeCritical = remainingTime < 600;
   const hasUnsynced = Object.keys(unsyncedAnswers).length > 0;
 
   const syncLabel = !online ? 'Offline' : syncing ? 'Saving changes...' : hasUnsynced ? 'Syncing...' : 'Saved to cloud';
@@ -69,15 +71,7 @@ export default function ExamHeader({
           <SyncIcon className={['size-3.5', syncing || hasUnsynced ? 'animate-spin' : ''].join(' ')} />
         </div>
 
-        <div
-          className={[
-            'inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-sm font-semibold tabular-nums ring-1 ring-inset',
-            isTimeCritical ? 'bg-danger-50 text-danger-700 ring-danger-600/20' : 'bg-slate-50 text-slate-800 ring-slate-300',
-          ].join(' ')}
-        >
-          <Clock className="size-3.5" />
-          <span>{formatTime(remainingTime)}</span>
-        </div>
+        <ExamTimer deadline={deadline} active={timerActive} onExpire={onTimeUp} />
       </div>
     </header>
   );

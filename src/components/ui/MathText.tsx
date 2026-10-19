@@ -1,6 +1,5 @@
 import { Fragment, useMemo } from 'react';
-import 'katex/dist/katex.min.css';
-import { reflowText, renderMath, tokenizeMath } from '../../lib/latex';
+import { reflowText, renderMath, tokenizeMath, useKatex } from '../../lib/latex';
 
 interface MathTextProps {
   children?: string | null;
@@ -13,6 +12,9 @@ export default function MathText({ children, className = '' }: MathTextProps) {
   const text = useMemo(() => reflowText(raw), [raw]);
   const parts = useMemo(() => tokenizeMath(text), [text]);
 
+  const hasMath = !!parts?.some((p) => p.kind === 'inline' || p.kind === 'display');
+  const katex = useKatex(hasMath);
+
   if (!parts) return <span className={['whitespace-pre-wrap', className].join(' ')}>{text}</span>;
 
   return (
@@ -20,7 +22,9 @@ export default function MathText({ children, className = '' }: MathTextProps) {
       {parts.map((p, i) => {
         if (p.kind === 'text') return <Fragment key={i}>{p.value}</Fragment>;
         if (p.kind === 'bold') return <strong key={i}><MathText>{p.value}</MathText></strong>;
-        return <span key={i} dangerouslySetInnerHTML={{ __html: renderMath(p.value, p.kind === 'display') }} />;
+        // Until KaTeX has loaded, show the formula source rather than nothing.
+        if (!katex) return <Fragment key={i}>{p.kind === 'display' ? `$$${p.value}$$` : `$${p.value}$`}</Fragment>;
+        return <span key={i} dangerouslySetInnerHTML={{ __html: renderMath(katex, p.value, p.kind === 'display') }} />;
       })}
     </span>
   );

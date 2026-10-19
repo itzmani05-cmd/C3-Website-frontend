@@ -1,0 +1,9 @@
+{
+  "name": "C³ Educational Platform",
+  "short_name": "C³",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#f4f5f7",
+  "theme_color": "#2563eb",
+  "icons": [{ "src": "/C3AppLogo-128.png", "sizes": "128x128", "type": "image/png" }]
+}

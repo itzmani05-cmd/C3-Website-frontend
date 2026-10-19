@@ -4,7 +4,7 @@ import QuestionForm from '../QuestionForm';
 import QuestionPreview from './QuestionPreview';
 import Button from '../ui/Button';
 import { Input } from '../ui/Field';
-import { findLatexErrors } from '../../lib/latex';
+import { findLatexErrors, useKatex } from '../../lib/latex';
 import { isQuestionDirty } from '../../lib/bank';
 import type { BankQuestion } from '../../lib/bank';
 
@@ -183,14 +183,16 @@ export default function QuestionEditor({ mode, draftKey, initial, onSave, onDele
 
   // Preview lags typing slightly so KaTeX isn't re-run on every keystroke.
   const shown = useDeferredValue(draft);
+  const katex = useKatex();
   const problems = useMemo(() => {
     const found: string[] = [];
-    const check = (label: string, text?: string) => findLatexErrors(text).forEach((p) => found.push(`${label}: ${p}`));
+    if (!katex) return found;
+    const check = (label: string, text?: string) => findLatexErrors(katex, text).forEach((p) => found.push(`${label}: ${p}`));
     check('Question', shown.question);
     (['a', 'b', 'c', 'd'] as const).forEach((k) => check(`Option ${k.toUpperCase()}`, shown.options?.[k]));
     check('Explanation', shown.explanation);
     return found;
-  }, [shown.question, shown.options, shown.explanation]);
+  }, [katex, shown.question, shown.options, shown.explanation]);
 
   const numerical = draft.answerType === 'numerical';
   const numField = (field: 'year' | 'marks' | 'answerMin' | 'answerMax') => (e: React.ChangeEvent<HTMLInputElement>) =>

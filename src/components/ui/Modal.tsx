@@ -1,6 +1,6 @@
 import { useEffect, useRef } from 'react';
 import type { ReactNode } from 'react';
-import { AnimatePresence, motion } from 'framer-motion';
+import { AnimatePresence, m } from 'framer-motion';
 import { X } from 'lucide-react';
 
 interface ModalProps {
@@ -79,7 +79,7 @@ export default function Modal({
   return (
     <AnimatePresence>
       {open && (
-        <motion.div
+        <m.div
           className="fixed inset-0 z-50 flex items-end justify-center bg-slate-900/50 backdrop-blur-[2px] sm:items-center sm:p-4"
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
@@ -89,7 +89,7 @@ export default function Modal({
             if (e.target === e.currentTarget) onClose();
           }}
         >
-          <motion.div
+          <m.div
             ref={dialogRef}
             role="dialog"
             aria-modal="true"
@@ -125,8 +125,8 @@ export default function Modal({
                 {footer}
               </div>
             )}
-          </motion.div>
-        </motion.div>
+          </m.div>
+        </m.div>
       )}
     </AnimatePresence>
   );

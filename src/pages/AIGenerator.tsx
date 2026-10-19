@@ -420,7 +420,7 @@ export default function AIGenerator() {
     return (
       <div className="mx-auto w-full max-w-5xl xl:max-w-6xl 2xl:max-w-7xl">
         {pageHeader}
-        <Banner variant="error" message={curriculumError} />
+        <Banner variant="error" message={curriculumError} onRetry={() => window.location.reload()} />
       </div>
     );
   }

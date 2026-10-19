@@ -505,7 +505,7 @@ export default function AdminResults() {
 
                     <p className="mb-3 text-sm font-medium text-slate-800"><MathText>{q.question}</MathText></p>
                     {q.questionImage && (
-                      <img src={q.questionImage} alt={`Question ${idx + 1}`} className="mb-3 max-h-64 rounded-lg border border-slate-100 object-contain" />
+                      <img loading="lazy" decoding="async" src={q.questionImage} alt={`Question ${idx + 1}`} className="mb-3 max-h-64 rounded-lg border border-slate-100 object-contain" />
                     )}
 
                     <div className="flex flex-col gap-2">
@@ -537,7 +537,7 @@ export default function AdminResults() {
                             </div>
                             <div className="flex-1">
                               {optText && <p className="text-sm text-slate-700"><MathText>{optText}</MathText></p>}
-                              {optImg && <img src={optImg} alt={`Option ${key.toUpperCase()}`} className="mt-1.5 max-h-32 rounded-md border border-slate-100" />}
+                              {optImg && <img loading="lazy" decoding="async" src={optImg} alt={`Option ${key.toUpperCase()}`} className="mt-1.5 max-h-32 rounded-md border border-slate-100" />}
                             </div>
                             {tag && (
                               <span
@@ -559,7 +559,7 @@ export default function AdminResults() {
                       <div className="mt-3 rounded-lg bg-slate-50 p-3.5">
                         <h5 className="mb-1 text-xs font-semibold text-slate-600">Explanation:</h5>
                         {q.explanation && <p className="text-sm text-slate-600"><MathText>{q.explanation}</MathText></p>}
-                        {q.explanationImage && <img src={q.explanationImage} alt="Explanation Graphics" className="mt-2 max-h-64 rounded-lg" />}
+                        {q.explanationImage && <img loading="lazy" decoding="async" src={q.explanationImage} alt="Explanation Graphics" className="mt-2 max-h-64 rounded-lg" />}
                       </div>
                     )}
                   </div>

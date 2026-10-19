@@ -1,27 +1,25 @@
-import { useCallback, useEffect, useState } from 'react';
-import { ChevronDown, ChevronUp, Plus, Wrench } from 'lucide-react';
+import { useCallback, useEffect, useRef, useState } from 'react';
+import { FileDown, ListTree, Plus, Search, Trash2 } from 'lucide-react';
 import { toast } from 'react-toastify';
 import api from '../api';
 import { detectQuestionType, formatCorrectAnswerLabel } from '../lib/helpers';
 import QuestionForm from '../components/QuestionForm';
+import FixRow from '../components/fix/FixRow';
+import type { FixableQuestion } from '../components/fix/FixRow';
+import BankPdfExport from '../components/bank/BankPdfExport';
+import type { PdfQuestion } from '../components/bank/BankPdfExport';
+import TopicSidebar from '../components/bank/TopicSidebar';
+import PageHeader from '../components/ui/PageHeader';
+import RowMenu from '../components/ui/RowMenu';
 import type { QuestionFormValue } from '../components/QuestionForm';
 import { Pagination, useModal, usePagination } from '../components/ui';
 import Button from '../components/ui/Button';
 import Card from '../components/ui/Card';
-import { Select } from '../components/ui/Field';
-import Badge from '../components/ui/Badge';
+import { Input, Select } from '../components/ui/Field';
 import Banner from '../components/ui/Banner';
 import { LoadingState } from '../components/ui/Spinner';
 import EmptyState from '../components/ui/EmptyState';
 import type { CurriculumTree, Exam, Test } from '../types/models';
-
-interface FixableQuestion extends QuestionFormValue {
-  _id: string;
-  correctAnswer?: string;
-  part?: string;
-  section?: string;
-  marks?: number;
-}
 
 const initialFormState: QuestionFormValue = {
   question: '',
@@ -57,7 +55,10 @@ export default function QuestionFix() {
 
   const [questions, setQuestions] = useState<FixableQuestion[]>([]);
   const [loading, setLoading] = useState(false);
-  const [hasSearched, setHasSearched] = useState(false);
+  const [search, setSearch] = useState('');
+  const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [pdfOpen, setPdfOpen] = useState(false);
+  const latestRequest = useRef(0);
   const [expandedId, setExpandedId] = useState<string | null>(null);
 
   const [isAdding, setIsAdding] = useState(false);
@@ -112,6 +113,7 @@ export default function QuestionFix() {
   }, [examId]);
 
   const fetchQuestions = useCallback(async () => {
+    const requestId = ++latestRequest.current;
     if (destinationMode === 'test') {
       if (!selectedTestId) {
         setQuestions([]);
@@ -120,9 +122,10 @@ export default function QuestionFix() {
       setLoading(true);
       try {
         const response = await api.get<FixableQuestion[]>('/api/questions/exam', { params: { testId: selectedTestId } });
-        setQuestions(response.data || []);
+        if (requestId === latestRequest.current) setQuestions(response.data || []);
       } catch (error) {
         console.error('Error fetching exam questions:', error);
+        if (requestId === latestRequest.current) setQuestions([]);
         toast.error('Failed to load questions.');
       } finally {
         setLoading(false);
@@ -138,19 +141,26 @@ export default function QuestionFix() {
       if (subtopicId && subtopicId !== 'all') params.subtopicId = subtopicId;
 
       const response = await api.get<FixableQuestion[]>('/api/questions', { params });
-      setQuestions(response.data || []);
+      if (requestId === latestRequest.current) setQuestions(response.data || []);
     } catch (error) {
       console.error('Error fetching questions:', error);
-      toast.error('Failed to load questions.');
+      if (requestId === latestRequest.current) setQuestions([]);
+        toast.error('Failed to load questions.');
     } finally {
       setLoading(false);
     }
   }, [destinationMode, unitId, topicId, subtopicId, selectedTestId]);
 
+  // Questions load as soon as a selection is made; changing the selection starts from a clean list.
   useEffect(() => {
-    setHasSearched(false);
-    setQuestions([]);
+    setSearch('');
+    setExpandedId(null);
+    setIsAdding(false);
   }, [destinationMode, examId, unitId, topicId, subtopicId, selectedTestId]);
+
+  useEffect(() => {
+    if (!curriculumLoading) fetchQuestions();
+  }, [curriculumLoading, fetchQuestions]);
 
   useEffect(() => {
     setFilterPart('');
@@ -159,14 +169,13 @@ export default function QuestionFix() {
 
   const selectedTest = tests.find((t) => t._id === selectedTestId);
   const pattern = selectedTest?.pattern;
+  const needle = search.trim().toLowerCase();
   const visibleQuestions = questions.filter(
-    (q) => (!filterPart || q.part === filterPart) && (!filterSection || q.section === filterSection)
+    (q) =>
+      (!filterPart || q.part === filterPart) &&
+      (!filterSection || q.section === filterSection) &&
+      (!needle || [q.question, q.options?.a, q.options?.b, q.options?.c, q.options?.d, q.explanation].some((t) => t?.toLowerCase().includes(needle)))
   );
-
-  const handleSubmitSearch = () => {
-    setHasSearched(true);
-    fetchQuestions();
-  };
 
   const handleModeChange = (mode: DestinationMode) => {
     setDestinationMode(mode);
@@ -205,7 +214,7 @@ export default function QuestionFix() {
 
   const handleUpdateQuestion = async (id: string, updatedData: FixableQuestion) => {
     const confirmed = await showConfirm('Are you sure you want to update this question?', { title: 'Update Question' });
-    if (!confirmed) return;
+    if (!confirmed) return false;
     try {
       setLoading(true);
       const endpoint = destinationMode === 'test' ? `/api/questions/exam/${id}` : `/api/questions/${id}`;
@@ -213,8 +222,10 @@ export default function QuestionFix() {
       toast.success('Question updated successfully!');
       setExpandedId(null);
       fetchQuestions();
+      return true;
     } catch (error: any) {
       toast.error('Error updating question: ' + (error.response?.data?.message || error.message));
+      return false;
     } finally {
       setLoading(false);
     }
@@ -387,25 +398,49 @@ export default function QuestionFix() {
   const selectedTopicObj = topicsList.find((t) => t._id === topicId);
   const subtopicsList = selectedTopicObj ? selectedTopicObj.subtopics : [];
 
-  const getAnswerDisplay = (q: FixableQuestion) => formatCorrectAnswerLabel(q.correct_answer ?? q.correctAnswer);
+  const shell = 'mx-auto w-full max-w-5xl xl:max-w-6xl 2xl:max-w-7xl';
+  const pageHeader = <PageHeader title="Question Fixer" description="Review, edit, and clean up existing questions" />;
 
-  const pageHeader = (
-    <div className="mb-6 flex items-center gap-3.5">
-      <span className="flex size-11 shrink-0 items-center justify-center rounded-2xl bg-brand-100 text-brand-600">
-        <Wrench className="size-5" />
-      </span>
-      <div>
-        <h1 className="font-heading text-2xl font-bold text-slate-900">Question Fixer</h1>
-        <p className="mt-0.5 text-sm text-slate-500">Review, edit, and clean up existing questions</p>
-      </div>
-    </div>
+  const handleSelectTopic = (id: string) => {
+    const unit = curriculum.find((u) => u.topics.some((t) => t._id === id));
+    if (unit) setUnitId(unit._id);
+    setTopicId(id);
+    setSubtopicId('');
+    setSidebarOpen(false);
+  };
+
+  const handleSelectSubtopic = (topic: string, sub: string) => {
+    const unit = curriculum.find((u) => u.topics.some((t) => t._id === topic));
+    if (unit) setUnitId(unit._id);
+    setTopicId(topic);
+    setSubtopicId(sub);
+    setSidebarOpen(false);
+  };
+
+  const heading =
+    destinationMode === 'test'
+      ? selectedTest?.name
+      : subtopicsList.find((st) => st._id === subtopicId)?.name ?? selectedTopicObj?.name ?? selectedUnitObj?.name;
+  const canDeleteAll = questions.length > 0 && (destinationMode === 'test' ? !!selectedTestId : !!topicId);
+
+  const modeButton = (mode: DestinationMode, label: string) => (
+    <button
+      type="button"
+      onClick={() => handleModeChange(mode)}
+      className={[
+        'flex-1 rounded-md px-3 py-1.5 text-sm font-semibold transition-colors',
+        destinationMode === mode ? 'bg-white text-brand-700 shadow-soft-sm' : 'text-slate-500 hover:text-slate-700',
+      ].join(' ')}
+    >
+      {label}
+    </button>
   );
 
-  const questionsPage = usePagination(visibleQuestions, 10, [filterPart, filterSection]);
+  const questionsPage = usePagination(visibleQuestions, 10, [filterPart, filterSection, search, destinationMode, topicId, subtopicId, selectedTestId]);
 
   if (curriculumLoading) {
     return (
-      <div className="mx-auto w-full max-w-5xl xl:max-w-6xl 2xl:max-w-7xl">
+      <div className={shell}>
         {pageHeader}
         <LoadingState message="Loading curriculum..." />
       </div>
@@ -414,263 +449,199 @@ export default function QuestionFix() {
 
   if (curriculumError) {
     return (
-      <div className="mx-auto w-full max-w-5xl xl:max-w-6xl 2xl:max-w-7xl">
+      <div className={shell}>
         {pageHeader}
-        <Banner variant="error" message={curriculumError} />
+        <Banner variant="error" message={curriculumError} onRetry={() => window.location.reload()} />
+      </div>
+    );
+  }
+
+  if (exams.length === 0) {
+    return (
+      <div className={shell}>
+        {pageHeader}
+        <p className="py-2 font-medium text-danger-600">No exams available. Please add one under Manage Exams first.</p>
       </div>
     );
   }
 
   return (
-    <div className="mx-auto w-full max-w-5xl xl:max-w-6xl 2xl:max-w-7xl">
+    <div className={shell}>
       {pageHeader}
 
-      <Card className="mb-6 p-6">
-        <h3 className="mb-4 text-sm font-semibold uppercase tracking-wide text-slate-500">Select Category</h3>
-
-        <div className="mb-5 inline-flex rounded-lg border border-slate-200 bg-slate-50 p-1">
+      <div className="grid gap-6 lg:grid-cols-[280px_minmax(0,1fr)]">
+        <aside className="min-w-0">
           <button
             type="button"
-            onClick={() => handleModeChange('curriculum')}
-            className={[
-              'rounded-md px-4 py-2 text-sm font-semibold transition-colors',
-              destinationMode === 'curriculum' ? 'bg-white text-brand-700 shadow-soft-sm' : 'text-slate-500 hover:text-slate-700',
-            ].join(' ')}
+            aria-expanded={sidebarOpen}
+            onClick={() => setSidebarOpen((v) => !v)}
+            className="mb-3 flex w-full items-center justify-between rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 lg:hidden"
           >
-            Unit-wise Questions
+            <span className="flex items-center gap-2">
+              <ListTree className="size-4" /> {heading ?? 'Choose a category'}
+            </span>
+            <span className="text-xs text-slate-400">{sidebarOpen ? 'Hide' : 'Show'}</span>
           </button>
-          <button
-            type="button"
-            onClick={() => handleModeChange('test')}
-            className={[
-              'rounded-md px-4 py-2 text-sm font-semibold transition-colors',
-              destinationMode === 'test' ? 'bg-white text-brand-700 shadow-soft-sm' : 'text-slate-500 hover:text-slate-700',
-            ].join(' ')}
-          >
-            Test Questions
-          </button>
-        </div>
-
-        {destinationMode === 'curriculum' ? (
-          <div className="flex flex-col gap-4">
-            {exams.length > 0 ? (
-              <Select label="Exam" value={examId} onChange={(e) => setExamId(e.target.value)} wrapperClassName="max-w-sm">
-                {exams.map((ex) => (
-                  <option key={ex._id} value={ex._id}>
-                    {ex.name}
-                  </option>
-                ))}
-              </Select>
-            ) : (
-              <p className="py-2 font-medium text-danger-600">No exams available. Please add one under Manage Exams first.</p>
-            )}
-            <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
-            <Select label="Unit" value={unitId} onChange={handleUnitChange}>
-              {curriculum.map((u) => (
-                <option key={u._id} value={u._id}>
-                  {u.name}
-                </option>
-              ))}
-            </Select>
-            <Select label="Topic" value={topicId} onChange={handleTopicChange}>
-              {topicsList.map((t) => (
-                <option key={t._id} value={t._id}>
-                  {t.name}
-                </option>
-              ))}
-            </Select>
-            {subtopicsList.length > 0 && (
-              <Select label="Subtopic" value={subtopicId} onChange={handleSubtopicChange} disabled={!topicId}>
-                <option value="">All Subtopics</option>
-                {subtopicsList.map((st) => (
-                  <option key={st._id} value={st._id}>
-                    {st.name}
-                  </option>
-                ))}
-              </Select>
-            )}
+          <Card className={[sidebarOpen ? 'block' : 'hidden', 'no-scrollbar p-3 lg:sticky lg:top-4 lg:block lg:max-h-[calc(100vh-7.5rem)] lg:overflow-y-auto'].join(' ')}>
+            <div className="mb-3 flex rounded-lg border border-slate-200 bg-slate-50 p-1">
+              {modeButton('curriculum', 'Unit-wise')}
+              {modeButton('test', 'Test')}
             </div>
-          </div>
-        ) : (
-          <div className="flex flex-col gap-4">
-            {exams.length > 0 ? (
-              <Select label="Exam" value={examId} onChange={(e) => setExamId(e.target.value)} wrapperClassName="max-w-sm">
+
+            {exams.length > 1 && (
+              <Select aria-label="Exam" value={examId} wrapperClassName="mb-3" onChange={(e) => setExamId(e.target.value)}>
                 {exams.map((ex) => (
                   <option key={ex._id} value={ex._id}>
                     {ex.name}
                   </option>
                 ))}
               </Select>
-            ) : (
-              <p className="py-2 font-medium text-danger-600">No exams available. Please add one under Manage Exams first.</p>
-            )}
-            {tests.length > 0 ? (
-              <Select label="Select Test" value={selectedTestId} onChange={handleTestChange} wrapperClassName="max-w-sm">
-                {tests.map((t) => (
-                  <option key={t._id} value={t._id}>
-                    {t.name} {t.publishToStudent ? '(Published)' : '(Draft)'}
-                  </option>
-                ))}
-              </Select>
-            ) : (
-              <p className="py-2 font-medium text-danger-600">No tests available for this exam. Please configure one first.</p>
             )}
 
-            {pattern && pattern.length > 0 && (
-              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-                <Select
-                  label="Filter by Part"
-                  value={filterPart}
-                  onChange={(e) => {
-                    setFilterPart(e.target.value);
-                    setFilterSection('');
-                  }}
-                >
-                  <option value="">All parts</option>
-                  {pattern.map((p) => (
-                    <option key={p.name} value={p.name}>
-                      {p.name}
+            {destinationMode === 'curriculum' ? (
+              <>
+                <TopicSidebar
+                curriculum={curriculum}
+                counts={{}}
+                hideCounts
+                selectedTopicId={topicId}
+                onSelectTopic={handleSelectTopic}
+                selectedSubtopicId={subtopicId}
+                onSelectSubtopic={handleSelectSubtopic}
+              />
+              </>
+            ) : tests.length > 0 ? (
+              <div className="flex flex-col gap-3">
+                <Select aria-label="Test" value={selectedTestId} onChange={handleTestChange}>
+                  {tests.map((t) => (
+                    <option key={t._id} value={t._id}>
+                      {t.name} {t.publishToStudent ? '(Published)' : '(Draft)'}
                     </option>
                   ))}
                 </Select>
-                <Select label="Filter by Section" value={filterSection} onChange={(e) => setFilterSection(e.target.value)} disabled={!filterPart}>
-                  <option value="">All sections</option>
-                  {pattern
-                    .find((p) => p.name === filterPart)
-                    ?.sections.map((s) => (
-                      <option key={s.name} value={s.name}>
-                        {s.name}
-                      </option>
-                    ))}
-                </Select>
+                {pattern && pattern.length > 0 && (
+                  <>
+                    <Select
+                      aria-label="Filter by part"
+                      value={filterPart}
+                      onChange={(e) => {
+                        setFilterPart(e.target.value);
+                        setFilterSection('');
+                      }}
+                    >
+                      <option value="">All parts</option>
+                      {pattern.map((p) => (
+                        <option key={p.name} value={p.name}>
+                          {p.name}
+                        </option>
+                      ))}
+                    </Select>
+                    <Select aria-label="Filter by section" value={filterSection} onChange={(e) => setFilterSection(e.target.value)} disabled={!filterPart}>
+                      <option value="">All sections</option>
+                      {pattern
+                        .find((p) => p.name === filterPart)
+                        ?.sections.map((s) => (
+                          <option key={s.name} value={s.name}>
+                            {s.name}
+                          </option>
+                        ))}
+                    </Select>
+                  </>
+                )}
               </div>
+            ) : (
+              <p className="px-1 py-2 text-sm font-medium text-danger-600">No tests available for this exam. Please configure one first.</p>
             )}
-          </div>
-        )}
+          </Card>
+        </aside>
 
-        <div className="mt-5 flex justify-end">
-          <Button
-            onClick={handleSubmitSearch}
-            loading={loading}
-            disabled={destinationMode === 'test' ? !selectedTestId : !unitId}
-          >
-            Submit
-          </Button>
-        </div>
-      </Card>
-
-      <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
-        <div className="flex items-center gap-2">
-          <Button variant="secondary" size="sm" icon={<Plus className="size-3.5" />} onClick={() => setIsAdding(!isAdding)}>
-            {isAdding ? 'Cancel Add' : 'Add Question'}
-          </Button>
-        </div>
-        {hasSearched && (
-          <div className="flex items-center gap-3">
-            <div className="flex items-center gap-2">
-              <p className="font-semibold text-slate-800">Questions in this selection</p>
-              <Badge variant="brand">
-                {visibleQuestions.length}
-                {visibleQuestions.length !== questions.length ? ` of ${questions.length}` : ''}
-              </Badge>
+        <main className="min-w-0">
+          <div className="mb-4 flex flex-wrap items-center gap-2">
+            <h2 className="max-w-full shrink-0 truncate text-xl font-semibold text-slate-900 sm:max-w-[18rem]" title={heading}>
+              {heading}
+            </h2>
+            <div className="min-w-[180px] flex-1">
+              <Input
+                aria-label="Search questions"
+                placeholder="Search here anything.."
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                leadingIcon={<Search className="size-4" />}
+              />
             </div>
-            {((destinationMode === 'test' && selectedTestId) || (destinationMode === 'curriculum' && topicId)) && questions.length > 0 && (
-              <Button variant="danger" size="sm" onClick={handleDeleteAllQuestions}>
-                Delete all
-              </Button>
-            )}
+            <div className="ml-auto flex shrink-0 items-center gap-2">
+              <span className="text-sm text-slate-500">
+                {visibleQuestions.length}
+                {visibleQuestions.length !== questions.length ? ` of ${questions.length}` : ''} {visibleQuestions.length === 1 ? 'question' : 'questions'}
+              </span>
+              <RowMenu
+                vertical
+                label="Question fixer actions"
+                buttonClassName="inline-flex size-[42px] shrink-0 items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-600 transition-colors hover:bg-slate-50 hover:text-slate-900"
+                items={[
+                  { label: isAdding ? 'Cancel add' : 'Add question', icon: Plus, onSelect: () => setIsAdding((v) => !v) },
+                  { label: 'Download as PDF', icon: FileDown, hidden: visibleQuestions.length === 0, onSelect: () => setPdfOpen(true) },
+                  { label: 'Delete all', icon: Trash2, danger: true, hidden: !canDeleteAll, onSelect: handleDeleteAllQuestions },
+                ]}
+              />
+            </div>
           </div>
-        )}
+
+          {isAdding && (
+            <Card className="mb-5 border-brand-200 bg-brand-50/30 p-6">
+              <h3 className="mb-4 text-sm font-semibold text-slate-900">Add question{heading ? ` to ${heading}` : ''}</h3>
+              <QuestionForm question={newQuestionForm} onChange={setNewQuestionForm} variant="fixer" />
+              <div className="mt-5 flex gap-3">
+                <Button onClick={handleCreateQuestion} loading={loading}>
+                  Create Question
+                </Button>
+                <Button variant="secondary" onClick={() => setIsAdding(false)}>
+                  Cancel
+                </Button>
+              </div>
+            </Card>
+          )}
+
+          {loading && questions.length === 0 ? (
+            <LoadingState message="Loading questions..." />
+          ) : visibleQuestions.length === 0 ? (
+            <EmptyState
+              title={needle ? 'No questions match your search.' : 'No questions found.'}
+              description={needle ? 'Try searching for something else.' : 'Pick another unit, topic or test — or add a new question.'}
+              action={needle ? <Button variant="secondary" onClick={() => setSearch('')}>Clear search</Button> : undefined}
+            />
+          ) : (
+            <div aria-busy={loading} className={['flex flex-col gap-4 transition-opacity', loading ? 'pointer-events-none opacity-60' : ''].join(' ')}>
+              {questionsPage.pageItems.map((q, idx) => (
+                <FixRow
+                  key={q._id}
+                  q={q}
+                  number={questionsPage.startIndex + idx + 1}
+                  expanded={expandedId === q._id}
+                  onToggle={(id) => setExpandedId((cur) => (cur === id ? null : id))}
+                  onSave={handleUpdateQuestion}
+                  onDelete={handleDeleteQuestion}
+                />
+              ))}
+              <Pagination
+                page={questionsPage.page}
+                totalPages={questionsPage.totalPages}
+                totalItems={questionsPage.totalItems}
+                pageSize={questionsPage.pageSize}
+                onPageChange={questionsPage.setPage}
+              />
+            </div>
+          )}
+        </main>
       </div>
 
-      {isAdding && (
-        <Card className="mb-5 border-brand-200 bg-brand-50/40 p-6">
-          <div className="mb-4 flex items-center gap-2.5">
-            <span className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-brand-100 text-brand-600">
-              <Plus className="size-4" />
-            </span>
-            <h3 className="text-sm font-semibold text-slate-900">Create New Question</h3>
-          </div>
-          <QuestionForm question={newQuestionForm} onChange={setNewQuestionForm} variant="fixer" />
-          <div className="mt-5 flex gap-3">
-            <Button onClick={handleCreateQuestion} loading={loading}>
-              Create Question
-            </Button>
-            <Button variant="secondary" onClick={() => setIsAdding(false)}>
-              Cancel
-            </Button>
-          </div>
-        </Card>
-      )}
-
-      {hasSearched && (loading && questions.length === 0 ? (
-        <LoadingState message="Loading questions..." />
-      ) : !loading && visibleQuestions.length === 0 ? (
-        <EmptyState title="No questions found." description="Try a different unit, topic, test, part, or section — or add a new question above." />
-      ) : (
-        <div className="flex flex-col gap-4">
-          {questionsPage.pageItems.map((q, idx) => (
-            <Card key={q._id} className="overflow-hidden transition-shadow hover:shadow-soft-md">
-              <button
-                type="button"
-                onClick={() => setExpandedId(expandedId === q._id ? null : q._id)}
-                className="flex w-full items-center justify-between gap-3 rounded-t-2xl bg-slate-50 px-5 py-4 text-left"
-              >
-                <div className="flex items-center gap-2.5 overflow-hidden">
-                  <span className="shrink-0 font-extrabold text-brand-600">Q{questionsPage.startIndex + idx + 1}.</span>
-                  <span className="truncate font-semibold text-slate-800">
-                    {(q.question || '').length > 100 ? `${(q.question || '').substring(0, 100)}...` : q.question}
-                  </span>
-                </div>
-                <div className="flex shrink-0 items-center gap-3.5">
-                  {q.part && q.section && (
-                    <span className="hidden rounded-full bg-slate-100 px-2.5 py-1 text-xs font-semibold text-slate-500 sm:inline-block">
-                      {q.part} &middot; {q.section} &middot; {q.marks ?? 1} mark{(q.marks ?? 1) === 1 ? '' : 's'}
-                    </span>
-                  )}
-                  <span className="rounded-full bg-brand-100 px-2.5 py-1 text-xs font-bold text-brand-700">Ans: {getAnswerDisplay(q)}</span>
-                  <span className="flex items-center gap-1.5 text-xs text-slate-400">
-                    {expandedId === q._id ? (
-                      <>
-                        <ChevronUp className="size-3.5" /> Collapse
-                      </>
-                    ) : (
-                      <>
-                        <ChevronDown className="size-3.5" /> Expand
-                      </>
-                    )}
-                  </span>
-                </div>
-              </button>
-
-              {expandedId === q._id && (
-                <div className="border-t border-slate-100 p-6">
-                  <QuestionForm
-                    question={q}
-                    onChange={(updatedQ) => {
-                      setQuestions(questions.map((item) => (item._id === q._id ? { ...item, ...updatedQ } : item)));
-                    }}
-                    variant="fixer"
-                  />
-                  <div className="mt-5 flex gap-3">
-                    <Button onClick={() => handleUpdateQuestion(q._id, q)}>Save Changes</Button>
-                    <Button variant="danger" onClick={() => handleDeleteQuestion(q._id)}>
-                      Delete Question
-                    </Button>
-                  </div>
-                </div>
-              )}
-            </Card>
-          ))}
-          <Pagination
-            page={questionsPage.page}
-            totalPages={questionsPage.totalPages}
-            totalItems={questionsPage.totalItems}
-            pageSize={questionsPage.pageSize}
-            onPageChange={questionsPage.setPage}
-          />
-        </div>
-      ))}
+      <BankPdfExport
+        open={pdfOpen}
+        onClose={() => setPdfOpen(false)}
+        questions={visibleQuestions as unknown as PdfQuestion[]}
+        topicName={heading ?? 'Questions'}
+        examName={exams.find((e) => e._id === examId)?.name ?? ''}
+      />
     </div>
   );
 }

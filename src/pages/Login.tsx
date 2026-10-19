@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import type { FormEvent } from 'react';
-import { motion } from 'framer-motion';
+import { m } from 'framer-motion';
 import { Eye, EyeOff, Lock, Mail } from 'lucide-react';
 import { toast } from 'react-toastify';
 import api, { SESSION_EXPIRED_FLAG } from '../api';
@@ -81,8 +81,8 @@ export default function Login({ onLogin }: LoginProps) {
         </aside>
 
         {/* Sign-in form */}
-        <main className="flex flex-col items-center justify-center gap-6 bg-[#f4f5f7] px-4 py-10 sm:px-6 lg:bg-white">
-          <motion.div
+        <main id="main" className="flex flex-col items-center justify-center gap-6 bg-[#f4f5f7] px-4 py-10 sm:px-6 lg:bg-white">
+          <m.div
             initial={{ opacity: 0, y: 12 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.35, ease: [0.16, 1, 0.3, 1] }}
@@ -101,7 +101,7 @@ export default function Login({ onLogin }: LoginProps) {
             </div>
 
             <div role="tablist" aria-label="Account type" className="relative mb-6 grid grid-cols-2 rounded-lg bg-slate-100 p-1">
-              <motion.div
+              <m.div
                 layout
                 transition={{ type: 'spring', stiffness: 400, damping: 32 }}
                 className="absolute inset-y-1 w-[calc(50%-4px)] rounded-md bg-white shadow-soft-sm"
@@ -192,7 +192,7 @@ export default function Login({ onLogin }: LoginProps) {
               </button>
               <p className="text-center text-xs text-slate-500">Forgot your password? Ask your institute admin to reset it.</p>
             </form>
-          </motion.div>
+          </m.div>
         </main>
       </div>
       <AppFooter area="Sign in" help="Forgot your password or can't sign in? Ask your institute admin to reset your account." />

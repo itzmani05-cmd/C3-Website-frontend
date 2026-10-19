@@ -1,10 +1,9 @@
 import { lazy, Suspense, useEffect, useState } from 'react';
 import type { ComponentType } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
-import { AnimatePresence, motion } from 'framer-motion';
+import { AnimatePresence, m } from 'framer-motion';
 import {
   ChevronRight,
-  Download,
   FileCheck2,
   GraduationCap,
   ClipboardList,
@@ -24,7 +23,6 @@ import { AppFooter, LoadingState } from '../components/ui';
 // Each tab is downloaded the first time it is opened.
 const AIGenerator = lazy(() => import('./AIGenerator'));
 const PromptLibrary = lazy(() => import('./PromptLibrary'));
-const PdfDownload = lazy(() => import('./PdfDownload'));
 const QuestionFix = lazy(() => import('./QuestionFix'));
 const ManageExams = lazy(() => import('./ManageExams'));
 const ManageTests = lazy(() => import('./ManageTests'));
@@ -57,7 +55,6 @@ const TABS: Tab[] = [
   { slug: 'results', label: 'Results', icon: FileCheck2, Component: AdminResults, section: 'Management' },
   { slug: 'extractor', label: 'Extractor', icon: Lightbulb, Component: AIGenerator, section: 'Content tools' },
   { slug: 'prompts', label: 'Prompts', icon: Sparkles, Component: PromptLibrary, section: 'Content tools' },
-  { slug: 'pdf', label: 'PDF Download', icon: Download, Component: PdfDownload, section: 'Content tools' },
   { slug: 'question-fix', label: 'Question Fix', icon: Wrench, Component: QuestionFix, section: 'Content tools' },
 ];
 
@@ -184,14 +181,14 @@ export default function AdminPanel({ onLogout }: AdminPanelProps) {
       <AnimatePresence>
         {mobileOpen && (
           <>
-            <motion.div
+            <m.div
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
               onClick={() => setMobileOpen(false)}
               className="fixed inset-0 z-40 bg-slate-900/40 backdrop-blur-[2px] lg:hidden"
             />
-            <motion.aside
+            <m.aside
               initial={{ x: '-100%' }}
               animate={{ x: 0 }}
               exit={{ x: '-100%' }}
@@ -212,7 +209,7 @@ export default function AdminPanel({ onLogout }: AdminPanelProps) {
               {brand}
               {nav}
               {account}
-            </motion.aside>
+            </m.aside>
           </>
         )}
       </AnimatePresence>
@@ -236,12 +233,11 @@ export default function AdminPanel({ onLogout }: AdminPanelProps) {
             <span className="truncate font-medium text-slate-900">{activeTab.label}</span>
           </nav>
           <div className="ml-auto flex items-center gap-2">
-            <span className="hidden text-xs text-slate-500 md:inline">Signed in as Administrator</span>
             <span className="flex size-7 items-center justify-center rounded-full bg-ink-900 text-[11px] font-bold text-white">A</span>
           </div>
         </header>
 
-        <main className="flex flex-1 flex-col overflow-y-auto overflow-x-hidden px-4 pt-6 sm:px-6 lg:px-8 lg:pt-7">
+        <main id="main" className="flex flex-1 flex-col overflow-y-auto overflow-x-hidden px-4 pt-6 sm:px-6 lg:px-8 lg:pt-7">
           <div className="flex-1 pb-8">
             <Suspense fallback={<LoadingState message={`Loading ${activeTab.label}...`} />}>
               <ActiveComponent key={activeTab.slug} />

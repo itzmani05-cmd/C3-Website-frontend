@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
-import { ListTree, Plus, Trash2 } from 'lucide-react';
+import { FileDown, ListTree, Plus, Trash2 } from 'lucide-react';
 import { toast } from 'react-toastify';
 import api from '../api';
 import { buildPayload, EMPTY_FILTERS, EMPTY_QUESTION, errorMessage, filtersFromSearch, filtersToSearchPatch, validateQuestion } from '../lib/bank';
@@ -8,6 +8,7 @@ import type { BankFilters, BankQuestion, Scope } from '../lib/bank';
 import QuestionEditor from '../components/bank/QuestionEditor';
 import QuestionList from '../components/bank/QuestionList';
 import DeleteAllDialog from '../components/bank/DeleteAllDialog';
+import BankPdfExport from '../components/bank/BankPdfExport';
 import TopicSidebar from '../components/bank/TopicSidebar';
 import FilterBar from '../components/bank/FilterBar';
 import PageHeader from '../components/ui/PageHeader';
@@ -44,6 +45,7 @@ export default function QuestionBank() {
   const [refreshKey, setRefreshKey] = useState(0);
   const [isAdding, setIsAdding] = useState(false);
   const [deleteAllOpen, setDeleteAllOpen] = useState(false);
+  const [pdfOpen, setPdfOpen] = useState(false);
   const [deletingAll, setDeletingAll] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [matching, setMatching] = useState<number | undefined>();
@@ -178,7 +180,7 @@ export default function QuestionBank() {
   if (loadingExams || (curriculumLoading && curriculum.length === 0)) {
     return <div className={shell}>{pageHeader}<LoadingState message="Loading curriculum..." /></div>;
   }
-  if (loadError) return <div className={shell}>{pageHeader}<Banner variant="error" message={loadError} /></div>;
+  if (loadError) return <div className={shell}>{pageHeader}<Banner variant="error" message={loadError} onRetry={() => window.location.reload()} /></div>;
   if (exams.length === 0) {
     return <div className={shell}>{pageHeader}<p className="py-2 font-medium text-danger-600">No exams available. Please add one under Manage Exams first.</p></div>;
   }
@@ -226,6 +228,7 @@ export default function QuestionBank() {
                     buttonClassName="inline-flex size-[42px] shrink-0 items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-600 transition-colors hover:bg-slate-50 hover:text-slate-900"
                     items={[
                       { label: isAdding ? 'Cancel add' : 'Add question', icon: Plus, onSelect: () => setIsAdding((v) => !v) },
+                      { label: 'Download as PDF', icon: FileDown, hidden: (counts[topicId] ?? 0) === 0, onSelect: () => setPdfOpen(true) },
                       { label: 'Delete all', icon: Trash2, danger: true, hidden: (counts[topicId] ?? 0) === 0, onSelect: () => setDeleteAllOpen(true) },
                     ]}
                   />
@@ -252,6 +255,15 @@ export default function QuestionBank() {
           )}
         </main>
       </div>
+
+      <BankPdfExport
+        open={pdfOpen}
+        onClose={() => setPdfOpen(false)}
+        scope={scope}
+        filters={filters}
+        topicName={selectedTopic?.name ?? 'Question Bank'}
+        examName={exams.find((e) => e._id === examId)?.name ?? ''}
+      />
 
       <DeleteAllDialog
         open={deleteAllOpen}

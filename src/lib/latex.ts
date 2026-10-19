@@ -1,4 +1,24 @@
-import katex from 'katex';
+import { useEffect, useState } from 'react';
+
+type Katex = typeof import('katex');
+
+// KaTeX (JS + CSS + fonts) is a big download, so it is fetched on first use instead of shipping with the entry bundle.
+let katexInstance: Katex | null = null;
+let katexPromise: Promise<Katex> | null = null;
+
+export function loadKatex(): Promise<Katex> {
+  katexPromise ??= Promise.all([import('katex'), import('katex/dist/katex.min.css')]).then(([mod]) => (katexInstance = (mod as unknown as { default: Katex }).default ?? mod));
+  return katexPromise;
+}
+
+/** Returns KaTeX once it has loaded (null until then). Pass `enabled = false` to skip loading when there is no math to render. */
+export function useKatex(enabled = true): Katex | null {
+  const [katex, setKatex] = useState<Katex | null>(katexInstance);
+  useEffect(() => {
+    if (enabled && !katex) loadKatex().then(setKatex);
+  }, [enabled, katex]);
+  return katex;
+}
 
 // $$display$$, $inline$ (no space just inside the delimiters and not followed by a digit, so "$5 and $10" stays plain
 // unless the formula starts with a \command, e.g. a$\gt$0), **bold**
@@ -54,11 +74,11 @@ export function tokenizeMath(text: string): MathPart[] | null {
   return out;
 }
 
-export const renderMath = (tex: string, displayMode: boolean): string =>
+export const renderMath = (katex: Katex, tex: string, displayMode: boolean): string =>
   katex.renderToString(tex, { displayMode, throwOnError: false, strict: 'ignore' });
 
 /** Messages for every formula in `text` that KaTeX cannot parse, plus a note for any `$` left unpaired. */
-export function findLatexErrors(text: string | null | undefined): string[] {
+export function findLatexErrors(katex: Katex, text: string | null | undefined): string[] {
   if (!text || !text.includes('$')) return [];
   const problems: string[] = [];
   const rest = text.replace(TOKEN_RE, (_m, display, inline, _bold, leading) => {
