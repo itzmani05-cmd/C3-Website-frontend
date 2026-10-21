@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { ArrowDown, ArrowUp, Library, Plus, Sparkles, X } from 'lucide-react';
+import { ArrowDown, ArrowUp, BookCheck, Library, Plus, Sparkles, X } from 'lucide-react';
 import { toast } from 'react-toastify';
 import api from '../api';
 import { detectQuestionType } from '../lib/helpers';
@@ -7,7 +7,8 @@ import { normalizeChatOutput, parseLineByLine, parseOneQuestionPerLine, parseQue
 import type { DraftQuestion } from '../lib/questionParser';
 import QuestionForm from './QuestionForm';
 import BankQuestionBrowser from './BankQuestionBrowser';
-import type { BankQuestionSummary } from '../lib/bank';
+import { QUESTION_SOURCES } from '../lib/bank';
+import type { BankQuestionSummary, QuestionSource } from '../lib/bank';
 import Card from './ui/Card';
 import Badge from './ui/Badge';
 import Button from './ui/Button';
@@ -35,10 +36,11 @@ export default function DailyChallengeQuestionPicker({ examId, selected, onChang
 
   const [questionsById, setQuestionsById] = useState<Record<string, Question>>({});
 
-  // Questions are added either from the Question Bank or by extracting them from pasted text.
-  const [source, setSource] = useState<'bank' | 'extract'>('bank');
-  // Question Bank id -> the challenge copy made from it, so re-adding a question reuses its copy instead of duplicating it.
-  const bankCopies = useRef<Record<string, string>>({});
+  // Questions are added from the Question Bank, from the Practice Questions, or by extracting them from pasted text.
+  const [source, setSource] = useState<QuestionSource | 'extract'>('bank');
+  // Source question id -> the challenge copy made from it, kept per source, so re-adding a question reuses its copy
+  // instead of duplicating it.
+  const libraryCopies = useRef<Record<QuestionSource, Record<string, string>>>({ bank: {}, practice: {} });
   const [addingBankId, setAddingBankId] = useState<string | null>(null);
 
   const [pastedContent, setPastedContent] = useState('');
@@ -97,13 +99,17 @@ export default function DailyChallengeQuestionPicker({ examId, selected, onChang
     onChange(next);
   };
 
-  // A challenge holds copies of questions (like extracted ones), so adding from the bank saves an unpublished copy.
-  const addBankQuestion = async (item: BankQuestionSummary) => {
+  // A challenge holds copies of questions (like extracted ones), so adding from the Question Bank or the Practice
+  // Questions saves an unpublished copy.
+  const addLibraryQuestion = async (item: BankQuestionSummary) => {
+    if (source === 'extract') return;
+    const origin: QuestionSource = source;
+    const { label, endpoint } = QUESTION_SOURCES[origin];
     if (isFull) {
       toast.warning('This challenge already has the maximum number of questions.');
       return;
     }
-    const existing = bankCopies.current[item._id];
+    const existing = libraryCopies.current[origin][item._id];
     if (existing) {
       if (!selected.includes(existing)) onChange([...selected, existing]);
       return;
@@ -111,7 +117,7 @@ export default function DailyChallengeQuestionPicker({ examId, selected, onChang
     setAddingBankId(item._id);
     try {
       // The list leaves images out, so fetch the whole question first.
-      const { data: full } = await api.get<BankQuestionSummary & Record<string, any>>(`/api/question-bank/${item._id}`);
+      const { data: full } = await api.get<BankQuestionSummary & Record<string, any>>(`${endpoint}/${item._id}`);
       const res = await api.post<Question>('/api/questions', {
         unitId: full.unitId,
         topicId: full.topicId || null,
@@ -127,13 +133,14 @@ export default function DailyChallengeQuestionPicker({ examId, selected, onChang
         explanationImage: full.explanationImage,
         status: 'accepted',
         is_published: false,
-        bankQuestionId: item._id,
+        // Remember where the copy came from, so the pickers can show what a challenge already uses.
+        ...(origin === 'bank' ? { bankQuestionId: item._id } : { practiceQuestionId: item._id }),
       });
-      bankCopies.current[item._id] = res.data._id;
+      libraryCopies.current[origin][item._id] = res.data._id;
       setQuestionsById((prev) => ({ ...prev, [res.data._id]: res.data }));
       onChange([...selected, res.data._id]);
       if (!full.explanation?.trim()) toast.warning('Added — but it needs an explanation before the challenge can be published.');
-      else toast.success('Added from the Question Bank.');
+      else toast.success(`Added from the ${label}.`);
     } catch (error: any) {
       toast.error(error.response?.data?.message || 'Failed to add this question.');
     } finally {
@@ -141,7 +148,12 @@ export default function DailyChallengeQuestionPicker({ examId, selected, onChang
     }
   };
 
-  const addedBankIds = new Set(Object.entries(bankCopies.current).filter(([, copyId]) => selected.includes(copyId)).map(([bankId]) => bankId));
+  // Which of the listed questions are already in this challenge (for the source being browsed).
+  const addedBankIds = new Set(
+    Object.entries(libraryCopies.current[source === 'practice' ? 'practice' : 'bank'])
+      .filter(([, copyId]) => selected.includes(copyId))
+      .map(([sourceId]) => sourceId)
+  );
 
   const handleExtract = () => {
     if (!pastedContent.trim()) {
@@ -310,6 +322,7 @@ export default function DailyChallengeQuestionPicker({ examId, selected, onChang
         {(
           [
             ['bank', 'From Question Bank', Library],
+            ['practice', 'From Practice Questions', BookCheck],
             ['extract', 'Extract from text', Sparkles],
           ] as const
         ).map(([value, label, Icon]) => (
@@ -329,15 +342,18 @@ export default function DailyChallengeQuestionPicker({ examId, selected, onChang
         ))}
       </div>
 
-      {source === 'bank' && (
+      {(source === 'bank' || source === 'practice') && (
         <Card className="p-4">
+          {/* `key` gives each source a fresh search, topic and page. */}
           <BankQuestionBrowser
+            key={source}
+            source={source}
             examId={examId}
             curriculum={curriculum}
             addedBankIds={addedBankIds}
             isFull={isFull}
             addingId={addingBankId}
-            onAdd={addBankQuestion}
+            onAdd={addLibraryQuestion}
             fullMessage="This challenge already has its maximum number of questions. Remove one to add another."
           />
         </Card>

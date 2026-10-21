@@ -246,3 +246,30 @@ export interface DailyChallengeAnalytics {
   perStudent: DailyChallengeStudentStat[];
   notAttemptedStudents: { studentEmail: string; studentName: string }[];
 }
+
+export type FeedbackCategory = 'general' | 'bug' | 'content' | 'suggestion';
+export type FeedbackStatus = 'open' | 'reviewed';
+
+/** One message a student sent from the mobile app (see backend/routes/feedback.js). */
+export interface FeedbackItem {
+  _id: string;
+  student: { id: string; name: string; email: string };
+  category: FeedbackCategory;
+  rating: number | null;
+  message: string;
+  platform: string;
+  appVersion: string;
+  status: FeedbackStatus;
+  reviewedAt: string | null;
+  createdAt: string;
+}
+
+export interface FeedbackPage {
+  items: FeedbackItem[];
+  total: number;
+  page: number;
+  pageSize: number;
+  totalPages: number;
+  counts: { total: number; open: number; reviewed: number };
+  rating: { average: number | null; count: number };
+}

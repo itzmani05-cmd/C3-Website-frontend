@@ -2,7 +2,8 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { toast } from 'react-toastify';
 import api from '../../api';
 import { detectQuestionType } from '../../lib/helpers';
-import type { BankQuestionSummary } from '../../lib/bank';
+import { QUESTION_SOURCES } from '../../lib/bank';
+import type { BankQuestionSummary, QuestionSource } from '../../lib/bank';
 import BankQuestionBrowser from '../BankQuestionBrowser';
 import { Select } from '../ui/Field';
 import Modal from '../ui/Modal';
@@ -16,6 +17,8 @@ interface AddFromBankDialogProps {
   curriculum: CurriculumTree;
   /** Question Bank ids already in this test. */
   existingBankIds: Set<string>;
+  /** Practice Question ids already in this test. */
+  existingPracticeIds: Set<string>;
   /** How many questions the test already has in a part and section. */
   countIn: (part: string, section: string) => number;
   /** Called after a question was added, so the test's list can reload. */
@@ -24,16 +27,31 @@ interface AddFromBankDialogProps {
   initialSection?: string;
 }
 
-/** Pick questions from the Question Bank and copy them into a test's part and section. */
-export default function AddFromBankDialog({ open, onClose, test, examId, curriculum, existingBankIds, countIn, onAdded, initialPart = '', initialSection = '' }: AddFromBankDialogProps) {
+const SOURCES = Object.keys(QUESTION_SOURCES) as QuestionSource[];
+
+/** Pick questions from the Question Bank or the Practice Questions and copy them into a test's part and section. */
+export default function AddFromBankDialog({
+  open,
+  onClose,
+  test,
+  examId,
+  curriculum,
+  existingBankIds,
+  existingPracticeIds,
+  countIn,
+  onAdded,
+  initialPart = '',
+  initialSection = '',
+}: AddFromBankDialogProps) {
   const pattern = test.pattern ?? [];
+  const [source, setSource] = useState<QuestionSource>('bank');
   const [part, setPart] = useState(initialPart || pattern[0]?.name || '');
   const partDef = pattern.find((p) => p.name === part);
   const [section, setSection] = useState(initialSection || partDef?.sections[0]?.name || '');
   const sectionDef = partDef?.sections.find((s) => s.name === section);
   const [addingId, setAddingId] = useState<string | null>(null);
-  // Added in this dialog but not yet in the reloaded list.
-  const justAdded = useRef(new Set<string>());
+  // Added in this dialog but not yet in the reloaded list, kept separately for each source.
+  const justAdded = useRef<Record<QuestionSource, Set<string>>>({ bank: new Set(), practice: new Set() });
   const [, force] = useState(0);
 
   useEffect(() => {
@@ -41,21 +59,26 @@ export default function AddFromBankDialog({ open, onClose, test, examId, curricu
     const startPart = initialPart || pattern[0]?.name || '';
     setPart(startPart);
     setSection(initialSection || pattern.find((p) => p.name === startPart)?.sections[0]?.name || '');
-    justAdded.current = new Set();
+    justAdded.current = { bank: new Set(), practice: new Set() };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, test._id]);
 
   const used = part || section ? countIn(part, section) : 0;
   const capacity = sectionDef?.numQuestions;
   const isFull = capacity !== undefined && used >= capacity;
-  const added = useMemo(() => new Set([...existingBankIds, ...justAdded.current]), [existingBankIds, justAdded.current.size]);
+  const existingIds = source === 'bank' ? existingBankIds : existingPracticeIds;
+  const added = useMemo(
+    () => new Set([...existingIds, ...justAdded.current[source]]),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [existingIds, source, justAdded.current[source].size]
+  );
 
   const handleAdd = async (item: BankQuestionSummary) => {
     if (isFull) return;
     setAddingId(item._id);
     try {
       // The list leaves images out, so fetch the whole question first.
-      const { data: full } = await api.get<BankQuestionSummary & Record<string, any>>(`/api/question-bank/${item._id}`);
+      const { data: full } = await api.get<BankQuestionSummary & Record<string, any>>(`${QUESTION_SOURCES[source].endpoint}/${item._id}`);
       await api.post('/api/questions/exam', {
         testId: test._id,
         testName: test.name,
@@ -71,9 +94,10 @@ export default function AddFromBankDialog({ open, onClose, test, examId, curricu
         correct_answer: full.correct_answer,
         explanation: full.explanation,
         explanationImage: full.explanationImage,
-        bankQuestionId: item._id,
+        // Remember where the copy came from, so the picker can show what a test already uses.
+        ...(source === 'bank' ? { bankQuestionId: item._id } : { practiceQuestionId: item._id }),
       });
-      justAdded.current.add(item._id);
+      justAdded.current[source].add(item._id);
       force((n) => n + 1);
       toast.success(`Added to ${section || test.name}.`);
       onAdded();
@@ -85,7 +109,25 @@ export default function AddFromBankDialog({ open, onClose, test, examId, curricu
   };
 
   return (
-    <Modal open={open} onClose={onClose} title={`Add from Question Bank to "${test.name}"`} size="xl">
+    <Modal open={open} onClose={onClose} title={`Add questions to "${test.name}"`} size="xl">
+      <div role="tablist" aria-label="Where to pick questions from" className="mb-4 grid grid-cols-2 rounded-lg bg-slate-100 p-1">
+        {SOURCES.map((key) => (
+          <button
+            key={key}
+            type="button"
+            role="tab"
+            aria-selected={source === key}
+            onClick={() => setSource(key)}
+            className={[
+              'rounded-md py-2 text-sm font-medium transition-colors',
+              source === key ? 'bg-white text-slate-900 shadow-soft-sm' : 'text-slate-500 hover:text-slate-700',
+            ].join(' ')}
+          >
+            {QUESTION_SOURCES[key].label}
+          </button>
+        ))}
+      </div>
+
       {pattern.length > 0 && (
         <div className="mb-4 grid grid-cols-1 gap-3 sm:grid-cols-[1fr_1fr_auto] sm:items-end">
           <Select
@@ -116,7 +158,10 @@ export default function AddFromBankDialog({ open, onClose, test, examId, curricu
           )}
         </div>
       )}
+      {/* `key` gives each source a fresh search, topic and page. */}
       <BankQuestionBrowser
+        key={source}
+        source={source}
         examId={examId}
         curriculum={curriculum}
         addedBankIds={added}

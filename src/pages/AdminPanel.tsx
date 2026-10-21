@@ -12,6 +12,7 @@ import {
   Library,
   LogOut,
   Menu,
+  MessageSquare,
   ShieldCheck,
   Sparkles,
   Trophy,
@@ -19,6 +20,7 @@ import {
   Wrench,
   X,
 } from 'lucide-react';
+import api from '../api';
 import { AppFooter, LoadingState } from '../components/ui';
 
 // Each tab is downloaded the first time it is opened.
@@ -32,6 +34,7 @@ const ManageStudents = lazy(() => import('./ManageStudents'));
 const AdminResults = lazy(() => import('./AdminResults'));
 const QuestionBank = lazy(() => import('./QuestionBank'));
 const PracticeQuestions = lazy(() => import('./PracticeQuestions'));
+const Feedback = lazy(() => import('./Feedback'));
 
 interface AdminPanelProps {
   onLogout: () => void;
@@ -56,6 +59,7 @@ const TABS: Tab[] = [
   { slug: 'practice-questions', label: 'Practice Questions', icon: BookCheck, Component: PracticeQuestions, section: 'Management' },
   { slug: 'students', label: 'Manage Students', icon: Users, Component: ManageStudents, section: 'Management' },
   { slug: 'results', label: 'Results', icon: FileCheck2, Component: AdminResults, section: 'Management' },
+  { slug: 'feedback', label: 'Feedback', icon: MessageSquare, Component: Feedback, section: 'Management' },
   { slug: 'extractor', label: 'Extractor', icon: Lightbulb, Component: AIGenerator, section: 'Content tools' },
   { slug: 'prompts', label: 'Prompts', icon: Sparkles, Component: PromptLibrary, section: 'Content tools' },
   { slug: 'question-fix', label: 'Question Fix', icon: Wrench, Component: QuestionFix, section: 'Content tools' },
@@ -67,6 +71,8 @@ export default function AdminPanel({ onLogout }: AdminPanelProps) {
   const location = useLocation();
   const navigate = useNavigate();
   const [mobileOpen, setMobileOpen] = useState(false);
+  // Feedback still waiting to be looked at, shown next to the Feedback tab.
+  const [openFeedback, setOpenFeedback] = useState(0);
 
   // The active page lives in the URL so refresh and the back button keep it.
   const slug = location.pathname.split('/')[2] || '';
@@ -76,6 +82,18 @@ export default function AdminPanel({ onLogout }: AdminPanelProps) {
   useEffect(() => {
     if (slug !== activeTab.slug) navigate(`/admin/${activeTab.slug}`, { replace: true });
   }, [slug, activeTab.slug, navigate]);
+
+  // Refreshed whenever the admin moves between tabs, so it is up to date after reviewing messages.
+  useEffect(() => {
+    let cancelled = false;
+    api
+      .get('/api/feedback', { params: { pageSize: 1 } })
+      .then((response) => !cancelled && setOpenFeedback(response.data?.counts?.open ?? 0))
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, [slug]);
 
   useEffect(() => {
     document.title = `${activeTab.label} · C³ Institute Admin`;
@@ -138,6 +156,11 @@ export default function AdminPanel({ onLogout }: AdminPanelProps) {
                       ].join(' ')}
                     />
                     <span className="truncate">{tab.label}</span>
+                    {tab.slug === 'feedback' && openFeedback > 0 && (
+                      <span className="ml-auto rounded-full bg-brand-600 px-1.5 text-[10px] font-semibold leading-4 text-white" aria-label={`${openFeedback} open`}>
+                        {openFeedback > 99 ? '99+' : openFeedback}
+                      </span>
+                    )}
                   </button>
                 </li>
               );

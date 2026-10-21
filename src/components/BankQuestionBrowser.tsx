@@ -1,8 +1,8 @@
 import { useEffect, useRef, useState } from 'react';
 import { Check, ChevronDown, ChevronUp, FileWarning, Image as ImageIcon, Plus, Search } from 'lucide-react';
 import api from '../api';
-import { errorMessage } from '../lib/bank';
-import type { BankQuestion, BankQuestionSummary, QuestionPage } from '../lib/bank';
+import { QUESTION_SOURCES, errorMessage } from '../lib/bank';
+import type { BankQuestion, BankQuestionSummary, QuestionPage, QuestionSource } from '../lib/bank';
 import QuestionPreview from './bank/QuestionPreview';
 import { UsageDots } from './bank/UsageDots';
 import Button from './ui/Button';
@@ -27,10 +27,13 @@ interface BankQuestionBrowserProps {
   onAdd: (question: BankQuestionSummary) => void;
   /** Shown when `isFull` is set, e.g. why nothing more can be added. */
   fullMessage?: string;
+  /** Which collection to browse. Defaults to the Question Bank. */
+  source?: QuestionSource;
 }
 
-/** Browse and search the Question Bank (by topic, or across the whole exam) and add questions to a Daily Challenge or a test. */
-export default function BankQuestionBrowser({ examId, curriculum, addedBankIds, isFull, addingId, onAdd, fullMessage }: BankQuestionBrowserProps) {
+/** Browse and search the Question Bank or the Practice Questions (by topic, or across the whole exam) and add questions to a Daily Challenge or a test. */
+export default function BankQuestionBrowser({ examId, curriculum, addedBankIds, isFull, addingId, onAdd, fullMessage, source = 'bank' }: BankQuestionBrowserProps) {
+  const { label: sourceLabel, endpoint } = QUESTION_SOURCES[source];
   const [topicId, setTopicId] = useState('');
   const [search, setSearch] = useState('');
   const [query, setQuery] = useState('');
@@ -61,7 +64,7 @@ export default function BankQuestionBrowser({ examId, curriculum, addedBankIds, 
     setLoading(true);
     const scope = topicId ? { topicId } : { examId };
     api
-      .get<QuestionPage>('/api/question-bank', { params: { ...scope, ...(query ? { q: query } : {}), page, limit: PAGE_SIZE } })
+      .get<QuestionPage>(endpoint, { params: { ...scope, ...(query ? { q: query } : {}), page, limit: PAGE_SIZE } })
       .then(({ data }) => {
         if (requestId !== latestRequest.current) return;
         setResult(data);
@@ -70,7 +73,7 @@ export default function BankQuestionBrowser({ examId, curriculum, addedBankIds, 
       })
       .catch((e) => requestId === latestRequest.current && setError(errorMessage(e)))
       .finally(() => requestId === latestRequest.current && setLoading(false));
-  }, [examId, topicId, query, page]);
+  }, [examId, topicId, query, page, endpoint]);
 
   return (
     <div className="flex flex-col gap-3">
@@ -87,21 +90,21 @@ export default function BankQuestionBrowser({ examId, curriculum, addedBankIds, 
             </optgroup>
           ))}
         </Select>
-        <Input aria-label="Search the Question Bank" placeholder="Search here anything.." value={search} onChange={(e) => setSearch(e.target.value)} leadingIcon={<Search className="size-4" />} />
+        <Input aria-label={`Search the ${sourceLabel}`} placeholder="Search here anything.." value={search} onChange={(e) => setSearch(e.target.value)} leadingIcon={<Search className="size-4" />} />
       </div>
 
       {result && (
         <p className="text-xs text-slate-500">
-          {result.total} {result.total === 1 ? 'question' : 'questions'} in the Question Bank
+          {result.total} {result.total === 1 ? 'question' : 'questions'} in the {sourceLabel}
         </p>
       )}
 
       {!result && loading ? (
-        <LoadingState message="Loading the Question Bank..." rows={4} />
+        <LoadingState message={`Loading the ${sourceLabel}...`} rows={4} />
       ) : error && !result ? (
-        <EmptyState title="Could not load the Question Bank" description={error} />
+        <EmptyState title={`Could not load the ${sourceLabel}`} description={error} />
       ) : result && result.items.length === 0 ? (
-        <EmptyState title="No questions found." description={query ? 'Try a different search or topic.' : 'This topic has no questions in the Question Bank yet.'} />
+        <EmptyState title="No questions found." description={query ? 'Try a different search or topic.' : `This topic has no questions in the ${sourceLabel} yet.`} />
       ) : (
         <div aria-busy={loading} className={['flex flex-col gap-2 transition-opacity', loading ? 'opacity-60' : ''].join(' ')}>
           {result?.items.map((q) => {

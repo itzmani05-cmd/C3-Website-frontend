@@ -566,7 +566,7 @@ export default function QuestionFix() {
                 buttonClassName="inline-flex size-[42px] shrink-0 items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-600 transition-colors hover:bg-slate-50 hover:text-slate-900"
                 items={[
                   { label: isAdding ? 'Cancel add' : 'Add question', icon: Plus, onSelect: () => setIsAdding((v) => !v) },
-                  { label: 'Add from Question Bank', icon: Library, hidden: destinationMode !== 'test' || !selectedTest, onSelect: () => setBankOpen(true) },
+                  { label: 'Add from Bank or Practice', icon: Library, hidden: destinationMode !== 'test' || !selectedTest, onSelect: () => setBankOpen(true) },
                   { label: 'Download as PDF', icon: FileDown, hidden: visibleQuestions.length === 0, onSelect: () => setPdfOpen(true) },
                   { label: 'Delete all', icon: Trash2, danger: true, hidden: !canDeleteAll, onSelect: handleDeleteAllQuestions },
                 ]}
@@ -651,6 +651,7 @@ export default function QuestionFix() {
           examId={examId}
           curriculum={curriculum}
           existingBankIds={new Set(questions.map((q) => q.bankQuestionId).filter((id): id is string => !!id))}
+          existingPracticeIds={new Set(questions.map((q) => q.practiceQuestionId).filter((id): id is string => !!id))}
           countIn={(part, section) => questions.filter((q) => (q.part ?? '') === part && (q.section ?? '') === section).length}
           onAdded={fetchQuestions}
           initialPart={filterPart}

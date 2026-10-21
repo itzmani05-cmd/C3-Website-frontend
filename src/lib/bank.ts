@@ -239,3 +239,12 @@ export function isQuestionDirty(a: BankQuestion, b: BankQuestion): boolean {
     (k) => (a.options?.[k] ?? '') !== (b.options?.[k] ?? '') || (a.optionImages?.[k] ?? '') !== (b.optionImages?.[k] ?? '')
   );
 }
+
+/** Where an admin can pick questions from when building a test: the Question Bank, or the Practice Questions. */
+export type QuestionSource = 'bank' | 'practice';
+
+/** Both are searched and fetched the same way, so the picker only needs to know which endpoint to ask. */
+export const QUESTION_SOURCES: Record<QuestionSource, { label: string; endpoint: string }> = {
+  bank: { label: 'Question Bank', endpoint: '/api/question-bank' },
+  practice: { label: 'Practice Questions', endpoint: '/api/practice-questions' },
+};
