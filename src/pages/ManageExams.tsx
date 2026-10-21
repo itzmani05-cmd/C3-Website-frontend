@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import type { FormEvent } from 'react';
-import { BookOpen, ChevronDown, ChevronRight, GraduationCap, ListTree, Pencil, Plus, Tag, Trash2 } from 'lucide-react';
+import { ArrowDown, ArrowUp, BookOpen, ChevronDown, ChevronRight, GraduationCap, ListTree, Pencil, Plus, Tag, Trash2 } from 'lucide-react';
 import { toast } from 'react-toastify';
 import api from '../api';
 import { useModal } from '../components/ui';
@@ -375,6 +375,34 @@ function ExamCurriculum({ examId, exams, onChanged }: ExamCurriculumProps) {
     }
   };
 
+  // Renumbers the siblings 1..n with the item moved one step, saving only the rows whose order changed.
+  const handleMove = async (
+    type: 'topic' | 'subtopic',
+    siblings: { _id: string; name: string; order: number }[],
+    index: number,
+    direction: -1 | 1,
+    parentId: string
+  ) => {
+    const target = index + direction;
+    if (target < 0 || target >= siblings.length) return;
+    const reordered = [...siblings];
+    [reordered[index], reordered[target]] = [reordered[target], reordered[index]];
+    const changed = reordered.map((item, i) => ({ item, order: i + 1 })).filter(({ item, order }) => item.order !== order);
+    try {
+      await Promise.all(
+        changed.map(({ item, order }) =>
+          type === 'topic'
+            ? api.put(`/api/questions/topics/${item._id}`, { name: item.name, unitId: parentId, order })
+            : api.put(`/api/questions/subtopics/${item._id}`, { name: item.name, topicId: parentId, order })
+        )
+      );
+      fetchCurriculum();
+    } catch (err: any) {
+      toast.error(err.response?.data?.message || `Error reordering ${type}s.`);
+      fetchCurriculum();
+    }
+  };
+
   const handleAddTopic = async (e: FormEvent) => {
     e.preventDefault();
     if (!newName.trim() || !addingParentId) return;
@@ -552,7 +580,7 @@ function ExamCurriculum({ examId, exams, onChanged }: ExamCurriculumProps) {
                   </p>
                 )}
 
-                {unit.topics?.map((topic) => {
+                {unit.topics?.map((topic, topicIndex) => {
                   const isTopicExpanded = !!expandedTopics[topic._id];
                   const isEditingTopic = editingId === topic._id && editingType === 'topic';
 
@@ -572,6 +600,8 @@ function ExamCurriculum({ examId, exams, onChanged }: ExamCurriculumProps) {
                       onCancelEdit={() => setEditingId(null)}
                       onDelete={() => handleDeleteTopic(topic._id, topic.name)}
                       order={topic.order}
+                      onMoveUp={topicIndex > 0 ? () => handleMove('topic', unit.topics, topicIndex, -1, unit._id) : undefined}
+                      onMoveDown={topicIndex < unit.topics.length - 1 ? () => handleMove('topic', unit.topics, topicIndex, 1, unit._id) : undefined}
                       addChildLabel="+ Add Subtopic"
                       onAddChild={() => {
                         setAddingType('subtopic');
@@ -586,7 +616,7 @@ function ExamCurriculum({ examId, exams, onChanged }: ExamCurriculumProps) {
                             No subtopics in this topic yet.
                           </p>
                         )}
-                        {topic.subtopics?.map((subtopic) => (
+                        {topic.subtopics?.map((subtopic, subtopicIndex) => (
                           <SubtopicRow
                             key={subtopic._id}
                             subtopic={subtopic}
@@ -597,6 +627,8 @@ function ExamCurriculum({ examId, exams, onChanged }: ExamCurriculumProps) {
                             onSaveEdit={() => handleEditSubtopic(subtopic._id, topic._id)}
                             onCancelEdit={() => setEditingId(null)}
                             onDelete={() => handleDeleteSubtopic(subtopic._id, subtopic.name)}
+                            onMoveUp={subtopicIndex > 0 ? () => handleMove('subtopic', topic.subtopics, subtopicIndex, -1, topic._id) : undefined}
+                            onMoveDown={subtopicIndex < topic.subtopics.length - 1 ? () => handleMove('subtopic', topic.subtopics, subtopicIndex, 1, topic._id) : undefined}
                           />
                         ))}
                       </div>
@@ -621,9 +653,11 @@ interface SubtopicRowProps {
   onSaveEdit: () => void;
   onCancelEdit: () => void;
   onDelete: () => void;
+  onMoveUp?: () => void;
+  onMoveDown?: () => void;
 }
 
-function SubtopicRow({ subtopic, isEditing, editName, onEditNameChange, onStartEdit, onSaveEdit, onCancelEdit, onDelete }: SubtopicRowProps) {
+function SubtopicRow({ subtopic, isEditing, editName, onEditNameChange, onStartEdit, onSaveEdit, onCancelEdit, onDelete, onMoveUp, onMoveDown }: SubtopicRowProps) {
   return (
     <div className="group flex items-center justify-between gap-3 rounded-lg border border-slate-100 bg-white px-3 py-2 transition-colors hover:border-slate-200 hover:bg-slate-50/60">
       {isEditing ? (
@@ -644,6 +678,12 @@ function SubtopicRow({ subtopic, isEditing, editName, onEditNameChange, onStartE
             <span className="shrink-0 rounded-full bg-brand-100 px-1.5 py-0.5 text-[10px] font-medium text-brand-700">Order: {subtopic.order || 0}</span>
           </div>
           <div className="flex shrink-0 gap-1.5 opacity-80 transition-opacity group-hover:opacity-100">
+            <Button size="sm" variant="secondary" onClick={onMoveUp} disabled={!onMoveUp} aria-label={`Move ${subtopic.name} up`}>
+              <ArrowUp className="size-3" />
+            </Button>
+            <Button size="sm" variant="secondary" onClick={onMoveDown} disabled={!onMoveDown} aria-label={`Move ${subtopic.name} down`}>
+              <ArrowDown className="size-3" />
+            </Button>
             <Button size="sm" variant="secondary" onClick={onStartEdit} aria-label={`Edit ${subtopic.name}`}>
               <Pencil className="size-3" />
             </Button>

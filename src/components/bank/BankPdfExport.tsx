@@ -25,6 +25,8 @@ interface BankPdfExportProps {
   questions?: PdfQuestion[];
   topicName: string;
   examName: string;
+  /** API route to load questions from. */
+  basePath?: string;
 }
 
 const PAGE_LIMIT = 100; // the server's maximum page size
@@ -132,7 +134,7 @@ async function buildPdf(root: HTMLElement, topicName: string, onProgress: (done:
 
 /** Dialog that builds a PDF of every question matching the current topic and filters, with the C3 logo watermark, and downloads it. */
 export type { PdfQuestion };
-export default function BankPdfExport({ open, onClose, scope = {}, filters, questions: preloaded, topicName, examName }: BankPdfExportProps) {
+export default function BankPdfExport({ open, onClose, scope = {}, filters, questions: preloaded, topicName, examName, basePath = '/api/question-bank' }: BankPdfExportProps) {
   const [mode, setMode] = useState<AnswerMode>('none');
   const [busy, setBusy] = useState(false);
   const [progress, setProgress] = useState('');
@@ -188,11 +190,11 @@ export default function BankPdfExport({ open, onClose, scope = {}, filters, ques
       }
       setProgress('Loading questions…');
       const params = filters ? filtersToParams(filters) : {};
-      const first = (await api.get<QuestionPage>('/api/question-bank', { params: { ...scope, ...params, page: 1, limit: PAGE_LIMIT } })).data;
+      const first = (await api.get<QuestionPage>(basePath, { params: { ...scope, ...params, page: 1, limit: PAGE_LIMIT } })).data;
       const items = [...first.items];
       for (let page = 2; page <= first.totalPages; page++) {
         setProgress(`Loading questions… ${items.length} of ${first.total}`);
-        items.push(...(await api.get<QuestionPage>('/api/question-bank', { params: { ...scope, ...params, page, limit: PAGE_LIMIT } })).data.items);
+        items.push(...(await api.get<QuestionPage>(basePath, { params: { ...scope, ...params, page, limit: PAGE_LIMIT } })).data.items);
       }
       if (items.length === 0) {
         toast.info('There are no questions to export.');
@@ -206,7 +208,7 @@ export default function BankPdfExport({ open, onClose, scope = {}, filters, ques
       let done = 0;
       const full = await mapLimit(items, IMAGE_FETCH_CONCURRENCY, async (item): Promise<PdfQuestion> => {
         if (!hasImage(item)) return item;
-        const { data } = await api.get<PdfQuestion>(`/api/question-bank/${item._id}`);
+        const { data } = await api.get<PdfQuestion>(`${basePath}/${item._id}`);
         setProgress(`Loading images… ${++done} of ${withImages.length}`);
         return { ...item, ...data };
       });

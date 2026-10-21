@@ -8,6 +8,7 @@ import {
   GraduationCap,
   ClipboardList,
   Lightbulb,
+  BookCheck,
   Library,
   LogOut,
   Menu,
@@ -30,6 +31,7 @@ const DailyChallengeAdmin = lazy(() => import('./DailyChallenge'));
 const ManageStudents = lazy(() => import('./ManageStudents'));
 const AdminResults = lazy(() => import('./AdminResults'));
 const QuestionBank = lazy(() => import('./QuestionBank'));
+const PracticeQuestions = lazy(() => import('./PracticeQuestions'));
 
 interface AdminPanelProps {
   onLogout: () => void;
@@ -51,6 +53,7 @@ const TABS: Tab[] = [
   { slug: 'tests', label: 'Manage Tests', icon: ClipboardList, Component: ManageTests, section: 'Management' },
   { slug: 'daily-challenge', label: 'Daily Challenge', icon: Trophy, Component: DailyChallengeAdmin, section: 'Management' },
   { slug: 'question-bank', label: 'Question Bank', icon: Library, Component: QuestionBank, section: 'Management' },
+  { slug: 'practice-questions', label: 'Practice Questions', icon: BookCheck, Component: PracticeQuestions, section: 'Management' },
   { slug: 'students', label: 'Manage Students', icon: Users, Component: ManageStudents, section: 'Management' },
   { slug: 'results', label: 'Results', icon: FileCheck2, Component: AdminResults, section: 'Management' },
   { slug: 'extractor', label: 'Extractor', icon: Lightbulb, Component: AIGenerator, section: 'Content tools' },

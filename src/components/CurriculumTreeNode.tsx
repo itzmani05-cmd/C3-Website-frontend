@@ -1,5 +1,5 @@
 import type { ReactNode } from 'react';
-import { BookOpen, ChevronDown, ChevronRight, ListTree, Pencil, Plus, Trash2 } from 'lucide-react';
+import { ArrowDown, ArrowUp, BookOpen, ChevronDown, ChevronRight, ListTree, Pencil, Plus, Trash2 } from 'lucide-react';
 import Button from './ui/Button';
 import { Input, Select } from './ui/Field';
 
@@ -19,6 +19,8 @@ interface CurriculumTreeNodeProps {
   onSaveEdit: () => void;
   onCancelEdit: () => void;
   onDelete: () => void;
+  onMoveUp?: () => void;
+  onMoveDown?: () => void;
   addChildLabel: string;
   onAddChild: () => void;
   children?: ReactNode;
@@ -61,6 +63,8 @@ export default function CurriculumTreeNode({
   onSaveEdit,
   onCancelEdit,
   onDelete,
+  onMoveUp,
+  onMoveDown,
   addChildLabel,
   onAddChild,
   children,
@@ -124,6 +128,16 @@ export default function CurriculumTreeNode({
 
         {!isEditing && (
           <div className="flex shrink-0 gap-1.5">
+            {(onMoveUp || onMoveDown) && (
+              <>
+                <Button size="sm" variant="secondary" onClick={onMoveUp} disabled={!onMoveUp} aria-label={`Move ${name} up`}>
+                  <ArrowUp className="size-3.5" />
+                </Button>
+                <Button size="sm" variant="secondary" onClick={onMoveDown} disabled={!onMoveDown} aria-label={`Move ${name} down`}>
+                  <ArrowDown className="size-3.5" />
+                </Button>
+              </>
+            )}
             <Button size="sm" variant="secondary" onClick={onStartEdit} aria-label={`Edit ${name}`}>
               <Pencil className="size-3.5" />
             </Button>

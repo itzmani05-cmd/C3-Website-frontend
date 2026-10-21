@@ -20,7 +20,20 @@ import { LoadingState } from '../components/ui/Spinner';
 import EmptyState from '../components/ui/EmptyState';
 import type { CurriculumTree, Exam } from '../types/models';
 
-export default function QuestionBank() {
+interface QuestionBankProps {
+  /** API route the questions live under. */
+  basePath?: string;
+  title?: string;
+  description?: string;
+  noun?: string;
+}
+
+export default function QuestionBank({
+  basePath = '/api/question-bank',
+  title = 'Question Bank',
+  description = 'Topic-wise question sets, stored separately from unit and test questions',
+  noun = 'question bank',
+}: QuestionBankProps) {
   const [sp, setSp] = useSearchParams();
 
   const [exams, setExams] = useState<Exam[]>([]);
@@ -69,11 +82,11 @@ export default function QuestionBank() {
 
   const fetchCounts = useCallback(async () => {
     try {
-      setCounts((await api.get<Record<string, number>>('/api/question-bank/counts')).data || {});
+      setCounts((await api.get<Record<string, number>>(`${basePath}/counts`)).data || {});
     } catch (error) {
       console.error('Error fetching question counts:', error);
     }
-  }, []);
+  }, [basePath]);
 
   useEffect(() => {
     (async () => {
@@ -136,8 +149,8 @@ export default function QuestionBank() {
       return false;
     }
     try {
-      await api.post('/api/question-bank', { ...buildPayload(draft), topicId });
-      toast.success('Question added to the bank!');
+      await api.post(basePath, { ...buildPayload(draft), topicId });
+      toast.success(`Question added to the ${noun}!`);
       setIsAdding(false);
       bump();
       fetchCounts();
@@ -151,7 +164,7 @@ export default function QuestionBank() {
   const handleDeleteAll = async () => {
     setDeletingAll(true);
     try {
-      const response = await api.delete(`/api/question-bank/topic/${topicId}`);
+      const response = await api.delete(`${basePath}/topic/${topicId}`);
       toast.success(response.data?.message || 'Bulk deletion completed successfully.');
       setDeleteAllOpen(false);
       bump();
@@ -166,7 +179,7 @@ export default function QuestionBank() {
   // ----- render -----
 
   const shell = 'mx-auto w-full max-w-5xl xl:max-w-6xl 2xl:max-w-7xl';
-  const pageHeader = <PageHeader title="Question Bank" description="Topic-wise question sets, stored separately from unit and test questions" />;
+  const pageHeader = <PageHeader title={title} description={description} />;
 
   if (loadingExams || (curriculumLoading && curriculum.length === 0)) {
     return <div className={shell}>{pageHeader}<LoadingState message="Loading curriculum..." /></div>;
@@ -215,7 +228,7 @@ export default function QuestionBank() {
                 actions={
                   <RowMenu
                     vertical
-                    label="Question bank actions"
+                    label={`${title} actions`}
                     buttonClassName="inline-flex size-[42px] shrink-0 items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-600 transition-colors hover:bg-slate-50 hover:text-slate-900"
                     items={[
                       { label: isAdding ? 'Cancel add' : 'Add question', icon: Plus, onSelect: () => setIsAdding((v) => !v) },
@@ -241,6 +254,7 @@ export default function QuestionBank() {
                 onMutated={onMutated}
                 onTotal={setMatching}
                 onAdd={() => setIsAdding(true)}
+                basePath={basePath}
               />
             </>
           )}
@@ -252,8 +266,9 @@ export default function QuestionBank() {
         onClose={() => setPdfOpen(false)}
         scope={scope}
         filters={filters}
-        topicName={selectedTopic?.name ?? 'Question Bank'}
+        topicName={selectedTopic?.name ?? title}
         examName={exams.find((e) => e._id === examId)?.name ?? ''}
+        basePath={basePath}
       />
 
       <DeleteAllDialog

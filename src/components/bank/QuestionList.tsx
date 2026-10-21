@@ -24,6 +24,8 @@ interface QuestionListProps {
   onMutated: () => void;
   onTotal?: (total: number) => void;
   onAdd?: () => void;
+  /** API route the questions live under. */
+  basePath?: string;
 }
 
 const SKELETON_ROWS = 6;
@@ -42,7 +44,7 @@ function Skeleton() {
   );
 }
 
-export default function QuestionList({ scope, filters, page, onPageChange, onClearFilters, refreshKey, onMutated, onTotal, onAdd }: QuestionListProps) {
+export default function QuestionList({ scope, filters, page, onPageChange, onClearFilters, refreshKey, onMutated, onTotal, onAdd, basePath = '/api/question-bank' }: QuestionListProps) {
   const { showConfirm } = useModal();
 
   const [items, setItems] = useState<BankQuestionSummary[]>([]);
@@ -71,7 +73,7 @@ export default function QuestionList({ scope, filters, page, onPageChange, onCle
     const requestId = ++latestRequest.current;
     setLoading(true);
     api
-      .get<QuestionPage>('/api/question-bank', { params: { ...scope, ...params, page, limit: PAGE_SIZE } })
+      .get<QuestionPage>(basePath, { params: { ...scope, ...params, page, limit: PAGE_SIZE } })
       .then(({ data }) => {
         if (requestId !== latestRequest.current) return;
         if (!data || !Array.isArray(data.items)) {
@@ -90,7 +92,7 @@ export default function QuestionList({ scope, filters, page, onPageChange, onCle
       .catch((e) => requestId === latestRequest.current && setError(errorMessage(e)))
       .finally(() => requestId === latestRequest.current && setLoading(false));
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [queryKey, page, refreshKey, reload]);
+  }, [queryKey, page, refreshKey, reload, basePath]);
 
   useEffect(() => setExpandedId(null), [queryKey, page]);
 
@@ -108,7 +110,7 @@ export default function QuestionList({ scope, filters, page, onPageChange, onCle
       return false;
     }
     try {
-      await api.put(`/api/question-bank/${id}`, buildPayload(draft));
+      await api.put(`${basePath}/${id}`, buildPayload(draft));
       toast.success('Question saved');
       setExpandedId(null);
       refresh();
@@ -122,7 +124,7 @@ export default function QuestionList({ scope, filters, page, onPageChange, onCle
     const ok = await showConfirm('Are you sure you want to delete this question?', { title: 'Delete Question', confirmText: 'Delete', variant: 'error' });
     if (!ok) return;
     try {
-      await api.delete(`/api/question-bank/${id}`);
+      await api.delete(`${basePath}/${id}`);
       toast.success('Question deleted');
       setExpandedId(null);
       refresh();
@@ -163,6 +165,7 @@ export default function QuestionList({ scope, filters, page, onPageChange, onCle
           onToggle={onToggle}
           onSave={onSave}
           onDelete={onDelete}
+          basePath={basePath}
         />
       ))}
       <Pagination page={page} totalPages={totalPages} totalItems={total} pageSize={PAGE_SIZE} onPageChange={onPageChange} />

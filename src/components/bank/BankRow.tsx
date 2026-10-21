@@ -20,11 +20,12 @@ interface BankRowProps {
   onToggle: (id: string) => void;
   onSave: (id: string, draft: BankQuestion) => Promise<boolean>;
   onDelete: (id: string) => void;
+  basePath?: string;
 }
 
 const pill = 'inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-bold';
 
-function BankRow({ q, number, expanded, onToggle, onSave, onDelete }: BankRowProps) {
+function BankRow({ q, number, expanded, onToggle, onSave, onDelete, basePath = '/api/question-bank' }: BankRowProps) {
   const { showConfirm } = useModal();
   const dirty = useRef(false);
   // Expanding a row only previews it; the editor opens when the edit (pencil) button is clicked.
@@ -44,13 +45,13 @@ function BankRow({ q, number, expanded, onToggle, onSave, onDelete }: BankRowPro
     }
     let cancelled = false;
     api
-      .get<BankQuestion>(`/api/question-bank/${q._id}`)
+      .get<BankQuestion>(`${basePath}/${q._id}`)
       .then(({ data }) => !cancelled && setImages({ questionImage: data.questionImage, optionImages: data.optionImages, explanationImage: data.explanationImage }))
       .catch(() => !cancelled && setImages({}));
     return () => {
       cancelled = true;
     };
-  }, [expanded, hasImage, q._id]);
+  }, [expanded, hasImage, q._id, basePath]);
   const imagesReady = !hasImage || images !== null;
   const view = useMemo<BankQuestion>(() => (images ? { ...q, ...images } : q), [q, images]);
 
