@@ -20,7 +20,7 @@ export interface DraftQuestion {
   page?: string;
 }
 
-export const normalizeLine = (value: string | null | undefined): string => {
+const normalizeLine = (value: string | null | undefined): string => {
   return (value || '')
     .normalize('NFC')
     .replace(/\u00a0/g, ' ')
@@ -28,7 +28,7 @@ export const normalizeLine = (value: string | null | undefined): string => {
     .trim();
 };
 
-export const appendText = (existing: string | null | undefined, addition: string | null | undefined): string => {
+const appendText = (existing: string | null | undefined, addition: string | null | undefined): string => {
   const base = normalizeLine(existing);
   const extra = normalizeLine(addition);
   if (!base) return extra;
@@ -36,7 +36,7 @@ export const appendText = (existing: string | null | undefined, addition: string
   return `${base} ${extra}`.replace(/\s+/g, ' ').trim();
 };
 
-export const formatSpecialQuestion = (value: string | null | undefined): string => {
+const formatSpecialQuestion = (value: string | null | undefined): string => {
   let text = (value || '')
     .normalize('NFC')
     .replace(/\u00a0/g, ' ')
@@ -101,7 +101,7 @@ export const formatSpecialQuestion = (value: string | null | undefined): string 
 
 const META_LINE_REGEX = /^\s*(question\s*type|type|marks?|page(?:\s*(?:no\.?|number))?)\s*[:–—-]\s*(.*)$/i;
 
-export const normalizeQuestionType = (value: string | null | undefined): QuestionType | undefined => {
+const normalizeQuestionType = (value: string | null | undefined): QuestionType | undefined => {
   const text = normalizeLine(value).toLowerCase();
   if (!text) return undefined;
   if (/assertion/.test(text)) return 'Assertion-Reason';
@@ -148,7 +148,7 @@ const extractMetaLines = (block: string): { body: string; meta: QuestionMeta } =
   return { body, meta };
 };
 
-export const extractOptionKeyFromText = (value: string | null | undefined): OptionKey | null => {
+const extractOptionKeyFromText = (value: string | null | undefined): OptionKey | null => {
   const text = normalizeLine(value);
   if (!text) return null;
 
@@ -178,7 +178,7 @@ const splitAnswerTokens = (text: string): string[] =>
     .map((token) => token.trim())
     .filter(Boolean);
 
-export const extractOptionKeysFromText = (value: string | null | undefined): OptionKey[] => {
+const extractOptionKeysFromText = (value: string | null | undefined): OptionKey[] => {
   const text = normalizeLine(value).replace(
     /^(?:answer|ans|correct answer|correct option|options?|பதில்|சரியான பதில்|விடை)\s*[:–—-]?\s*/iu,
     ''
@@ -209,17 +209,17 @@ export const extractOptionKeysFromText = (value: string | null | undefined): Opt
   return uniqueKeys.length >= 2 ? uniqueKeys : [];
 };
 
-export const extractNumericalAnswer = (value: string | null | undefined): string | null => {
+const extractNumericalAnswer = (value: string | null | undefined): string | null => {
   const text = normalizeLine(value);
   if (!text) return null;
   const match = text.match(/-?\d+(?:\.\d+)?/);
   return match ? match[0] : null;
 };
 
-export const QUESTION_START_REGEX = /^(?:(?:question|q|கேள்வி)\s*\d+\s*[:.)–—-]\s*|\d+\s*[:.)–—-]\s*)/iu;
-export const ANSWER_LABEL_REGEX = /^(?:answer|ans|correct answer|correct option|பதில்|சரியான பதில்|விடை)\s*[:–—-]\s*/iu;
-export const EXPLANATION_LABEL_REGEX = /^(?:explanation|reason|detailed explanation|விளக்கம்|காரணம்)\s*[:–—-]\s*/iu;
-export const OPTIONS_LABEL_REGEX = /^(?:options?|choices?|answer choices?|விருப்பங்கள்|தேர்வுகள்)\s*[:–—-]?\s*/iu;
+const QUESTION_START_REGEX = /^(?:(?:question|q|கேள்வி)\s*\d+\s*[:.)–—-]\s*|\d+\s*[:.)–—-]\s*)/iu;
+const ANSWER_LABEL_REGEX = /^(?:answer|ans|correct answer|correct option|பதில்|சரியான பதில்|விடை)\s*[:–—-]\s*/iu;
+const EXPLANATION_LABEL_REGEX = /^(?:explanation|reason|detailed explanation|விளக்கம்|காரணம்)\s*[:–—-]\s*/iu;
+const OPTIONS_LABEL_REGEX = /^(?:options?|choices?|answer choices?|விருப்பங்கள்|தேர்வுகள்)\s*[:–—-]?\s*/iu;
 const STRICT_OPTION_MARKER_REGEX = /(?:^|[\s/|•·-])(\([a-dA-D1-4அஆஇஈ]\)|\([a-dA-D1-4அஆஇஈ]\)|\([1-4]\))\s*/gu;
 const LOOSE_OPTION_MARKER_REGEX = /(?:^|[\s/|•·-])([a-dA-D1-4அஆஇஈ])[).:]\s*/gu;
 
@@ -260,12 +260,12 @@ export const normalizeChatOutput = (text: string): string => {
     .join('\n');
 };
 
-export interface OptionToken {
+interface OptionToken {
   key: OptionKey;
   text: string;
 }
 
-export const parseInlineOptions = (text: string): OptionToken[] => {
+const parseInlineOptions = (text: string): OptionToken[] => {
   const optionsText = text.replace(OPTIONS_LABEL_REGEX, '');
   const strictMatches = [...optionsText.matchAll(STRICT_OPTION_MARKER_REGEX)];
   const looseMatches = strictMatches.length > 0 ? [] : [...optionsText.matchAll(LOOSE_OPTION_MARKER_REGEX)];

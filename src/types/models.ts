@@ -20,7 +20,7 @@ export interface Exam {
   updatedAt?: string;
 }
 
-export interface TestPatternSection {
+interface TestPatternSection {
   key?: string;
   name: string;
   numQuestions: number;
@@ -199,7 +199,7 @@ export interface DailyChallengeDetail extends DailyChallenge {
   questions: Question[];
 }
 
-export interface DailyChallengeTodayStats {
+interface DailyChallengeTodayStats {
   studentsStarted: number;
   studentsCompleted: number;
   averageScore: number;
@@ -217,7 +217,7 @@ export interface DailyChallengeDashboard {
   };
 }
 
-export interface DailyChallengeStudentStat {
+interface DailyChallengeStudentStat {
   studentEmail: string;
   studentName: string;
   attemptsUsed: number;
@@ -227,7 +227,7 @@ export interface DailyChallengeStudentStat {
   lastAttemptAt: string | null;
 }
 
-export interface DailyChallengeParticipation {
+interface DailyChallengeParticipation {
   eligibleStudents: number;
   attemptedStudents: number;
   completedStudents: number;

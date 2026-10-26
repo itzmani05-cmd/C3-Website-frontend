@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
 
-export const DEFAULT_PAGE_SIZE = 10;
+const DEFAULT_PAGE_SIZE = 10;
 
 export function usePagination<T>(items: T[], pageSize = DEFAULT_PAGE_SIZE, resetKeys: unknown[] = []) {
   const [page, setPage] = useState(1);

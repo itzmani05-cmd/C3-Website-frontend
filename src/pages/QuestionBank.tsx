@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
-import { FileDown, ListTree, Plus, Trash2 } from 'lucide-react';
+import { FileDown, ListTree, MoveRight, Plus, Trash2 } from 'lucide-react';
 import { toast } from 'react-toastify';
 import api from '../api';
 import { buildPayload, EMPTY_FILTERS, EMPTY_QUESTION, errorMessage, filtersFromSearch, filtersToSearchPatch, validateQuestion } from '../lib/bank';
@@ -8,6 +8,8 @@ import type { BankFilters, BankQuestion, Scope } from '../lib/bank';
 import QuestionEditor from '../components/bank/QuestionEditor';
 import QuestionList from '../components/bank/QuestionList';
 import DeleteAllDialog from '../components/bank/DeleteAllDialog';
+import MoveQuestionsDialog from '../components/bank/MoveQuestionsDialog';
+import type { MoveEnd } from '../components/bank/MoveQuestionsDialog';
 import BankPdfExport from '../components/bank/BankPdfExport';
 import TopicSidebar from '../components/bank/TopicSidebar';
 import FilterBar from '../components/bank/FilterBar';
@@ -26,6 +28,8 @@ interface QuestionBankProps {
   title?: string;
   description?: string;
   noun?: string;
+  /** Lets questions be moved to another unit/topic (needs PUT `${basePath}/:id/move` and `${basePath}/move-bulk`). */
+  allowMove?: boolean;
 }
 
 export default function QuestionBank({
@@ -33,6 +37,7 @@ export default function QuestionBank({
   title = 'Question Bank',
   description = 'Topic-wise question sets, stored separately from unit and test questions',
   noun = 'question bank',
+  allowMove = true,
 }: QuestionBankProps) {
   const [sp, setSp] = useSearchParams();
 
@@ -48,6 +53,10 @@ export default function QuestionBank({
   const [deleteAllOpen, setDeleteAllOpen] = useState(false);
   const [pdfOpen, setPdfOpen] = useState(false);
   const [deletingAll, setDeletingAll] = useState(false);
+  const [moveOpen, setMoveOpen] = useState(false);
+  const [movingBulk, setMovingBulk] = useState(false);
+  // Bumped when a move created topics, so the curriculum tree is fetched again.
+  const [curriculumKey, setCurriculumKey] = useState(0);
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [matching, setMatching] = useState<number | undefined>();
 
@@ -119,7 +128,7 @@ export default function QuestionBank({
     return () => {
       cancelled = true;
     };
-  }, [examId]);
+  }, [examId, curriculumKey]);
 
   const onMutated = useCallback(() => fetchCounts(), [fetchCounts]);
   const bump = () => setRefreshKey((n) => n + 1);
@@ -158,6 +167,23 @@ export default function QuestionBank({
     } catch (error) {
       toast.error('Error creating question: ' + errorMessage(error));
       return false;
+    }
+  };
+
+  const handleMove = async (from: MoveEnd, to: MoveEnd) => {
+    setMovingBulk(true);
+    try {
+      const { data } = await api.put(`${basePath}/move-bulk`, { from, to });
+      const created = data?.createdTopics ? ` (${data.createdTopics} new topic${data.createdTopics === 1 ? '' : 's'} created)` : '';
+      toast.success((data?.message || 'Questions moved.') + created);
+      setMoveOpen(false);
+      if (data?.createdTopics) setCurriculumKey((n) => n + 1);
+      bump();
+      fetchCounts();
+    } catch (error) {
+      toast.error('Error moving questions: ' + errorMessage(error));
+    } finally {
+      setMovingBulk(false);
     }
   };
 
@@ -233,6 +259,7 @@ export default function QuestionBank({
                     items={[
                       { label: isAdding ? 'Cancel add' : 'Add question', icon: Plus, onSelect: () => setIsAdding((v) => !v) },
                       { label: 'Download as PDF', icon: FileDown, hidden: (counts[topicId] ?? 0) === 0, onSelect: () => setPdfOpen(true) },
+                      { label: 'Move questions…', icon: MoveRight, hidden: !allowMove, onSelect: () => setMoveOpen(true) },
                       { label: 'Delete all', icon: Trash2, danger: true, hidden: (counts[topicId] ?? 0) === 0, onSelect: () => setDeleteAllOpen(true) },
                     ]}
                   />
@@ -255,6 +282,7 @@ export default function QuestionBank({
                 onTotal={setMatching}
                 onAdd={() => setIsAdding(true)}
                 basePath={basePath}
+                moveCurriculum={allowMove ? curriculum : undefined}
               />
             </>
           )}
@@ -270,6 +298,18 @@ export default function QuestionBank({
         examName={exams.find((e) => e._id === examId)?.name ?? ''}
         basePath={basePath}
       />
+
+      {allowMove && (
+        <MoveQuestionsDialog
+          open={moveOpen}
+          curriculum={curriculum}
+          counts={counts}
+          initialTopicId={topicId}
+          moving={movingBulk}
+          onCancel={() => setMoveOpen(false)}
+          onConfirm={handleMove}
+        />
+      )}
 
       <DeleteAllDialog
         open={deleteAllOpen}

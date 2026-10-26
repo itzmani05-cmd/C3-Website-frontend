@@ -9,6 +9,8 @@ import EmptyState from '../ui/EmptyState';
 import { useModal } from '../ui/ModalProvider';
 import Pagination from '../ui/Pagination';
 import BankRow from './BankRow';
+import MoveQuestionDialog from './MoveQuestionDialog';
+import type { CurriculumTree } from '../../types/models';
 
 const PAGE_SIZE = 20;
 
@@ -26,6 +28,8 @@ interface QuestionListProps {
   onAdd?: () => void;
   /** API route the questions live under. */
   basePath?: string;
+  /** When given, each question can be moved to another unit/topic of this curriculum. */
+  moveCurriculum?: CurriculumTree;
 }
 
 const SKELETON_ROWS = 6;
@@ -44,8 +48,10 @@ function Skeleton() {
   );
 }
 
-export default function QuestionList({ scope, filters, page, onPageChange, onClearFilters, refreshKey, onMutated, onTotal, onAdd, basePath = '/api/question-bank' }: QuestionListProps) {
+export default function QuestionList({ scope, filters, page, onPageChange, onClearFilters, refreshKey, onMutated, onTotal, onAdd, basePath = '/api/question-bank', moveCurriculum }: QuestionListProps) {
   const { showConfirm } = useModal();
+  const [movingId, setMovingId] = useState<string | null>(null);
+  const [moveBusy, setMoveBusy] = useState(false);
 
   const [items, setItems] = useState<BankQuestionSummary[]>([]);
   const [total, setTotal] = useState(0);
@@ -133,6 +139,23 @@ export default function QuestionList({ scope, filters, page, onPageChange, onCle
     }
   };
 
+  const confirmMove = async (topicId: string) => {
+    if (!movingId) return;
+    setMoveBusy(true);
+    try {
+      await api.put(`${basePath}/${movingId}/move`, { topicId });
+      toast.success('Question moved');
+      setMovingId(null);
+      setExpandedId(null);
+      refresh();
+    } catch (e) {
+      toast.error('Error moving question: ' + errorMessage(e));
+    } finally {
+      setMoveBusy(false);
+    }
+  };
+
+  const onMove = useCallback((id: string) => setMovingId(id), []);
   const onToggle = useCallback((id: string) => setExpandedId((cur) => (cur === id ? null : id)), []);
   const onSave = useCallback((id: string, draft: BankQuestion) => handlers.current.save(id, draft) as Promise<boolean>, []);
   const onDelete = useCallback((id: string) => handlers.current.remove(id), []);
@@ -165,10 +188,21 @@ export default function QuestionList({ scope, filters, page, onPageChange, onCle
           onToggle={onToggle}
           onSave={onSave}
           onDelete={onDelete}
+          onMove={moveCurriculum ? onMove : undefined}
           basePath={basePath}
         />
       ))}
       <Pagination page={page} totalPages={totalPages} totalItems={total} pageSize={PAGE_SIZE} onPageChange={onPageChange} />
+      {moveCurriculum && (
+        <MoveQuestionDialog
+          open={!!movingId}
+          curriculum={moveCurriculum}
+          currentTopicId={scope.topicId ?? ''}
+          moving={moveBusy}
+          onCancel={() => setMovingId(null)}
+          onConfirm={confirmMove}
+        />
+      )}
     </div>
   );
 }

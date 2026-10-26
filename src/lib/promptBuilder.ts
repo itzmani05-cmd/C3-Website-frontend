@@ -74,7 +74,7 @@ export const createRow = (previous?: PagePlanRow): PagePlanRow => ({
 });
 
 // "1.1" -> "1.2", "Q9" -> "Q10"; anything without a trailing number is left empty.
-export const nextQuestionNo = (questionNo: string): string => {
+const nextQuestionNo = (questionNo: string): string => {
   const match = questionNo.trim().match(/^(.*?)(\d+)$/);
   return match ? `${match[1]}${Number(match[2]) + 1}` : '';
 };

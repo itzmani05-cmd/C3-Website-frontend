@@ -1,5 +1,5 @@
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { BadgeCheck, ChevronDown, ChevronUp, FileWarning, Image as ImageIcon, Pencil } from 'lucide-react';
+import { BadgeCheck, ChevronDown, ChevronUp, FileWarning, Image as ImageIcon, MoveRight, Pencil } from 'lucide-react';
 import api from '../../api';
 import type { BankQuestion, BankQuestionSummary } from '../../lib/bank';
 import Button from '../ui/Button';
@@ -20,12 +20,14 @@ interface BankRowProps {
   onToggle: (id: string) => void;
   onSave: (id: string, draft: BankQuestion) => Promise<boolean>;
   onDelete: (id: string) => void;
+  /** When given, the preview shows a Move button that calls this with the question id. */
+  onMove?: (id: string) => void;
   basePath?: string;
 }
 
 const pill = 'inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-bold';
 
-function BankRow({ q, number, expanded, onToggle, onSave, onDelete, basePath = '/api/question-bank' }: BankRowProps) {
+function BankRow({ q, number, expanded, onToggle, onSave, onDelete, onMove, basePath = '/api/question-bank' }: BankRowProps) {
   const { showConfirm } = useModal();
   const dirty = useRef(false);
   // Expanding a row only previews it; the editor opens when the edit (pencil) button is clicked.
@@ -158,9 +160,16 @@ function BankRow({ q, number, expanded, onToggle, onSave, onDelete, basePath = '
                   {q.year ? ` · ${q.year}` : ''}
                   {q.marks ? ` · ${q.marks} mark${q.marks === 1 ? '' : 's'}` : ''}
                 </p>
-                <Button size="sm" variant="secondary" icon={<Pencil className="size-3.5" />} onClick={startEdit}>
-                  Edit
-                </Button>
+                <div className="flex items-center gap-2">
+                  {onMove && (
+                    <Button size="sm" variant="secondary" icon={<MoveRight className="size-3.5" />} onClick={() => onMove(q._id)}>
+                      Move
+                    </Button>
+                  )}
+                  <Button size="sm" variant="secondary" icon={<Pencil className="size-3.5" />} onClick={startEdit}>
+                    Edit
+                  </Button>
+                </div>
               </div>
               <QuestionPreview question={view} />
               {hasImage && !imagesReady && (
