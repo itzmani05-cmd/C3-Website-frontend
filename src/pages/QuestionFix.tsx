@@ -650,8 +650,8 @@ export default function QuestionFix() {
           test={selectedTest}
           examId={examId}
           curriculum={curriculum}
-          existingBankIds={new Set(questions.map((q) => q.bankQuestionId).filter((id): id is string => !!id))}
-          existingPracticeIds={new Set(questions.map((q) => q.practiceQuestionId).filter((id): id is string => !!id))}
+          existingBankCopies={new Map(questions.filter((q) => q.bankQuestionId).map((q) => [q.bankQuestionId as string, q._id]))}
+          existingPracticeCopies={new Map(questions.filter((q) => q.practiceQuestionId).map((q) => [q.practiceQuestionId as string, q._id]))}
           countIn={(part, section) => questions.filter((q) => (q.part ?? '') === part && (q.section ?? '') === section).length}
           onAdded={fetchQuestions}
           initialPart={filterPart}

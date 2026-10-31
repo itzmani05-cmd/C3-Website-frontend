@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { Check, ChevronDown, ChevronUp, FileWarning, Image as ImageIcon, Plus, Search } from 'lucide-react';
+import { Check, ChevronDown, ChevronUp, FileWarning, Image as ImageIcon, Plus, Search, Trash2 } from 'lucide-react';
 import api from '../api';
 import { QUESTION_SOURCES, errorMessage } from '../lib/bank';
 import type { BankQuestion, BankQuestionSummary, QuestionPage, QuestionSource } from '../lib/bank';
@@ -25,6 +25,9 @@ interface BankQuestionBrowserProps {
   isFull: boolean;
   addingId: string | null;
   onAdd: (question: BankQuestionSummary) => void;
+  /** When given, a question that is already added shows a Remove button instead of the "Added" label. */
+  onRemove?: (question: BankQuestionSummary) => void;
+  removingId?: string | null;
   /** Shown when `isFull` is set, e.g. why nothing more can be added. */
   fullMessage?: string;
   /** Which collection to browse. Defaults to the Question Bank. */
@@ -32,7 +35,7 @@ interface BankQuestionBrowserProps {
 }
 
 /** Browse and search the Question Bank or the Practice Questions (by topic, or across the whole exam) and add questions to a Daily Challenge or a test. */
-export default function BankQuestionBrowser({ examId, curriculum, addedBankIds, isFull, addingId, onAdd, fullMessage, source = 'bank' }: BankQuestionBrowserProps) {
+export default function BankQuestionBrowser({ examId, curriculum, addedBankIds, isFull, addingId, onAdd, onRemove, removingId = null, fullMessage, source = 'bank' }: BankQuestionBrowserProps) {
   const { label: sourceLabel, endpoint } = QUESTION_SOURCES[source];
   const [topicId, setTopicId] = useState('');
   const [search, setSearch] = useState('');
@@ -144,9 +147,23 @@ export default function BankQuestionBrowser({ examId, curriculum, addedBankIds, 
                     </div>
                   </div>
                   {added ? (
-                    <span className="inline-flex h-8 shrink-0 items-center gap-1 rounded-md bg-success-soft px-2.5 text-[13px] font-semibold text-success-600">
-                      <Check className="size-3.5" /> Added
-                    </span>
+                    onRemove ? (
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant="dangerOutline"
+                        icon={<Trash2 className="size-3.5" />}
+                        loading={removingId === q._id}
+                        disabled={removingId !== null && removingId !== q._id}
+                        onClick={() => onRemove(q)}
+                      >
+                        Remove
+                      </Button>
+                    ) : (
+                      <span className="inline-flex h-8 shrink-0 items-center gap-1 rounded-md bg-success-soft px-2.5 text-[13px] font-semibold text-success-600">
+                        <Check className="size-3.5" /> Added
+                      </span>
+                    )
                   ) : (
                     <Button
                       type="button"

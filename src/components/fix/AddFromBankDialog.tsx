@@ -15,13 +15,13 @@ interface AddFromBankDialogProps {
   test: Test;
   examId: string;
   curriculum: CurriculumTree;
-  /** Question Bank ids already in this test. */
-  existingBankIds: Set<string>;
-  /** Practice Question ids already in this test. */
-  existingPracticeIds: Set<string>;
+  /** Question Bank id -> id of its copy in this test, for everything already in the test. */
+  existingBankCopies: Map<string, string>;
+  /** Practice Question id -> id of its copy in this test. */
+  existingPracticeCopies: Map<string, string>;
   /** How many questions the test already has in a part and section. */
   countIn: (part: string, section: string) => number;
-  /** Called after a question was added, so the test's list can reload. */
+  /** Called after a question was added or removed, so the test's list can reload. */
   onAdded: () => void;
   initialPart?: string;
   initialSection?: string;
@@ -36,8 +36,8 @@ export default function AddFromBankDialog({
   test,
   examId,
   curriculum,
-  existingBankIds,
-  existingPracticeIds,
+  existingBankCopies,
+  existingPracticeCopies,
   countIn,
   onAdded,
   initialPart = '',
@@ -50,28 +50,30 @@ export default function AddFromBankDialog({
   const [section, setSection] = useState(initialSection || partDef?.sections[0]?.name || '');
   const sectionDef = partDef?.sections.find((s) => s.name === section);
   const [addingId, setAddingId] = useState<string | null>(null);
-  // Added in this dialog but not yet in the reloaded list, kept separately for each source.
-  const justAdded = useRef<Record<QuestionSource, Set<string>>>({ bank: new Set(), practice: new Set() });
-  const [, force] = useState(0);
+  const [removingId, setRemovingId] = useState<string | null>(null);
+  // Changes made in this dialog that the reloaded list may not show yet (source id -> copy id, or null once removed).
+  const changes = useRef<Record<QuestionSource, Map<string, string | null>>>({ bank: new Map(), practice: new Map() });
+  const [version, force] = useState(0);
 
   useEffect(() => {
     if (!open) return;
     const startPart = initialPart || pattern[0]?.name || '';
     setPart(startPart);
     setSection(initialSection || pattern.find((p) => p.name === startPart)?.sections[0]?.name || '');
-    justAdded.current = { bank: new Set(), practice: new Set() };
+    changes.current = { bank: new Map(), practice: new Map() };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, test._id]);
 
   const used = part || section ? countIn(part, section) : 0;
   const capacity = sectionDef?.numQuestions;
   const isFull = capacity !== undefined && used >= capacity;
-  const existingIds = source === 'bank' ? existingBankIds : existingPracticeIds;
-  const added = useMemo(
-    () => new Set([...existingIds, ...justAdded.current[source]]),
+  const existingCopies = source === 'bank' ? existingBankCopies : existingPracticeCopies;
+  const copies = useMemo(() => {
+    const merged = new Map(existingCopies);
+    changes.current[source].forEach((copyId, sourceId) => (copyId ? merged.set(sourceId, copyId) : merged.delete(sourceId)));
+    return merged;
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [existingIds, source, justAdded.current[source].size]
-  );
+  }, [existingCopies, source, version]);
 
   const handleAdd = async (item: BankQuestionSummary) => {
     if (isFull) return;
@@ -79,7 +81,7 @@ export default function AddFromBankDialog({
     try {
       // The list leaves images out, so fetch the whole question first.
       const { data: full } = await api.get<BankQuestionSummary & Record<string, any>>(`${QUESTION_SOURCES[source].endpoint}/${item._id}`);
-      await api.post('/api/questions/exam', {
+      const { data: created } = await api.post<{ _id: string }>('/api/questions/exam', {
         testId: test._id,
         testName: test.name,
         part,
@@ -99,7 +101,7 @@ export default function AddFromBankDialog({
         // Remember where the copy came from, so the picker can show what a test already uses.
         ...(source === 'bank' ? { bankQuestionId: item._id } : { practiceQuestionId: item._id }),
       });
-      justAdded.current[source].add(item._id);
+      changes.current[source].set(item._id, created._id);
       force((n) => n + 1);
       toast.success(`Added to ${section || test.name}.`);
       onAdded();
@@ -107,6 +109,23 @@ export default function AddFromBankDialog({
       toast.error(error.response?.data?.message || 'Failed to add this question.');
     } finally {
       setAddingId(null);
+    }
+  };
+
+  const handleRemove = async (item: BankQuestionSummary) => {
+    const copyId = copies.get(item._id);
+    if (!copyId) return;
+    setRemovingId(item._id);
+    try {
+      await api.delete(`/api/questions/exam/${copyId}`);
+      changes.current[source].set(item._id, null);
+      force((n) => n + 1);
+      toast.success('Removed from the test.');
+      onAdded();
+    } catch (error: any) {
+      toast.error(error.response?.data?.message || 'Failed to remove this question.');
+    } finally {
+      setRemovingId(null);
     }
   };
 
@@ -166,10 +185,12 @@ export default function AddFromBankDialog({
         source={source}
         examId={examId}
         curriculum={curriculum}
-        addedBankIds={added}
+        addedBankIds={new Set(copies.keys())}
         isFull={isFull}
         addingId={addingId}
+        removingId={removingId}
         onAdd={handleAdd}
+        onRemove={handleRemove}
         fullMessage={`"${section}" already has its full ${capacity} questions. Pick another section or remove a question first.`}
       />
     </Modal>
