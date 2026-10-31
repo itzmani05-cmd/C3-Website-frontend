@@ -92,6 +92,8 @@ export default function AddFromBankDialog({
         options: full.options,
         optionImages: full.optionImages,
         correct_answer: full.correct_answer,
+        answerMin: full.answerMin ?? null,
+        answerMax: full.answerMax ?? null,
         explanation: full.explanation,
         explanationImage: full.explanationImage,
         // Remember where the copy came from, so the picker can show what a test already uses.

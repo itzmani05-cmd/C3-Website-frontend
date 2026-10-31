@@ -75,6 +75,8 @@ export interface Question {
   options: QuestionOptions;
   optionImages: QuestionOptionImages;
   correct_answer: CorrectAnswer | '';
+  answerMin?: number | null;
+  answerMax?: number | null;
   explanation: string;
   explanationImage: string | null;
   year?: number | null;
@@ -99,6 +101,8 @@ export interface ExamQuestion {
   options: QuestionOptions;
   optionImages: QuestionOptionImages;
   correct_answer: CorrectAnswer | '';
+  answerMin?: number | null;
+  answerMax?: number | null;
   explanation: string;
   explanationImage: string | null;
   createdAt?: string;

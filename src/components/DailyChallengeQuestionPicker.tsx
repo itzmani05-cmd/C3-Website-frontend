@@ -129,6 +129,8 @@ export default function DailyChallengeQuestionPicker({ examId, selected, onChang
         options: full.options,
         optionImages: full.optionImages,
         correct_answer: full.correct_answer,
+        answerMin: full.answerMin ?? null,
+        answerMax: full.answerMax ?? null,
         explanation: full.explanation,
         explanationImage: full.explanationImage,
         status: 'accepted',
