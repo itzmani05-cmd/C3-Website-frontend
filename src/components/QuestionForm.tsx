@@ -12,17 +12,21 @@ export interface QuestionFormValue {
   answerType?: AnswerType;
   explanation?: string;
   explanationImage?: string | null;
+  answerMin?: number | null;
+  answerMax?: number | null;
 }
 
 interface QuestionFormProps<T extends QuestionFormValue> {
   question: T;
   onChange: (question: T) => void;
   variant?: 'extractor' | 'fixer';
+  /** Show the accepted min/max inputs for numerical answers (off where the host already renders them). */
+  showRange?: boolean;
 }
 
 const OPTION_KEYS: OptionKey[] = ['a', 'b', 'c', 'd'];
 
-export default function QuestionForm<T extends QuestionFormValue>({ question, onChange, variant = 'extractor' }: QuestionFormProps<T>) {
+export default function QuestionForm<T extends QuestionFormValue>({ question, onChange, variant = 'extractor', showRange = false }: QuestionFormProps<T>) {
   const handleFieldChange = (field: keyof QuestionFormValue, value: unknown) => {
     onChange({ ...question, [field]: value });
   };
@@ -147,6 +151,31 @@ export default function QuestionForm<T extends QuestionFormValue>({ question, on
             placeholder="e.g. 42"
             wrapperClassName="w-40"
           />
+        )}
+        {answerType === 'numerical' && showRange && (
+          <div className="mt-3">
+            <div className="flex flex-wrap gap-3">
+              <Input
+                label="Accepted range: minimum"
+                type="number"
+                step="any"
+                placeholder="optional"
+                value={question.answerMin ?? ''}
+                onChange={(e) => handleFieldChange('answerMin', e.target.value === '' ? null : Number(e.target.value))}
+                wrapperClassName="w-48"
+              />
+              <Input
+                label="Accepted range: maximum"
+                type="number"
+                step="any"
+                placeholder="optional"
+                value={question.answerMax ?? ''}
+                onChange={(e) => handleFieldChange('answerMax', e.target.value === '' ? null : Number(e.target.value))}
+                wrapperClassName="w-48"
+              />
+            </div>
+            <p className="mt-1.5 text-xs text-slate-500">A student's answer is marked correct if it falls between the minimum and maximum (inclusive). Leave both empty to require the exact answer.</p>
+          </div>
         )}
       </div>
 

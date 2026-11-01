@@ -43,8 +43,8 @@ const ANSWER_MODES: { value: AnswerMode; label: string; hint: string }[] = [
 const answerLabel = (q: PdfQuestion): string => {
   if (q.answerType === 'numerical') {
     const { answerMin: min, answerMax: max } = q;
-    if (min == null && max == null) return formatCorrectAnswerLabel(q.correct_answer as string);
-    return max == null || min === max ? String(min) : `${min} to ${max}`;
+    if (min == null || max == null || min === max) return formatCorrectAnswerLabel(q.correct_answer as string);
+    return `${min} to ${max}`;
   }
   return formatCorrectAnswerLabel(q.correct_answer as string | string[]);
 };

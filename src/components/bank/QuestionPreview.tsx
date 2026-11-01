@@ -15,8 +15,9 @@ export default function QuestionPreview({ question: shown, hideQuestion = false 
 
       {numerical ? (
         <p className="mt-4 rounded-lg bg-success-soft px-3 py-2 text-sm font-semibold text-success-600">
-          Answer: {formatCorrectAnswerLabel(shown.correct_answer)}
-          {shown.answerMin != null && shown.answerMax != null && shown.answerMin !== shown.answerMax && ` (accepted ${shown.answerMin} – ${shown.answerMax})`}
+          {shown.answerMin != null && shown.answerMax != null && shown.answerMin !== shown.answerMax
+            ? `Answer: ${shown.answerMin} – ${shown.answerMax}`
+            : `Answer: ${formatCorrectAnswerLabel(shown.correct_answer)}`}
         </p>
       ) : (
         <ul className="mt-4 flex flex-col gap-2">

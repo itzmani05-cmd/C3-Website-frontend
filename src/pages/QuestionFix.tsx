@@ -192,6 +192,15 @@ export default function QuestionFix() {
   };
 
   const handleUpdateQuestion = async (id: string, updatedData: FixableQuestion) => {
+    if (updatedData.answerType === 'numerical') {
+      const { answerMin: min, answerMax: max } = updatedData;
+      if (typeof min === 'number' && typeof max === 'number' && min > max) {
+        toast.warning('The accepted range minimum must not be above the maximum.');
+        return false;
+      }
+    } else {
+      updatedData = { ...updatedData, answerMin: null, answerMax: null };
+    }
     const confirmed = await showConfirm('Are you sure you want to update this question?', { title: 'Update Question' });
     if (!confirmed) return false;
     try {
@@ -307,6 +316,13 @@ export default function QuestionFix() {
       toast.warning('A numerical correct answer is required.');
       return;
     }
+    const isNumerical = newQuestionForm.answerType === 'numerical';
+    const rangeMin = isNumerical ? (newQuestionForm.answerMin ?? null) : null;
+    const rangeMax = isNumerical ? (newQuestionForm.answerMax ?? null) : null;
+    if (rangeMin !== null && rangeMax !== null && rangeMin > rangeMax) {
+      toast.warning('The accepted range minimum must not be above the maximum.');
+      return;
+    }
 
     if (destinationMode === 'test' && !selectedTestId) {
       toast.warning('Please select a test first.');
@@ -330,6 +346,8 @@ export default function QuestionFix() {
           answerType: newQuestionForm.answerType || 'single',
           explanation: newQuestionForm.explanation,
           explanationImage: newQuestionForm.explanationImage,
+          answerMin: rangeMin,
+          answerMax: rangeMax,
         };
 
         await api.post('/api/questions/exam', payload);
@@ -347,6 +365,8 @@ export default function QuestionFix() {
           answerType: newQuestionForm.answerType || 'single',
           explanation: newQuestionForm.explanation,
           explanationImage: newQuestionForm.explanationImage,
+          answerMin: rangeMin,
+          answerMax: rangeMax,
           status: 'accepted',
           is_published: true,
         };

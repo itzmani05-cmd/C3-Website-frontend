@@ -111,7 +111,7 @@ function FixRow({ q, number, expanded, onToggle, onSave, onDelete, showPlacement
         <div id={panelId} role="region" aria-label={`Question ${number}`} className="border-t border-slate-100 p-6">
           {editing ? (
             <>
-              <QuestionForm question={draft} onChange={setDraft} variant="fixer" />
+              <QuestionForm question={draft} onChange={setDraft} variant="fixer" showRange />
               <div className="mt-5 flex flex-wrap gap-3">
                 <Button onClick={save} loading={saving}>
                   Save Changes
